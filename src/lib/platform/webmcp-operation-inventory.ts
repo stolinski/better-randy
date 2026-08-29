@@ -79,9 +79,8 @@ export type WebmcpOperationPrecondition =
 	| 'video-clip-present';
 
 /**
- * The Workspace selection an operation must leave focused, so a person watching
- * the screen sees what an agent just did. `null` only for rows that change
- * nothing a person could look at.
+ * A Workspace selection an operation can leave focused, so a person watching the
+ * screen sees what an agent just did.
  */
 export type WebmcpOperationFocusTarget =
 	| 'composition-root'
@@ -135,7 +134,16 @@ export interface WebmcpOperationRow {
 	undoable: boolean;
 	/** Whether the operation accepts the caller's AbortSignal and can end as `cancelled`. */
 	cancellable: boolean;
-	focus: WebmcpOperationFocusTarget | null;
+	/**
+	 * Every Workspace selection this operation may leave focused. Most rows name
+	 * exactly one. An operation whose subject can be more than one kind of
+	 * element — a keyframe channel on the Surface, an Overlay, or a Block; a
+	 * Cascade weld on any of the four anchorable entities — names each kind it can
+	 * reveal, because §4 requires the focus to land on the entity the edit
+	 * actually touched. Empty only for rows that change nothing a person could
+	 * look at.
+	 */
+	focus: readonly WebmcpOperationFocusTarget[];
 	/** Repo-relative GUI owner of the same decision — the parity gate's other side. */
 	guiSurface: string;
 }
@@ -388,7 +396,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -403,7 +411,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 
@@ -420,7 +428,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -435,7 +443,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -450,7 +458,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -465,7 +473,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -480,7 +488,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -495,7 +503,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -509,7 +517,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -524,7 +532,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -539,7 +547,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -553,7 +561,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: false,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 
@@ -570,7 +578,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -585,7 +593,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: false,
 		cancellable: false,
-		focus: 'session-catalog',
+		focus: ['session-catalog'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 	{
@@ -600,7 +608,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'session-catalog',
+		focus: ['session-catalog'],
 		guiSurface: 'src/routes/+page.svelte'
 	},
 
@@ -617,7 +625,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -632,7 +640,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -646,7 +654,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
 	{
@@ -661,7 +669,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 
@@ -683,7 +691,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceInspector.svelte'
 	},
 	{
@@ -697,7 +705,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -712,7 +720,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -726,7 +734,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/TimelineOutline.svelte'
 	},
 	{
@@ -740,7 +748,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'mark',
+		focus: ['mark'],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -754,7 +762,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/MarkInspector.svelte'
 	},
 	{
@@ -769,7 +777,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'effect',
+		focus: ['effect'],
 		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
 	},
 	{
@@ -783,7 +791,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
 	},
 	{
@@ -797,7 +805,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'effect',
+		focus: ['effect'],
 		guiSurface: 'src/lib/platform/EffectsChainSection.svelte'
 	},
 	{
@@ -812,7 +820,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'text-animation',
+		focus: ['text-animation'],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -826,7 +834,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
 	},
 	{
@@ -841,7 +849,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -856,7 +864,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/BlockInspector.svelte'
 	},
 	{
@@ -871,7 +879,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/AddMenu.svelte'
 	},
 	{
@@ -885,7 +893,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/ChartInspector.svelte'
 	},
 
@@ -902,7 +910,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceDocumentSection.svelte'
 	},
 	{
@@ -916,7 +924,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceMessagesSection.svelte'
 	},
 	{
@@ -930,7 +938,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceChecklistSection.svelte'
 	},
 	{
@@ -945,7 +953,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/OverlayInspector.svelte'
 	},
 	{
@@ -960,7 +968,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/BlockTypeSection.svelte'
 	},
 	{
@@ -975,7 +983,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/ChartDataSection.svelte'
 	},
 	{
@@ -990,7 +998,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'captions',
+		focus: ['captions'],
 		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
 	},
 	{
@@ -1004,7 +1012,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/CaptionsInspector.svelte'
 	},
 
@@ -1021,7 +1029,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1036,7 +1044,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1051,7 +1059,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
 	},
 	{
@@ -1074,7 +1082,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/BlockGeometrySection.svelte'
 	},
 
@@ -1091,7 +1099,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
 	},
 	{
@@ -1106,7 +1114,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
 	},
 	{
@@ -1120,7 +1128,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/MarkDefaultsSection.svelte'
 	},
 	{
@@ -1135,7 +1143,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'effect',
+		focus: ['effect'],
 		guiSurface: 'src/lib/platform/EffectChainRow.svelte'
 	},
 	{
@@ -1150,7 +1158,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/DepthStageSection.svelte'
 	},
 	{
@@ -1164,7 +1172,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceAppearanceSection.svelte'
 	},
 
@@ -1180,7 +1188,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'surface',
+		focus: ['surface'],
 		guiSurface: 'src/lib/platform/SurfaceTextMotionSection.svelte'
 	},
 	{
@@ -1194,7 +1202,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay'],
 		guiSurface: 'src/lib/platform/TimelineClipBar.svelte'
 	},
 	{
@@ -1209,7 +1217,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'mark',
+		focus: ['mark'],
 		guiSurface: 'src/lib/platform/MarkInspector.svelte'
 	},
 	{
@@ -1224,7 +1232,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'text-animation',
+		focus: ['text-animation'],
 		guiSurface: 'src/lib/platform/TextAnimInspector.svelte'
 	},
 	{
@@ -1243,7 +1251,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['surface', 'overlay', 'block'],
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
 	{
@@ -1262,7 +1270,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['surface', 'overlay', 'block'],
 		guiSurface: 'src/lib/platform/KeyframesSection.svelte'
 	},
 	{
@@ -1272,12 +1280,17 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		summary:
 			"Weld one element's entrance to another element's, with an offset. Cycles and missing anchors are rejected before the edit applies.",
 		effect: 'write',
-		writes: ['/state/overlays/*/animation', '/state/marks/timings/*'],
+		writes: [
+			'/state/overlays/*/animation',
+			'/state/marks/timings/*',
+			'/state/textAnimations/*',
+			'/state/surface/diagram/*/animation'
+		],
 		precondition: 'composition-editable',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay', 'mark', 'text-animation', 'block'],
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},
 	{
@@ -1286,12 +1299,17 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		toolName: 'gfx_motion_clear_cascade_anchor',
 		summary: "Unweld one element's entrance so it times from the composition start again.",
 		effect: 'write',
-		writes: ['/state/overlays/*/animation', '/state/marks/timings/*'],
+		writes: [
+			'/state/overlays/*/animation',
+			'/state/marks/timings/*',
+			'/state/textAnimations/*',
+			'/state/surface/diagram/*/animation'
+		],
 		precondition: 'cascade-anchor-present',
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'overlay',
+		focus: ['overlay', 'mark', 'text-animation', 'block'],
 		guiSurface: 'src/lib/platform/CascadeSection.svelte'
 	},
 	{
@@ -1305,7 +1323,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'block',
+		focus: ['block'],
 		guiSurface: 'src/lib/platform/ChartMotionSection.svelte'
 	},
 	{
@@ -1320,7 +1338,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/TransitionRecipeSection.svelte'
 	},
 	{
@@ -1334,7 +1352,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/TransitionWindowSection.svelte'
 	},
 
@@ -1351,7 +1369,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'sound-cue',
+		focus: ['sound-cue'],
 		guiSurface: 'src/lib/platform/AudioCueSection.svelte'
 	},
 	{
@@ -1365,7 +1383,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/SoundCueInspector.svelte'
 	},
 	{
@@ -1386,7 +1404,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'sound-cue',
+		focus: ['sound-cue'],
 		guiSurface: 'src/lib/platform/SoundSection.svelte'
 	},
 
@@ -1403,7 +1421,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1418,7 +1436,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: true,
-		focus: 'media-library',
+		focus: ['media-library'],
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1433,7 +1451,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'media-library',
+		focus: ['media-library'],
 		guiSurface: 'src/lib/platform/MediaInspector.svelte'
 	},
 	{
@@ -1448,7 +1466,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'video-clip',
+		focus: ['video-clip'],
 		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
 	},
 	{
@@ -1462,7 +1480,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'video-clip',
+		focus: ['video-clip'],
 		guiSurface: 'src/lib/platform/VideoClipInspector.svelte'
 	},
 	{
@@ -1476,7 +1494,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: true,
 		cancellable: false,
-		focus: 'composition-root',
+		focus: ['composition-root'],
 		guiSurface: 'src/lib/platform/VideoTimelineTrack.svelte'
 	},
 
@@ -1493,7 +1511,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
 	},
 	{
@@ -1508,7 +1526,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: 'timeline-playhead',
+		focus: ['timeline-playhead'],
 		guiSurface: 'src/lib/platform/CanvasControlsBar.svelte'
 	},
 
@@ -1525,7 +1543,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: false,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -1540,7 +1558,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: true,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 	{
@@ -1555,7 +1573,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: false,
 		undoable: false,
 		cancellable: true,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/InterchangeSection.svelte'
 	},
 
@@ -1572,7 +1590,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		requiresExpectedRevision: true,
 		undoable: false,
 		cancellable: true,
-		focus: null,
+		focus: [],
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	}
 ];

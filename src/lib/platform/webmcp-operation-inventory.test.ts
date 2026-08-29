@@ -139,7 +139,7 @@ describe('WebMCP operation inventory', () => {
 			expect(row.writes.length, `${row.id} writes nothing`).toBeGreaterThan(0);
 			expect(row.requiresExpectedRevision, `${row.id} skips the revision check`).toBe(true);
 			expect(row.undoable, `${row.id} is not undoable`).toBe(true);
-			expect(row.focus, `${row.id} moves no visible focus`).not.toBeNull();
+			expect(row.focus.length, `${row.id} moves no visible focus`).toBeGreaterThan(0);
 		}
 	});
 
@@ -153,7 +153,7 @@ describe('WebMCP operation inventory', () => {
 	it('leaves read operations free of revision checks and focus moves', () => {
 		for (const row of WEBMCP_OPERATION_INVENTORY.filter((entry) => entry.effect === 'read')) {
 			expect(row.requiresExpectedRevision, `${row.id} demands a revision`).toBe(false);
-			expect(row.focus, `${row.id} moves focus`).toBeNull();
+			expect(row.focus, `${row.id} moves focus`).toEqual([]);
 		}
 	});
 

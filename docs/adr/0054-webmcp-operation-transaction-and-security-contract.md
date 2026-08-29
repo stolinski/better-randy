@@ -80,7 +80,7 @@ Read-only operations carry no revision requirement and record no history. Destro
 
 **Undo and redo are shared.** Agent edits record into the same `CompositionEditHistory` the GUI uses, in one order. `gfx_composition_undo` undoes the most recent edit whoever made it. A separate agent history would let the two authors disagree about what "the last thing" was.
 
-**Every mutating operation moves the Workspace focus** to the entity it touched — the Overlay it added, the Mark it retimed, the chart Block it filled. This is not decoration. It is how a person watching the screen sees what the agent did, and it is why the inventory requires a focus target on every `write` row.
+**Every mutating operation moves the Workspace focus** to the entity it touched — the Overlay it added, the Mark it retimed, the chart Block it filled. This is not decoration. It is how a person watching the screen sees what the agent did, and it is why the inventory requires a focus target on every `write` row. An operation whose subject can be more than one kind of element — a keyframe channel on the Surface, an Overlay, or a Block; a Cascade weld on any of the four anchorable entities — lists every target it may reveal, and the transaction core refuses one the row does not list. Listing one target for a multi-subject operation would force it to reveal an element it did not touch, which is the opposite of what this rule is for.
 
 **Progressive enhancement is one-directional.** With WebMCP absent or its Permissions Policy denied, the Workspace behaves exactly as it does today. Nothing in the GUI may depend on a tool being registered.
 

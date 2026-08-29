@@ -504,6 +504,56 @@ export function setChartDatumValue(
 	return true;
 }
 
+/**
+ * Whether a complete prospective motion can sit on the Block at `blockIndex`:
+ * every phase finite and positive, the five phases ordered without overlap, and
+ * the whole run clear of the sibling Blocks a sequence puts either side of it.
+ * The rule set lives here once, because a caller retiming several phases at once
+ * cannot be validated one phase at a time — shifting an early phase later
+ * collides with a neighbour the same edit is about to move.
+ */
+function isPlaceableChartMotion(
+	items: readonly ChartBlock[],
+	blockIndex: number,
+	motion: ChartMotion
+): boolean {
+	const previousItem = blockIndex > 0 ? items[blockIndex - 1] : null;
+	const nextItem = blockIndex < items.length - 1 ? items[blockIndex + 1] : null;
+	let minimumStart = Math.max(
+		0,
+		previousItem ? previousItem.motion.exit.start + previousItem.motion.exit.duration : 0
+	);
+	for (const phaseName of CHART_MOTION_PHASE_NAMES) {
+		const phase = motion[phaseName];
+		if (
+			!Number.isFinite(phase.start) ||
+			!Number.isFinite(phase.duration) ||
+			phase.duration <= 0 ||
+			phase.start + CHART_TIMING_EPSILON < minimumStart
+		)
+			return false;
+		minimumStart = phase.start + phase.duration;
+	}
+	const maximumEnd = Math.min(1, nextItem ? nextItem.motion.entry.start : 1);
+	return minimumStart <= maximumEnd + CHART_TIMING_EPSILON;
+}
+
+/**
+ * Replace one chart Block's five motion phases wholesale, or refuse the whole
+ * replacement. Nothing is written unless the complete motion is placeable.
+ */
+export function replaceChartBlockMotion(
+	surface: SurfaceState,
+	blockId: string,
+	motion: ChartMotion
+): boolean {
+	const items = surface.chart?.items;
+	const blockIndex = items?.findIndex((item) => item.id === blockId) ?? -1;
+	if (!items || blockIndex < 0 || !isPlaceableChartMotion(items, blockIndex, motion)) return false;
+	items[blockIndex].motion = cloneChartMotion(motion);
+	return true;
+}
+
 export function updateChartMotionPhase(
 	surface: SurfaceState,
 	blockId: string,
@@ -511,42 +561,11 @@ export function updateChartMotionPhase(
 	start: number,
 	duration: number
 ): boolean {
-	const items = surface.chart?.items;
-	const blockIndex = items?.findIndex((item) => item.id === blockId) ?? -1;
-	const phaseIndex = CHART_MOTION_PHASE_NAMES.indexOf(phaseName);
-	if (!items || blockIndex < 0 || phaseIndex < 0) return false;
-	const block = items[blockIndex];
-	const previousPhase =
-		phaseIndex > 0 ? block.motion[CHART_MOTION_PHASE_NAMES[phaseIndex - 1]] : null;
-	const nextPhase =
-		phaseIndex < CHART_MOTION_PHASE_NAMES.length - 1
-			? block.motion[CHART_MOTION_PHASE_NAMES[phaseIndex + 1]]
-			: null;
-	const previousItem = blockIndex > 0 ? items[blockIndex - 1] : null;
-	const nextItem = blockIndex < items.length - 1 ? items[blockIndex + 1] : null;
-	const minimumStart = Math.max(
-		0,
-		previousPhase ? previousPhase.start + previousPhase.duration : 0,
-		phaseIndex === 0 && previousItem
-			? previousItem.motion.exit.start + previousItem.motion.exit.duration
-			: 0
-	);
-	const maximumEnd = Math.min(
-		1,
-		nextPhase ? nextPhase.start : 1,
-		phaseName === 'exit' && nextItem ? nextItem.motion.entry.start : 1
-	);
-	if (
-		!Number.isFinite(start) ||
-		!Number.isFinite(duration) ||
-		duration <= 0 ||
-		start + CHART_TIMING_EPSILON < minimumStart ||
-		start + duration > maximumEnd + CHART_TIMING_EPSILON
-	)
-		return false;
-	block.motion[phaseName].start = start;
-	block.motion[phaseName].duration = duration;
-	return true;
+	const block = surface.chart?.items.find((item) => item.id === blockId);
+	if (!block) return false;
+	const motion = cloneChartMotion(block.motion);
+	motion[phaseName] = { ...motion[phaseName], start, duration };
+	return replaceChartBlockMotion(surface, blockId, motion);
 }
 
 export function createChartTarget(

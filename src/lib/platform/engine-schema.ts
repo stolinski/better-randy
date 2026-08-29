@@ -269,6 +269,16 @@ export type SurfaceChannelKeyframes = z.infer<typeof SurfaceChannelKeyframesSche
 export type OverlayAnimation = z.infer<typeof OverlayAnimationSchema>;
 export type SurfaceAnimation = z.infer<typeof SurfaceAnimationSchema>;
 
+// The channel vocabularies, read off the schemas rather than restated, so a new
+// channel reaches the authoring surfaces the moment it parses. Authoring code
+// offers these lists and rejects anything outside the one its subject declares.
+export const OVERLAY_KEYFRAME_CHANNELS: readonly (keyof OverlayChannelKeyframes)[] = Object.keys(
+	OverlayChannelKeyframesSchema.shape
+) as (keyof OverlayChannelKeyframes)[];
+export const SURFACE_KEYFRAME_CHANNELS: readonly (keyof SurfaceChannelKeyframes)[] = Object.keys(
+	SurfaceChannelKeyframesSchema.shape
+) as (keyof SurfaceChannelKeyframes)[];
+
 export const AnnotationMarkStyleSchema = z.enum([
 	'highlight',
 	'underline',
@@ -677,6 +687,11 @@ export type DiagramEdgeGeometry = z.infer<typeof DiagramEdgeGeometrySchema>;
 export type DiagramTimelineGeometry = z.infer<typeof DiagramTimelineGeometrySchema>;
 export type DiagramChannelKeyframes = z.infer<typeof DiagramChannelKeyframesSchema>;
 export type DiagramStrokeChannelKeyframes = z.infer<typeof DiagramStrokeChannelKeyframesSchema>;
+export const DIAGRAM_KEYFRAME_CHANNELS: readonly (keyof DiagramChannelKeyframes)[] = Object.keys(
+	DiagramChannelKeyframesSchema.shape
+) as (keyof DiagramChannelKeyframes)[];
+export const DIAGRAM_STROKE_KEYFRAME_CHANNELS: readonly (keyof DiagramStrokeChannelKeyframes)[] =
+	Object.keys(DiagramStrokeChannelKeyframesSchema.shape) as (keyof DiagramStrokeChannelKeyframes)[];
 export type DiagramAnimation = z.infer<typeof DiagramAnimationSchema>;
 export type DiagramStrokeAnimation = z.infer<typeof DiagramStrokeAnimationSchema>;
 export type DiagramNode = z.infer<typeof DiagramNodeSchema>;

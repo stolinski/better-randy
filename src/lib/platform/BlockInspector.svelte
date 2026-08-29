@@ -1,7 +1,12 @@
 <script lang="ts">
 	import ChartInspector from './ChartInspector.svelte';
 	import CascadeSection from './CascadeSection.svelte';
-	import { type Cascade, type Transition } from './engine-schema';
+	import {
+		DIAGRAM_KEYFRAME_CHANNELS,
+		DIAGRAM_STROKE_KEYFRAME_CHANNELS,
+		type Cascade,
+		type Transition
+	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import type { DiagramPrimitive } from './engine-schema';
 	import BlockGeometrySection from './BlockGeometrySection.svelte';
@@ -31,8 +36,8 @@
 	const channelNames = $derived(
 		diagramPrimitive &&
 			(diagramPrimitive.type === 'edge-arrow' || diagramPrimitive.type === 'timeline-segment')
-			? (['opacity'] as const)
-			: (['opacity', 'x', 'y', 'scale', 'rotation'] as const)
+			? DIAGRAM_STROKE_KEYFRAME_CHANNELS
+			: DIAGRAM_KEYFRAME_CHANNELS
 	);
 
 	function setCascade(el: DiagramPrimitive, next: Cascade | undefined): void {

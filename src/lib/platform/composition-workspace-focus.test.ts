@@ -61,15 +61,18 @@ describe('composition workspace focus', () => {
 		expect(inspectorRailMode.mode).toBe('inspector');
 	});
 
-	it('covers the focus every write and history operation declares', () => {
+	it('covers every focus a write or history operation declares', () => {
 		const workspaceTargets = new Set<string>(COMPOSITION_WORKSPACE_FOCUS_TARGETS);
 		for (const row of WEBMCP_OPERATION_INVENTORY.filter(
 			(entry) => entry.effect === 'write' || entry.effect === 'history'
 		)) {
-			expect(
-				row.focus !== null && workspaceTargets.has(row.focus),
-				`${row.id} focuses ${String(row.focus)}, which the Workspace cannot reveal`
-			).toBe(true);
+			expect(row.focus.length, `${row.id} declares no focus`).toBeGreaterThan(0);
+			for (const target of row.focus) {
+				expect(
+					workspaceTargets.has(target),
+					`${row.id} focuses ${target}, which the Workspace cannot reveal`
+				).toBe(true);
+			}
 		}
 	});
 });

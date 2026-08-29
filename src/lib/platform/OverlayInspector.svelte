@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { engineState, addTextAnimation } from './engine-state.svelte';
-	import { type Cascade, type Overlay, type Transition } from './engine-schema';
+	import {
+		OVERLAY_KEYFRAME_CHANNELS,
+		type Cascade,
+		type Overlay,
+		type Transition
+	} from './engine-schema';
 	import { getOverlayDefinition } from './pipelines/definition-registry';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import {
@@ -59,9 +64,6 @@
 			items: effectsBySplit[mode].map((opt) => ({ value: opt.id, label: opt.label }))
 		}))
 	);
-
-	// Keyframeable overlay channels (ADR-0035 §3), in inspector order.
-	const OVERLAY_CHANNELS = ['opacity', 'x', 'y', 'scale', 'rotation'] as const;
 
 	function setOverlayCascade(ov: Overlay, next: Cascade | undefined): void {
 		if (next === undefined) {
@@ -136,7 +138,7 @@
 		ontoggle={(checked) => toggleTransition(ov, 'exit', checked)}
 	/>
 
-	<KeyframesSection selfKey={`overlay:${ov.id}`} channelNames={OVERLAY_CHANNELS} />
+	<KeyframesSection selfKey={`overlay:${ov.id}`} channelNames={OVERLAY_KEYFRAME_CHANNELS} />
 
 	<CascadeSection
 		selfKey={`overlay:${ov.id}`}

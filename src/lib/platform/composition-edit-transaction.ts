@@ -127,7 +127,7 @@ export interface CompositionEditTransactionRequest {
 	expectedRevision: number;
 	/** The entry this edit records in the shared undo history. */
 	undoLabel: string;
-	/** The Workspace entity this edit reveals; must match the inventory row's focus. */
+	/** The Workspace entity this edit reveals; must be one the inventory row names. */
 	focus: CompositionWorkspaceFocus;
 	mutate: CompositionDraftMutation;
 	/** Honoured only by an operation the inventory marks cancellable. */
@@ -197,9 +197,9 @@ export async function runCompositionEditTransaction(
 			`Composition edit transaction requires a write operation, but ${row.id} is a ${row.effect} operation.`
 		);
 	}
-	if (request.focus.target !== row.focus) {
+	if (!row.focus.includes(request.focus.target)) {
 		throw new TypeError(
-			`Composition edit transaction focus ${request.focus.target} disagrees with the ${row.id} row, which focuses ${String(row.focus)}.`
+			`Composition edit transaction focus ${request.focus.target} disagrees with the ${row.id} row, which focuses ${row.focus.join(' / ') || 'nothing'}.`
 		);
 	}
 	if (request.signal && !row.cancellable) {

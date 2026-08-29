@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 
 	import {
+		SURFACE_KEYFRAME_CHANNELS,
 		WEB_DOCUMENT_SITES,
 		type Ease,
 		type SoundOverride,
@@ -322,7 +323,7 @@
 	<!-- Composition-owned surface opacity (ADR-0035 §3) — the only surface
 	     channel; transforms are camera territory. Declaring it takes the pen
 	     from the enter/exit sugar. -->
-	<KeyframesSection selfKey="surface" channelNames={['opacity']} />
+	<KeyframesSection selfKey="surface" channelNames={SURFACE_KEYFRAME_CHANNELS} />
 
 	<SoundSection motions={soundMotions} />
 </div>
