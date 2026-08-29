@@ -21,16 +21,13 @@
  * and nothing else. Retiming authored motion is `motion`-family work.
  */
 import {
+	readOpenCompositionDocument,
 	refuseCompositionOperation,
 	refuseUnlessCompositionEditable,
-	requireCompositionOperationRow,
-	type CompositionOperationFailure
+	requireCompositionOperationRow
 } from './composition-operation-preflight';
 import { compositionEditHistory } from './composition-edit-history';
-import { engineState, packState } from './engine-state.svelte';
-import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
-import { presetBase } from './preset-base.svelte';
-import { serializeCompositionState } from './preset-pure';
+import { refuseUnloadableCompositionRenderers } from './composition-renderer-readiness';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
 import {
 	runCompositionEditTransaction,
@@ -38,7 +35,6 @@ import {
 } from './composition-edit-transaction';
 
 import type { Preset, Transport } from './engine-schema';
-import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The delivery orientations a composition reflows between. */
 export const COMPOSITION_ORIENTATIONS: readonly Transport['orientation'][] = [
@@ -77,35 +73,6 @@ export interface SetCompositionBackgroundRequest {
 	 * null to remove the fill and return the piece to the transparent lane.
 	 */
 	fill: string | null;
-}
-
-/** The open composition as the document a prospective transport edit starts from. */
-function readOpenCompositionDocument(): Preset {
-	return serializeCompositionState(presetBase, engineState, packState.slug);
-}
-
-async function refuseUnloadableBackgroundRenderers(
-	row: WebmcpOperationRow,
-	fill: string | null
-): Promise<CompositionOperationFailure | null> {
-	const current = readOpenCompositionDocument();
-	const prospective: Preset = {
-		...current,
-		state: { ...current.state, backgroundFill: fill ?? undefined }
-	};
-	try {
-		await ensureCompositionRenderersLoaded(prospective);
-		return null;
-	} catch (cause) {
-		return refuseCompositionOperation(
-			row,
-			compositionEditHistory.revision,
-			'render_failed',
-			`This browser could not load the Effect renderers this background needs: ${
-				cause instanceof Error ? cause.message : 'a renderer module failed to load'
-			}.`
-		);
-	}
 }
 
 /**
@@ -261,7 +228,16 @@ export async function runSetCompositionBackgroundOperation(
 	}
 
 	if (request.fill !== null) {
-		const rendererRefusal = await refuseUnloadableBackgroundRenderers(row, request.fill);
+		const current = readOpenCompositionDocument();
+		const prospective: Preset = {
+			...current,
+			state: { ...current.state, backgroundFill: request.fill }
+		};
+		const rendererRefusal = await refuseUnloadableCompositionRenderers(
+			row,
+			prospective,
+			'this background'
+		);
 		if (rendererRefusal) return rendererRefusal;
 	}
 

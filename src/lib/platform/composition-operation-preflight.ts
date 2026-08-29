@@ -20,7 +20,9 @@ import {
 	boundCompositionFindings,
 	type CompositionValidationFinding
 } from './composition-validation-findings';
-import { transitionState } from './engine-state.svelte';
+import { engineState, packState, transitionState } from './engine-state.svelte';
+import { presetBase } from './preset-base.svelte';
+import { serializeCompositionState } from './preset-pure';
 import {
 	WEBMCP_OPERATION_INVENTORY,
 	type WebmcpOperationErrorCode,
@@ -28,6 +30,7 @@ import {
 } from './webmcp-operation-inventory';
 
 import type { BoundedCompositionFindings } from './composition-validation-findings';
+import type { Preset } from './engine-schema';
 
 /** How many findings a receipt or a refusal names before it reports only the total. */
 export const COMPOSITION_RECEIPT_FINDING_LIMIT = 4;
@@ -113,6 +116,17 @@ export function refuseCompositionOperation(
  */
 export function readOpenCompositionSlug(): string | null {
 	return compositionMeta.userCompositionSlug;
+}
+
+/**
+ * The open composition as the document a prospective edit starts from. An
+ * operation that has to resolve targets, load renderers, or reject an argument
+ * before it opens a transaction reads the composition here; the transaction
+ * itself re-captures the document, so this copy is for preflight only and is
+ * never the one that gets applied.
+ */
+export function readOpenCompositionDocument(): Preset {
+	return serializeCompositionState(presetBase, engineState, packState.slug);
 }
 
 export function refuseUnlessCompositionOpen(

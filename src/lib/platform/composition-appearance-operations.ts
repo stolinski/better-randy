@@ -9,24 +9,18 @@
  * output rather than dressing it.
  */
 import {
+	readOpenCompositionDocument,
 	refuseCompositionOperation,
 	refuseUnlessCompositionEditable,
-	requireCompositionOperationRow,
-	type CompositionOperationFailure
+	requireCompositionOperationRow
 } from './composition-operation-preflight';
 import { compositionEditHistory } from './composition-edit-history';
-import { engineState, packState } from './engine-state.svelte';
-import { ensureCompositionRenderersLoaded } from './composition-renderer-readiness';
+import { refuseUnloadableCompositionRenderers } from './composition-renderer-readiness';
 import { PACK_REGISTRY } from './packs/registry';
-import { presetBase } from './preset-base.svelte';
-import { serializeCompositionState } from './preset-pure';
 import {
 	runCompositionEditTransaction,
 	type CompositionOperationOutcome
 } from './composition-edit-transaction';
-
-import type { Preset } from './engine-schema';
-import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 export interface SetCompositionPackRequest {
 	expectedRevision: number;
@@ -36,33 +30,6 @@ export interface SetCompositionPackRequest {
 /** The Packs a composition can bind to, derived from the live registry. */
 export function listRegisteredPackSlugs(): readonly string[] {
 	return Object.keys(PACK_REGISTRY);
-}
-
-/**
- * A Pack's chrome contributes Effects to a full-frame piece, so switching Packs
- * can require renderers the current bundle has never loaded. Resolving the
- * prospective document first is what keeps a re-dress from producing a frame
- * missing its chrome.
- */
-async function refuseUnloadablePackRenderers(
-	row: WebmcpOperationRow,
-	packSlug: string
-): Promise<CompositionOperationFailure | null> {
-	const current = serializeCompositionState(presetBase, engineState, packState.slug);
-	const prospective: Preset = { ...current, pack: packSlug };
-	try {
-		await ensureCompositionRenderersLoaded(prospective);
-		return null;
-	} catch (cause) {
-		return refuseCompositionOperation(
-			row,
-			compositionEditHistory.revision,
-			'render_failed',
-			`This browser could not load the renderers the ${packSlug} Pack needs: ${
-				cause instanceof Error ? cause.message : 'a renderer module failed to load'
-			}.`
-		);
-	}
 }
 
 /** Bind the composition to a registered Pack; every Pack-resolved Role re-dresses. */
@@ -83,7 +50,15 @@ export async function runSetCompositionPackOperation(
 		);
 	}
 
-	const rendererRefusal = await refuseUnloadablePackRenderers(row, request.packSlug);
+	// A Pack's chrome contributes Effects to a full-frame piece, so switching
+	// Packs can require renderers the current bundle has never loaded. Resolving
+	// the prospective document first is what keeps a re-dress from producing a
+	// frame missing its chrome.
+	const rendererRefusal = await refuseUnloadableCompositionRenderers(
+		row,
+		{ ...readOpenCompositionDocument(), pack: request.packSlug },
+		`the ${request.packSlug} Pack`
+	);
 	if (rendererRefusal) return rendererRefusal;
 
 	return runCompositionEditTransaction({

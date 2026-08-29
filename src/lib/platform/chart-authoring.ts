@@ -1,8 +1,11 @@
 import { resolveChartDataTarget } from '$lib/utils/chart-data-target';
+import { createCompositionEntityId } from '$lib/utils/composition-entity-id';
 import { CHART_MOTION_PHASE_NAMES, CHART_TIMING_EPSILON } from '$lib/utils/chart-motion';
+import { CHART_SURFACE_TYPES } from './chart-validation';
 import {
 	CHART_CALLOUT_LIMIT,
 	CHART_CATEGORY_LIMIT,
+	CHART_GROUP_BLOCK_LIMIT,
 	CHART_HIGHLIGHT_LIMIT,
 	CHART_SERIES_LIMIT,
 	type ChartBlock,
@@ -38,14 +41,23 @@ function cloneChartMotion(motion: ChartMotion): ChartMotion {
 }
 
 function nextChartAuthoringId(prefix: string, existing: readonly { id: string }[]): string {
-	const used = new Set(existing.map((entry) => entry.id));
-	let suffix = 1;
-	while (used.has(`${prefix}-${suffix}`)) suffix += 1;
-	return `${prefix}-${suffix}`;
+	return createCompositionEntityId(
+		prefix,
+		existing.map((entry) => entry.id)
+	);
 }
 
-function chartSequenceMotion(index: number): ChartMotion {
-	const start = index * 0.25 + 0.01;
+/** How much of the clip one Block occupies in a sequence, entry through exit. */
+export const CHART_SEQUENCE_SLOT_SPAN = 0.23;
+
+/**
+ * One Block's phase windows when it takes its turn in a sequence, anchored at
+ * `start`. A sequence Block is visible from its entry through the end of its
+ * exit, and `validateChartGroupSemantics` refuses a group whose Blocks overlap,
+ * so a caller placing a Block after an existing one advances `start` past that
+ * Block's visibility end.
+ */
+export function createChartSequenceMotion(start: number): ChartMotion {
 	return {
 		entry: { start, duration: 0.03 },
 		reveal: { start: start + 0.03, duration: 0.07 },
@@ -61,7 +73,7 @@ function retimeChartGroup(items: ChartBlock[]): void {
 		return;
 	}
 	items.forEach((item, index) => {
-		item.motion = chartSequenceMotion(index);
+		item.motion = createChartSequenceMotion(index * 0.25 + 0.01);
 	});
 }
 
@@ -99,9 +111,9 @@ export function createDefaultChartBlock(type: ChartBlockType, id: string): Chart
 }
 
 export function appendChartBlock(surface: SurfaceState, type: ChartBlockType): string | null {
-	if (surface.type !== 'plain' && surface.type !== 'paper') return null;
+	if (!CHART_SURFACE_TYPES.includes(surface.type)) return null;
 	const items = surface.chart?.items ?? [];
-	if (items.length >= 4) return null;
+	if (items.length >= CHART_GROUP_BLOCK_LIMIT) return null;
 	const id = nextChartAuthoringId(type, [...items, ...(surface.diagram ?? [])]);
 	const next = createDefaultChartBlock(type, id);
 	if (!surface.chart) {

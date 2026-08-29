@@ -14,6 +14,13 @@ export interface ChartSemanticIssue {
 	message: string;
 }
 
+/**
+ * The Surfaces that composite analytic chart marks. Chart Blocks draw into the
+ * Surface's own substrate, so a Surface that owns its pixels — a captured web
+ * page, a chat window — has nowhere to put them.
+ */
+export const CHART_SURFACE_TYPES: readonly SurfaceType[] = ['plain', 'paper'];
+
 type ChartTargetResolution = {
 	series: ChartSeries;
 	value: number;
@@ -436,11 +443,11 @@ export function validateChartGroupSemantics(
 ): readonly ChartSemanticIssue[] {
 	if (!chart) return [];
 	const issues: ChartSemanticIssue[] = [];
-	if (surfaceType !== 'plain' && surfaceType !== 'paper') {
+	if (!CHART_SURFACE_TYPES.includes(surfaceType)) {
 		addChartIssue(
 			issues,
 			['chart'],
-			`Charts require a plain or paper Surface; "${surfaceType}" does not composite analytic chart marks.`
+			`Charts require a ${CHART_SURFACE_TYPES.join(' or ')} Surface; "${surfaceType}" does not composite analytic chart marks.`
 		);
 	}
 	if (chart.mode === 'single' && chart.items.length !== 1) {

@@ -13,11 +13,17 @@
  * is silently wrong output rather than a visible failure.
  */
 import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
+import { compositionEditHistory } from './composition-edit-history';
 import { getPack } from './packs/registry';
 import { getPresetBySlug } from './preset-catalog';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
+import {
+	refuseCompositionOperation,
+	type CompositionOperationFailure
+} from './composition-operation-preflight';
 
 import type { Preset } from './engine-schema';
+import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /**
  * Load and activate every Pipeline renderer `document` needs. Rejects when a
@@ -33,4 +39,30 @@ export async function ensureCompositionRenderersLoaded(document: Preset): Promis
 		})
 	);
 	pipelineRendererRuntime.activate(bundle);
+}
+
+/**
+ * The refusal an operation returns when this browser cannot load the renderers
+ * its prospective document needs. `subject` names what pulled them in — the
+ * Surface, the Pack, the Effect — so the caller learns which argument to change
+ * rather than that "something failed".
+ */
+export async function refuseUnloadableCompositionRenderers(
+	row: WebmcpOperationRow,
+	prospective: Preset,
+	subject: string
+): Promise<CompositionOperationFailure | null> {
+	try {
+		await ensureCompositionRenderersLoaded(prospective);
+		return null;
+	} catch (cause) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'render_failed',
+			`This browser could not load the renderers ${subject} needs: ${
+				cause instanceof Error ? cause.message : 'a renderer module failed to load'
+			}.`
+		);
+	}
 }

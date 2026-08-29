@@ -7,7 +7,11 @@
  * an agent reads back from the document — so a pointer a receipt names is a
  * pointer that exists in the saved composition. Entries of a list carrying
  * stable ids are matched by id, so inserting an Overlay reports one membership
- * change at `/state/overlays` rather than a cascade of shifted-index edits.
+ * change at `/state/overlays` rather than a cascade of shifted-index edits. A
+ * list whose entries carry no id — mark timings, chat messages, checklist
+ * items — is aligned instead by the single insertion or removal that explains
+ * the length change, so adding a mark timing reports the same one membership
+ * change rather than re-reporting every entry the splice shifted.
  */
 import type { Preset } from './engine-schema';
 import type { CompositionPointer } from './composition-pointer-ownership';
@@ -88,10 +92,47 @@ function appendArrayDifferences(
 		return;
 	}
 
-	if (previous.length !== next.length) changed.push(pointer);
+	if (previous.length === next.length) {
+		for (let index = 0; index < previous.length; index += 1) {
+			appendJsonValueDifferences(`${pointer}/${index}`, previous[index], next[index], changed);
+		}
+		return;
+	}
+
+	changed.push(pointer);
+	if (isSingleEntrySplice(previous, next)) return;
+
 	for (let index = 0; index < Math.min(previous.length, next.length); index += 1) {
 		appendJsonValueDifferences(`${pointer}/${index}`, previous[index], next[index], changed);
 	}
+}
+
+/**
+ * True when the two identity-less lists differ by exactly one inserted or
+ * removed entry and nothing else. That splice is a membership change: the
+ * entries it shifted still hold the values they held, so descending into them
+ * would report edits that were never made — and, for a list a `membership`
+ * family owns, would read as a write into another family's subtree.
+ */
+function isSingleEntrySplice(previous: readonly unknown[], next: readonly unknown[]): boolean {
+	const [shorter, longer] = previous.length < next.length ? [previous, next] : [next, previous];
+	if (longer.length - shorter.length !== 1) return false;
+
+	let skipped = false;
+	for (let index = 0; index < shorter.length; index += 1) {
+		const candidate = longer[index + (skipped ? 1 : 0)];
+		if (isSameJsonValue(shorter[index], candidate)) continue;
+		if (skipped) return false;
+		skipped = true;
+		if (!isSameJsonValue(shorter[index], longer[index + 1])) return false;
+	}
+	return true;
+}
+
+function isSameJsonValue(left: unknown, right: unknown): boolean {
+	const differences: CompositionPointer[] = [];
+	appendJsonValueDifferences('', left, right, differences);
+	return differences.length === 0;
 }
 
 function appendRecordDifferences(

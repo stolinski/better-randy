@@ -76,6 +76,35 @@ describe('composition document diff', () => {
 		expect(diffCompositionDocuments(previous, next)).toEqual(['/state/marks/timings/0/start']);
 	});
 
+	it('reports splicing an entry out of an identity-less list as one membership change', () => {
+		const previous = loadBlankDocument();
+		previous.state.marks.timings = [
+			{ start: 0.1, duration: 0.2, ease: 'smooth' },
+			{ start: 0.4, duration: 0.2, ease: 'sharp' },
+			{ start: 0.7, duration: 0.2, ease: 'bouncy' }
+		];
+		const next = loadBlankDocument();
+		next.state.marks.timings = [
+			{ start: 0.1, duration: 0.2, ease: 'smooth' },
+			{ start: 0.7, duration: 0.2, ease: 'bouncy' }
+		];
+		expect(diffCompositionDocuments(previous, next)).toEqual(['/state/marks/timings']);
+	});
+
+	it('follows an identity-less list past a membership change to the entry that also moved', () => {
+		const previous = loadBlankDocument();
+		previous.state.marks.timings = [
+			{ start: 0.1, duration: 0.2, ease: 'smooth' },
+			{ start: 0.4, duration: 0.2, ease: 'sharp' }
+		];
+		const next = loadBlankDocument();
+		next.state.marks.timings = [{ start: 0.9, duration: 0.2, ease: 'smooth' }];
+		expect(diffCompositionDocuments(previous, next)).toEqual([
+			'/state/marks/timings',
+			'/state/marks/timings/0/start'
+		]);
+	});
+
 	it('treats an engine-side undefined and an absent key as the same persisted value', () => {
 		const next = loadBlankDocument();
 		next.state.stage = undefined;

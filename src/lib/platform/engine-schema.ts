@@ -619,6 +619,13 @@ const DiagramPrimitiveSchema = z.discriminatedUnion('type', [
 	DiagramTimelineSegmentSchema
 ]);
 
+/**
+ * The diagram primitives the Block Layer draws, read off the schema union so a
+ * new primitive appears in the authoring vocabulary the moment it parses.
+ */
+export const DIAGRAM_PRIMITIVE_TYPES: readonly DiagramPrimitive['type'][] =
+	DiagramPrimitiveSchema.options.map((option) => option.shape.type.value);
+
 // The diagram group: ids must be unique (they are timeline-row / cascade
 // identities), and every edge endpoint node ref must resolve to a `node`
 // primitive in the same group — fail fast at parse time, never a runtime guess.
@@ -688,6 +695,8 @@ export const CHART_CATEGORY_LIMIT = 12;
 export const CHART_SERIES_LIMIT = 4;
 export const CHART_HIGHLIGHT_LIMIT = 24;
 export const CHART_CALLOUT_LIMIT = 4;
+/** How many chart Blocks one Surface's chart group holds — one, or a sequence. */
+export const CHART_GROUP_BLOCK_LIMIT = 4;
 
 export const ChartTypeSchema = z.enum([
 	'bar-chart',
@@ -880,7 +889,7 @@ export type ChartBlock = z.infer<typeof ChartBlockSchema>;
 
 export const ChartGroupSchema = z.strictObject({
 	mode: z.enum(['single', 'sequence']),
-	items: z.array(ChartBlockSchema).min(1).max(4)
+	items: z.array(ChartBlockSchema).min(1).max(CHART_GROUP_BLOCK_LIMIT)
 });
 export type ChartGroup = z.infer<typeof ChartGroupSchema>;
 
@@ -1404,6 +1413,8 @@ const CaptionsSchema = z.strictObject({
 });
 export type Captions = z.infer<typeof CaptionsSchema>;
 export type CaptionStyle = Captions['style'];
+/** How a caption line is dressed, read off the schema's own style union. */
+export const CAPTION_STYLES: readonly CaptionStyle[] = CaptionsSchema.shape.style.options;
 
 export const EngineStateSchema = z
 	.strictObject({

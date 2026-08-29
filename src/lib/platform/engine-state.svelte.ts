@@ -12,6 +12,7 @@ import {
 	type Preset,
 	type TextAnimation
 } from './engine-schema';
+import { createCompositionEntityId } from '$lib/utils/composition-entity-id';
 import { assertSoundRegistryValid } from './audio-assets';
 import {
 	appendChartBlock as appendChartBlockToSurface,
@@ -108,14 +109,10 @@ export function readMarkColor(style: AnnotationMarkStyle): string {
 }
 
 function nextId(prefix: string, existing: readonly { id: string }[]): string {
-	const used = new Set(existing.map((entry) => entry.id));
-	let counter = 1;
-	let candidate = `${prefix}-${counter}`;
-	while (used.has(candidate)) {
-		counter += 1;
-		candidate = `${prefix}-${counter}`;
-	}
-	return candidate;
+	return createCompositionEntityId(
+		prefix,
+		existing.map((entry) => entry.id)
+	);
 }
 
 export function addOverlay(overlay: Omit<Overlay, 'id'> & { id?: string }): string {
