@@ -17,7 +17,7 @@ jobs:
         description: Agent-driven fix of one Sentry issue from event evidence
         task:
           type: model_method
-          modelIdOrName: gfx-agent
+          modelIdOrName: gfx-sentry-agent
           methodName: invokeAndParse
           inputs:
             cwd: /Users/scotttolinski/Sites/properties/gfx-computer

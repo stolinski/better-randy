@@ -1,0 +1,13 @@
+type: '@mgreten/cli-agent'
+typeVersion: 2026.08.21.3
+id: d55ed611-b92e-435a-9d52-0ae07b4044f2
+name: gfx-sentry-agent
+version: 1
+tags: {}
+# Dedicated sentry-lane agent: swamp locks are per model instance, so the
+# 6-hour cron never contends with gfx-agent's factory implement dispatches.
+globalArguments:
+  defaultProvider: claude
+  defaultModel: opus
+  sandboxMode: 'off'
+methods: {}
