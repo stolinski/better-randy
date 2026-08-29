@@ -842,6 +842,9 @@ export const ChartFillSchema = z.strictObject({
 export type ChartFill = z.infer<typeof ChartFillSchema>;
 
 const ChartEaseSchema = z.enum(['smooth', 'sharp']);
+// A chart phase runs on its own two curves rather than the engine ease table —
+// the phases are a Pipeline-owned sequence, not authored windows.
+export const CHART_MOTION_EASES = ChartEaseSchema.options;
 export const ChartMotionPhaseSchema = z.strictObject({
 	start: ChartFiniteNumberSchema.min(0).max(1),
 	duration: ChartFiniteNumberSchema.gt(0).max(1),
@@ -1179,15 +1182,14 @@ const TextAnimationTargetSchema = z.discriminatedUnion('kind', [
 	})
 ]);
 
-const TextAnimationParamsSchema = z
-	.object({
-		speedMultiplier: z.number().positive().optional(),
-		holdMs: z.number().nonnegative().optional(),
-		gapMs: z.number().nonnegative().optional(),
-		yTravelMultiplier: z.number().optional(),
-		initialDelayMs: z.number().nonnegative().optional()
-	})
-	.optional();
+const TextAnimationParamsObjectSchema = z.object({
+	speedMultiplier: z.number().positive().optional(),
+	holdMs: z.number().nonnegative().optional(),
+	gapMs: z.number().nonnegative().optional(),
+	yTravelMultiplier: z.number().optional(),
+	initialDelayMs: z.number().nonnegative().optional()
+});
+const TextAnimationParamsSchema = TextAnimationParamsObjectSchema.optional();
 
 const TextAnimationSchema = z.object({
 	id: z.string().min(1),
@@ -1210,6 +1212,10 @@ export const TEXT_ANIMATION_TARGET_KINDS = TextAnimationTargetSchema.options.map
 export const TEXT_ANIMATION_SURFACE_SLOTS = SurfaceSlotSchema.options;
 export const TEXT_ANIMATION_OVERLAY_SLOTS = OverlaySlotSchema.options;
 export type TextAnimationParams = NonNullable<z.infer<typeof TextAnimationParamsSchema>>;
+/** The parameters a text effect accepts, read off the schema rather than restated. */
+export const TEXT_ANIMATION_PARAM_NAMES = Object.keys(
+	TextAnimationParamsObjectSchema.shape
+) as readonly (keyof TextAnimationParams)[];
 export type TextAnimation = z.infer<typeof TextAnimationSchema>;
 
 function targetSlotKey(target: TextAnimationTarget): string {

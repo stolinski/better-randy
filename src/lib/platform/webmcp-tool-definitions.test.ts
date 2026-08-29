@@ -2,18 +2,21 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { applyPreset } from './preset';
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 import { compositionEditHistory } from './composition-edit-history';
+import { compositionMediaGrants } from './composition-media-grants.svelte';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, transitionState } from './engine-state.svelte';
 import { listWebmcpToolDefinitions } from './webmcp-tool-definitions';
 import { parsePresetIngress } from './preset-ingress';
 import { readWebmcpCompositionPreconditions } from './webmcp-tool-preconditions';
+import { Timeline } from './timeline.svelte';
+import { timelineHandle } from './timeline-handle.svelte';
 import { userCompositionStore } from './user-composition-store';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
@@ -22,6 +25,7 @@ import {
 import { WEBMCP_INTERNAL_ONLY_FAMILIES, WebmcpToolController } from './webmcp-tool-controller';
 
 import type { UserCompositionMeta } from './user-composition-store';
+import type { UserVideoAssetDescriptor } from './user-video-asset';
 import type {
 	WebmcpModelContextHost,
 	WebmcpToolCallResult,
@@ -50,7 +54,11 @@ const EXPOSED_FAMILIES: readonly WebmcpOperationFamilyName[] = [
 	'layer',
 	'content',
 	'placement',
-	'appearance'
+	'appearance',
+	'motion',
+	'sound',
+	'media',
+	'playhead'
 ];
 
 /**
@@ -63,8 +71,12 @@ const WEBMCP_FAMILY_TOOL_MODULES = [
 	'src/lib/platform/webmcp-composition-tools.ts',
 	'src/lib/platform/webmcp-content-tools.ts',
 	'src/lib/platform/webmcp-layer-tools.ts',
+	'src/lib/platform/webmcp-media-tools.ts',
+	'src/lib/platform/webmcp-motion-tools.ts',
 	'src/lib/platform/webmcp-placement-tools.ts',
+	'src/lib/platform/webmcp-playhead-tools.ts',
 	'src/lib/platform/webmcp-session-tools.ts',
+	'src/lib/platform/webmcp-sound-tools.ts',
 	'src/lib/platform/webmcp-transport-tools.ts'
 ];
 
@@ -140,6 +152,26 @@ const sessionEntry: UserCompositionMeta = {
 	mediaStatus: 'ready'
 };
 
+/** A video the visitor dropped on the Media rail themselves, stored by content address. */
+const grantedVideo: UserVideoAssetDescriptor = {
+	url: '/api/user-assets/0123456789abcdef.mp4',
+	mime: 'video/mp4',
+	sizeBytes: 4096,
+	durationSeconds: 4,
+	displayWidth: 1920,
+	displayHeight: 1080,
+	rotation: 0,
+	averageFrameRate: 30,
+	videoCodec: 'avc1',
+	hasAudio: false
+};
+
+/** Opens a composition an agent may edit, the state most of these tools need. */
+function openEditableComposition(): void {
+	compositionMeta.userCompositionSlug = 'untitled';
+	compositionMeta.isUserComposition = true;
+}
+
 beforeEach(() => {
 	vi.clearAllMocks();
 	sessionStore.listUserCompositions.mockResolvedValue([]);
@@ -148,6 +180,12 @@ beforeEach(() => {
 	compositionMeta.isUserComposition = false;
 	compositionMeta.userCompositionSlug = null;
 	compositionMeta.forkedFrom = null;
+	compositionMediaGrants.clear();
+});
+
+afterEach(() => {
+	timelineHandle.current?.dispose();
+	timelineHandle.current = null;
 });
 
 describe('WebMCP tool definitions', () => {
@@ -347,6 +385,94 @@ describe('WebMCP tool calls', () => {
 		});
 	});
 
+	it('retimes an element and welds its entrance to another', async () => {
+		openEditableComposition();
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		const route = '/p/untitled';
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+
+		await host.call(rowFor('layer.add-overlay').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			overlayType: 'lower-third'
+		});
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		const overlayId = engineState.overlays[0].id;
+
+		const retimed = readPayload(
+			await host.call(rowFor('motion.set-overlay-timing').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				overlayId,
+				enter: { start: 0.1, duration: 0.2, ease: 'settled' }
+			})
+		);
+		expect(retimed).toMatchObject({ status: 'applied', focus: { target: 'overlay', overlayId } });
+		expect(engineState.overlays[0].enter).toMatchObject({ start: 0.1, duration: 0.2 });
+
+		const welded = readPayload(
+			await host.call(rowFor('motion.set-cascade-anchor').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				subject: { kind: 'overlay', overlayId },
+				anchor: { kind: 'surface' },
+				event: 'end',
+				offsetMs: 120
+			})
+		);
+
+		expect(welded).toMatchObject({ status: 'applied', focus: { target: 'overlay', overlayId } });
+		expect(engineState.overlays[0].animation?.cascade).toEqual({
+			anchor: 'surface',
+			event: 'end',
+			offsetMs: 120
+		});
+	});
+
+	it('writes what a motion plays onto the motion itself', async () => {
+		openEditableComposition();
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		await host.call(rowFor('motion.set-surface-timing').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			enter: { start: 0, duration: 0.25, ease: 'smooth' }
+		});
+
+		const overridden = readPayload(
+			await host.call(rowFor('sound.set-motion-override').toolName, {
+				expectedRevision: compositionEditHistory.revision,
+				motion: { kind: 'surface', phase: 'enter' },
+				override: { event: 'impact' }
+			})
+		);
+
+		expect(overridden).toMatchObject({ status: 'applied', focus: { target: 'sound-cue' } });
+		// The override rides the window rather than a stored copy of its timing, so
+		// the cue stays on this motion's frame through every later retime.
+		expect(engineState.surface.enter?.sound).toMatchObject({ event: 'impact' });
+	});
+
+	it('parks the visible playhead on an exact frame without moving the composition', async () => {
+		openEditableComposition();
+		timelineHandle.current = new Timeline({ durationSeconds: 6, fps: 30, tick: () => {} });
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		const revision = compositionEditHistory.revision;
+
+		const moved = readPayload(
+			await host.call(rowFor('playhead.seek-frame').toolName, { frame: 90 })
+		);
+
+		expect(moved).toMatchObject({
+			status: 'moved',
+			frame: 90,
+			timecode: '00:00:03:00',
+			focus: 'timeline-playhead'
+		});
+		expect(compositionEditHistory.revision).toBe(revision);
+	});
+
 	it('art-directs the piece through the appearance family', async () => {
 		compositionMeta.userCompositionSlug = 'untitled';
 		compositionMeta.isUserComposition = true;
@@ -370,10 +496,69 @@ describe('WebMCP tool calls', () => {
 	});
 });
 
+describe('WebMCP media consent', () => {
+	it('offers no way to add media until the visitor has granted some', async () => {
+		openEditableComposition();
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		const route = '/p/untitled';
+
+		const withoutGrant = await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		expect(withoutGrant.registered).not.toContain(rowFor('media.add-library-entry').toolName);
+
+		// The gesture only a person can make: a file dropped on the Media rail.
+		compositionMediaGrants.record('drop.mp4', grantedVideo);
+
+		const withGrant = await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		expect(withGrant.added).toContain(rowFor('media.add-library-entry').toolName);
+	});
+
+	it('refuses a grant this page was never given, naming the ones it holds', async () => {
+		openEditableComposition();
+		compositionMediaGrants.record('drop.mp4', grantedVideo);
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+
+		const result = await host.call(rowFor('media.add-library-entry').toolName, {
+			expectedRevision: compositionEditHistory.revision,
+			grantId: 'grant-somebody-elses'
+		});
+
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({
+			code: 'unknown_target',
+			rejected: 'grant-somebody-elses',
+			alternatives: [compositionMediaGrants.grants[0].grantId]
+		});
+		expect(engineState.media.assets).toEqual([]);
+	});
+});
+
 describe('WebMCP tool arguments', () => {
 	beforeEach(() => {
 		compositionMeta.userCompositionSlug = 'untitled';
 		compositionMeta.isUserComposition = true;
+	});
+
+	it('applies nothing when an edit is written against a revision that has moved', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		const observed = compositionEditHistory.revision;
+
+		await host.call(rowFor('motion.set-surface-timing').toolName, {
+			expectedRevision: observed,
+			enter: { start: 0, duration: 0.2, ease: 'smooth' }
+		});
+		const result = await host.call(rowFor('motion.set-surface-timing').toolName, {
+			expectedRevision: observed,
+			enter: { start: 0.5, duration: 0.2, ease: 'smooth' }
+		});
+
+		expect(result.isError).toBe(true);
+		expect(readPayload(result)).toMatchObject({ code: 'stale_revision' });
+		expect(engineState.surface.enter).toMatchObject({ start: 0 });
 	});
 
 	it('names the variants an unsupported one should have been', async () => {

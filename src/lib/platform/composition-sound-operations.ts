@@ -59,9 +59,24 @@ export const COMPOSITION_SOUND_CUE_KINDS: readonly AudioCue['kind'][] = ['cue', 
  * are `motion`'s alone, so they are absent here rather than silently ignored.
  */
 export type CompositionSoundMotion =
-	| { kind: 'surface'; phase: 'enter' | 'exit' }
-	| { kind: 'overlay'; overlayId: string; phase: 'enter' | 'exit' }
+	| { kind: 'surface'; phase: CompositionSoundMotionPhase }
+	| { kind: 'overlay'; overlayId: string; phase: CompositionSoundMotionPhase }
 	| { kind: 'mark'; markIndex: number };
+
+/** Which edge of a Layer's clip emits the cue. A Mark draws once and has neither. */
+export type CompositionSoundMotionPhase = 'enter' | 'exit';
+
+export const COMPOSITION_SOUND_MOTION_PHASES: readonly CompositionSoundMotionPhase[] = [
+	'enter',
+	'exit'
+];
+
+/** The kinds of motion whose emitted cue can be overridden, as a caller names them. */
+export const COMPOSITION_SOUND_MOTION_KINDS: readonly CompositionSoundMotion['kind'][] = [
+	'surface',
+	'overlay',
+	'mark'
+];
 
 export interface SetCompositionSoundCueRequest {
 	expectedRevision: number;

@@ -18,13 +18,16 @@
 import { hashObject } from '../utils/object';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing';
 import { TEXT_EFFECT_IDS } from '../text-animations/catalog';
+import { listSoundAssets } from './audio-assets';
 import {
 	CAPTION_STYLES,
+	CHART_MOTION_EASES,
 	CHAT_MESSAGE_RECEIPTS,
 	CHAT_MESSAGE_SIDES,
 	CHAT_MESSAGE_TAPBACKS,
 	ChartTypeSchema,
 	DIAGRAM_ARROW_DIRECTIONS,
+	DIAGRAM_KEYFRAME_CHANNELS,
 	DIAGRAM_EDGE_ROUTES,
 	DIAGRAM_INK_ROLES,
 	DIAGRAM_LABEL_ROLES,
@@ -32,6 +35,7 @@ import {
 	DIAGRAM_NODE_FORMS,
 	DIAGRAM_PRIMITIVE_TYPES,
 	DIAGRAM_STAT_FORMATS,
+	DIAGRAM_STROKE_KEYFRAME_CHANNELS,
 	ENGINE_EASES,
 	ENGINE_FONT_FAMILIES,
 	OVERLAY_KEYFRAME_CHANNELS,
@@ -46,7 +50,7 @@ import {
 	TEXT_ANIMATION_TARGET_KINDS,
 	WEB_DOCUMENT_SITES
 } from './engine-schema';
-import { listPresets } from './preset-catalog';
+import { listFixtures, listPresets } from './preset-catalog';
 import { listSubstrateAssets } from './substrate-textures';
 import { PACK_REGISTRY_SLUGS } from './packs/registry';
 import {
@@ -104,15 +108,19 @@ export type WebmcpDerivedEnumName =
 	| 'stage-backdrop-asset'
 	| 'pack-slug'
 	| 'starter-slug'
+	| 'transition-endpoint-slug'
 	| 'sound-event'
+	| 'sound-asset'
 	| 'caption-style'
 	| 'font-family'
 	| 'motion-ease'
+	| 'chart-motion-ease'
 	| 'delivery-orientation'
 	| 'export-format'
 	| 'composition-kind'
 	| 'surface-keyframe-channel'
 	| 'overlay-keyframe-channel'
+	| 'keyframe-channel'
 	| 'operation-error-code';
 
 /** The JSON Schema fragment one tool argument is described by. */
@@ -160,6 +168,24 @@ function readCompositionKinds(): readonly string[] {
 }
 
 /**
+ * Every property channel any element declares, folded into one list. Which of
+ * them a given subject actually declares is narrower — a Surface fades only, a
+ * stroke-drawn diagram primitive fades only — and the operation answers that
+ * with the subject's own channels. This is the menu an agent picks from before
+ * it knows the subject.
+ */
+function readKeyframeChannels(): readonly string[] {
+	return [
+		...new Set<string>([
+			...SURFACE_KEYFRAME_CHANNELS,
+			...OVERLAY_KEYFRAME_CHANNELS,
+			...DIAGRAM_KEYFRAME_CHANNELS,
+			...DIAGRAM_STROKE_KEYFRAME_CHANNELS
+		])
+	];
+}
+
+/**
  * The live vocabulary, read fresh on every call. Nothing here is cached: a
  * cached copy is a copy, and the whole point of this module is that a registry
  * addition reaches an agent's tool list without anyone editing a list.
@@ -200,15 +226,21 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'stage-backdrop-asset': listSubstrateAssets(),
 		'pack-slug': PACK_REGISTRY_SLUGS,
 		'starter-slug': listPresets().map((entry) => entry.slug),
+		// A transition wipes between any two catalogued compositions, fixtures
+		// included, which is a wider set than the Starters a caller forks from.
+		'transition-endpoint-slug': [...listPresets(), ...listFixtures()].map((entry) => entry.slug),
 		'sound-event': SOUND_EVENTS,
+		'sound-asset': listSoundAssets(),
 		'caption-style': CAPTION_STYLES,
 		'font-family': Object.keys(ENGINE_FONT_FAMILIES),
 		'motion-ease': Object.keys(ENGINE_EASES),
+		'chart-motion-ease': CHART_MOTION_EASES,
 		'delivery-orientation': PresetSchema.shape.state.shape.transport.shape.orientation.options,
 		'export-format': PresetSchema.shape.state.shape.transport.shape.format.options,
 		'composition-kind': readCompositionKinds(),
 		'surface-keyframe-channel': SURFACE_KEYFRAME_CHANNELS,
 		'overlay-keyframe-channel': OVERLAY_KEYFRAME_CHANNELS,
+		'keyframe-channel': readKeyframeChannels(),
 		'operation-error-code': WEBMCP_OPERATION_ERROR_CODES
 	};
 }
@@ -268,6 +300,25 @@ export function webmcpClearableTextProperty(description: string): WebmcpSchemaPr
 		description,
 		oneOf: [
 			{ type: 'string', description: 'The text to write.' },
+			{ type: 'null', description: 'Remove this value from the composition.' }
+		]
+	};
+}
+
+/**
+ * A number a caller can also remove, so the field returns to whatever the engine
+ * or the Pack resolves for it. `null` is spelled out for the same reason it is
+ * on text: an absent argument leaves the value alone, and a cleared one is a
+ * different composition.
+ */
+export function webmcpClearableNumberProperty(
+	description: string,
+	bounds: { minimum?: number; maximum?: number } = {}
+): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			{ type: 'number', description: 'The value to author.', ...bounds },
 			{ type: 'null', description: 'Remove this value from the composition.' }
 		]
 	};

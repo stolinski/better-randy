@@ -63,6 +63,33 @@ export type CompositionCascadeSubject =
 	| { kind: 'text-animation'; textAnimationId: string }
 	| { kind: 'block'; blockId: string };
 
+/** Everything a weld can hang from: the timing root, plus every element that welds. */
+export type CompositionCascadeAnchorKind = 'surface' | CompositionCascadeSubject['kind'];
+
+/** The kinds of element that can own authored channels, as a caller names them. */
+export const COMPOSITION_KEYFRAME_SUBJECT_KINDS: readonly CompositionKeyframeSubject['kind'][] = [
+	'surface',
+	'overlay',
+	'block'
+];
+
+/**
+ * The kinds of element that can weld their own entrance. The Surface is absent
+ * because it is the timing root, and a chart Block because its motion is the
+ * five phases its Pipeline runs.
+ */
+export const COMPOSITION_CASCADE_SUBJECT_KINDS: readonly CompositionCascadeSubject['kind'][] = [
+	'overlay',
+	'mark',
+	'text-animation',
+	'block'
+];
+
+export const COMPOSITION_CASCADE_ANCHOR_KINDS: readonly CompositionCascadeAnchorKind[] = [
+	'surface',
+	...COMPOSITION_CASCADE_SUBJECT_KINDS
+];
+
 export interface SetCompositionKeyframeChannelRequest {
 	expectedRevision: number;
 	subject: CompositionKeyframeSubject;
@@ -100,7 +127,8 @@ interface AuthoredElementMotion {
 	cascade?: Cascade;
 }
 
-const CASCADE_EVENTS: readonly Cascade['event'][] = ['start', 'end'];
+/** Which edge of the anchor's entrance a weld hangs from. */
+export const COMPOSITION_CASCADE_EVENTS: readonly Cascade['event'][] = ['start', 'end'];
 
 function keyframeSubjectFocus(subject: CompositionKeyframeSubject): CompositionWorkspaceFocus {
 	if (subject.kind === 'surface') return { target: 'surface' };
@@ -562,13 +590,13 @@ export async function runSetCompositionCascadeAnchorOperation(
 			{ rejected: anchorKey, alternatives: anchorKeys.filter((key) => key !== subjectKey) }
 		);
 	}
-	if (!CASCADE_EVENTS.includes(request.event)) {
+	if (!COMPOSITION_CASCADE_EVENTS.includes(request.event)) {
 		return refuseCompositionOperation(
 			row,
 			revision,
 			'invalid_argument',
 			`"${request.event}" is not an edge of the anchor's entrance.`,
-			{ rejected: request.event, alternatives: CASCADE_EVENTS }
+			{ rejected: request.event, alternatives: COMPOSITION_CASCADE_EVENTS }
 		);
 	}
 	if (!Number.isFinite(request.offsetMs)) {

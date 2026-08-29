@@ -163,6 +163,11 @@ const CLIP_EDIT_MODES: Record<CompositionVideoClipEdit['kind'], VideoClipDragMod
 	slip: 'slip'
 };
 
+/** The edits a clip accepts, read off the drag-mode map rather than restated. */
+export const COMPOSITION_VIDEO_CLIP_EDIT_KINDS = Object.keys(
+	CLIP_EDIT_MODES
+) as readonly CompositionVideoClipEdit['kind'][];
+
 function readCompositionFrameGrid(document: Preset): { frameRate: FrameRate; frameCount: number } {
 	const frameRate = resolveFrameRate(document.state.transport.fps);
 	return {

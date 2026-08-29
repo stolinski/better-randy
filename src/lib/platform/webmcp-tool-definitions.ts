@@ -24,8 +24,12 @@ import { listWebmcpCapabilityToolDefinitions } from './webmcp-capability-tools';
 import { listWebmcpCompositionToolDefinitions } from './webmcp-composition-tools';
 import { listWebmcpContentToolDefinitions } from './webmcp-content-tools';
 import { listWebmcpLayerToolDefinitions } from './webmcp-layer-tools';
+import { listWebmcpMediaToolDefinitions } from './webmcp-media-tools';
+import { listWebmcpMotionToolDefinitions } from './webmcp-motion-tools';
 import { listWebmcpPlacementToolDefinitions } from './webmcp-placement-tools';
+import { listWebmcpPlayheadToolDefinitions } from './webmcp-playhead-tools';
 import { listWebmcpSessionToolDefinitions } from './webmcp-session-tools';
+import { listWebmcpSoundToolDefinitions } from './webmcp-sound-tools';
 import { listWebmcpTransportToolDefinitions } from './webmcp-transport-tools';
 
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
@@ -39,6 +43,10 @@ export function listWebmcpToolDefinitions(): readonly WebmcpToolDefinition[] {
 		...listWebmcpLayerToolDefinitions(),
 		...listWebmcpContentToolDefinitions(),
 		...listWebmcpPlacementToolDefinitions(),
-		...listWebmcpAppearanceToolDefinitions()
+		...listWebmcpAppearanceToolDefinitions(),
+		...listWebmcpMotionToolDefinitions(),
+		...listWebmcpSoundToolDefinitions(),
+		...listWebmcpMediaToolDefinitions(),
+		...listWebmcpPlayheadToolDefinitions()
 	];
 }
