@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
+import { assertOriginCompositionStoreServed } from '$lib/platform/origin-composition-routes.server';
 import { addUserCompositionFileToIndex } from '$lib/platform/user-composition-file-index.server';
 import { writeUserCompositionFileAtomically } from '$lib/platform/user-composition-file-write.server';
 import { PresetIngressSchema } from '$lib/platform/preset-ingress';
@@ -59,6 +60,7 @@ type UserCompositionCardMetadata = Pick<
 >;
 
 export const GET: RequestHandler = async (event) => {
+	assertOriginCompositionStoreServed();
 	await ensureUserCompositionStoreDirectory();
 	const cardView = event.url?.searchParams.get('view') === 'cards';
 
@@ -117,6 +119,7 @@ export const GET: RequestHandler = async (event) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
+	assertOriginCompositionStoreServed();
 	await ensureUserCompositionStoreDirectory();
 
 	let body: unknown;

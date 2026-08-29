@@ -24,6 +24,14 @@ export interface PublicRuntimeDeploymentInput {
 }
 
 /**
+ * The key namespace a browser-scoped Public demo session writes its composition
+ * records under, unless a host configures another one. The `@1` is the record
+ * shape, not the composition schema: a future record envelope is a new identity,
+ * so an older browser's entries are ignored rather than misread.
+ */
+export const DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY = 'gfx-composition-session@1';
+
+/**
  * Every environment input the public runtime reads. `gfx` inputs are parsed and
  * validated by `parsePublicRuntimeConfig`; `adapter` inputs are consumed by
  * `@sveltejs/adapter-node` itself and are listed so a deployment can be checked
@@ -75,6 +83,22 @@ export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentI
 		purpose: 'Server-side Sentry ingestion. Absent, every capture is a no-op.'
 	},
 	{
+		name: 'PUBLIC_GFX_COMPOSITION_STORE',
+		owner: 'gfx',
+		required: false,
+		defaultValue: 'origin',
+		purpose:
+			'Where a visitor\'s compositions live: "browser" for the public demo\'s browser-scoped session, "origin" for the development disk-backed store. A public host must set "browser".'
+	},
+	{
+		name: 'PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY',
+		owner: 'gfx',
+		required: false,
+		defaultValue: DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY,
+		purpose:
+			'Key namespace every browser-scoped composition record is written under. Changing it starts every visitor on an empty session instead of misreading records of an older shape.'
+	},
+	{
 		name: 'ORIGIN',
 		owner: 'adapter',
 		required: true,
@@ -122,6 +146,36 @@ export interface PublicRuntimeConfig {
 	/** `null` means "fall back to the checkout commit". */
 	release: string | null;
 }
+
+/**
+ * Where a visitor's compositions live. `browser` is the Public demo session
+ * ADR-0053 ratified — browser-scoped, no account, never sent to the origin.
+ * `origin` is the disk-backed development store, which is why it is the default
+ * a bare local checkout gets and never what a public host is configured with.
+ */
+export type CompositionSessionStoreKind = 'browser' | 'origin';
+
+export interface CompositionSessionStoreConfig {
+	kind: CompositionSessionStoreKind;
+	/** Key namespace every browser-scoped composition record is written under. */
+	storageIdentity: string;
+}
+
+/**
+ * What one browser-scoped session may hold. Browsers charge roughly 5 MiB of
+ * UTF-16 per origin for synchronous local storage and report neither the ceiling
+ * nor the usage, so the session accounts for itself against these instead of
+ * discovering the browser's limit as a thrown write mid-autosave.
+ */
+export interface PublicCompositionSessionStorageLimits {
+	maxStorageBytes: number;
+	maxCompositionBytes: number;
+}
+
+export const PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS: PublicCompositionSessionStorageLimits = {
+	maxStorageBytes: 4 * 1024 * 1024,
+	maxCompositionBytes: 1024 * 1024
+};
 
 export interface PublicExportRuntimeLimits {
 	maxDurationSeconds: number;
@@ -258,6 +312,48 @@ export function parsePublicRuntimeConfig(
 		maxConcurrentExportSessions,
 		release: readNonEmptyString(env, 'GFX_RELEASE', null)
 	};
+}
+
+/** Characters a storage identity may use, so a key never needs escaping. */
+const COMPOSITION_SESSION_STORAGE_IDENTITY_PATTERN = /^[a-z0-9][a-z0-9._@-]*$/;
+
+const COMPOSITION_SESSION_STORE_KINDS: readonly CompositionSessionStoreKind[] = [
+	'browser',
+	'origin'
+];
+
+function isCompositionSessionStoreKind(value: string): value is CompositionSessionStoreKind {
+	return COMPOSITION_SESSION_STORE_KINDS.some((kind) => kind === value);
+}
+
+/**
+ * Read which composition store this build serves and the identity a
+ * browser-scoped one writes under. Both sides read it: the client to pick a
+ * store, the origin composition routes to refuse when the visitor's work is
+ * meant to stay in their browser.
+ */
+export function parseCompositionSessionStoreConfig(
+	env: Readonly<Record<string, string | undefined>>
+): CompositionSessionStoreConfig {
+	const kind = readNonEmptyString(env, 'PUBLIC_GFX_COMPOSITION_STORE', 'origin');
+	if (!isCompositionSessionStoreKind(kind)) {
+		throw new PublicRuntimeConfigError(
+			`PUBLIC_GFX_COMPOSITION_STORE must be one of ${COMPOSITION_SESSION_STORE_KINDS.join(', ')}; received "${kind}".`
+		);
+	}
+
+	const storageIdentity = readNonEmptyString(
+		env,
+		'PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY',
+		DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY
+	);
+	if (!COMPOSITION_SESSION_STORAGE_IDENTITY_PATTERN.test(storageIdentity)) {
+		throw new PublicRuntimeConfigError(
+			`PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY must match ${COMPOSITION_SESSION_STORAGE_IDENTITY_PATTERN.source}; received "${storageIdentity}".`
+		);
+	}
+
+	return { kind, storageIdentity };
 }
 
 /** Temp-disk bytes the ratified limits can occupy at once across live sessions. */

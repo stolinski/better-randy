@@ -4,6 +4,8 @@ GUI authors and agents read and write the same standalone `gfx@1` Preset through
 
 The local server is always `http://localhost:7263`. All examples below operate on the same User compositions listed on the GFX home screen.
 
+**This whole surface is development-only.** `PUBLIC_GFX_COMPOSITION_STORE` picks which store a build serves: `origin` is the disk-backed store documented here, and `browser` is the Public demo session, which keeps every composition in the visitor's own browser and never sends one to the origin ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). A build configured for `browser` answers 404 to every request below, so none of these commands is a way to read or write a visitor's work on the public origin. In the browser-scoped store the same compositions are reached through the GUI and through the WebMCP `session` and `composition` families, which act on exactly the store the GUI does.
+
 ## Agent store access
 
 List User composition metadata:

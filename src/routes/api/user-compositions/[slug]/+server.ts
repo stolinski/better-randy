@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
+import { assertOriginCompositionStoreServed } from '$lib/platform/origin-composition-routes.server';
 import {
 	addUserCompositionFileToIndex,
 	removeUserCompositionFileFromIndex
@@ -115,12 +116,14 @@ async function loadUserCompositionWirePreset(slug: string): Promise<unknown> {
 }
 
 export const GET: RequestHandler = async ({ params }) => {
+	assertOriginCompositionStoreServed();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 	return json(await loadUserCompositionWirePreset(slug));
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
+	assertOriginCompositionStoreServed();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 
@@ -174,6 +177,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params }) => {
+	assertOriginCompositionStoreServed();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 

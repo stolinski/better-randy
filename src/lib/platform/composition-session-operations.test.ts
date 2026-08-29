@@ -28,7 +28,8 @@ vi.mock('./user-composition-store', () => ({
 		loadUserComposition: vi.fn(),
 		forkUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
-		deleteUserComposition: vi.fn()
+		deleteUserComposition: vi.fn(),
+		inspectStorage: vi.fn()
 	}
 }));
 
@@ -83,6 +84,11 @@ beforeEach(() => {
 		sessionEntry('second-piece', 'Second piece', blankPreset)
 	]);
 	sessionStore.deleteUserComposition.mockResolvedValue(undefined);
+	sessionStore.inspectStorage.mockResolvedValue({
+		available: true,
+		usedBytes: null,
+		quotaBytes: null
+	});
 
 	transitionState.capturing = false;
 	applyPreset(blankPreset);
@@ -114,6 +120,22 @@ describe('session inspection', () => {
 		const receipt = expectInspected(await runInspectCompositionSessionOperation());
 
 		expect(receipt.storage).toEqual({ available: true, usedBytes: null, quotaBytes: null });
+	});
+
+	it('reports the room a store that measures itself has left', async () => {
+		sessionStore.inspectStorage.mockResolvedValue({
+			available: true,
+			usedBytes: 24_576,
+			quotaBytes: 4 * 1024 * 1024
+		});
+
+		const receipt = expectInspected(await runInspectCompositionSessionOperation());
+
+		expect(receipt.storage).toEqual({
+			available: true,
+			usedBytes: 24_576,
+			quotaBytes: 4 * 1024 * 1024
+		});
 	});
 
 	it('reports a store that did not answer', async () => {

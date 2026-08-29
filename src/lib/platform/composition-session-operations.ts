@@ -19,6 +19,7 @@ import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
 	readOpenCompositionSlug,
 	refuseCompositionOperation,
+	refuseCompositionSessionStoreFailure,
 	refuseStaleCompositionRevision,
 	requireCompositionOperationRow,
 	type CompositionOperationFailure
@@ -30,7 +31,7 @@ import { userCompositionStore } from './user-composition-store';
 
 import type { CompositionLifecycleReceipt } from './composition-lifecycle-operations';
 import type { SurfaceType } from './engine-schema';
-import type { UserCompositionMeta } from './user-composition-store';
+import type { CompositionSessionStorage, UserCompositionMeta } from './user-composition-store';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** How many session entries one inspection names before it reports only the total. */
@@ -50,17 +51,6 @@ export interface CompositionSessionEntry {
 	savedAt: string;
 	durationSeconds: number;
 	surfaceType: SurfaceType;
-}
-
-/**
- * What the session store can say about its own capacity. The development store
- * is disk-backed on the local origin and reports no ceiling; the browser-scoped
- * store the public demo runs on is what makes these numbers real.
- */
-export interface CompositionSessionStorage {
-	available: boolean;
-	usedBytes: number | null;
-	quotaBytes: number | null;
 }
 
 export interface CompositionSessionInspectionReceipt {
@@ -98,20 +88,6 @@ function readOpenSessionCompositionSlug(): string | null {
 	return compositionMeta.isUserComposition ? readOpenCompositionSlug() : null;
 }
 
-function refuseUnavailableSessionStore(
-	row: WebmcpOperationRow,
-	cause: unknown
-): CompositionOperationFailure {
-	return refuseCompositionOperation(
-		row,
-		compositionEditHistory.revision,
-		'storage_unavailable',
-		`This browser session could not reach its composition store: ${
-			cause instanceof Error ? cause.message : 'The session store did not respond.'
-		}`
-	);
-}
-
 function refuseRemovingOpenComposition(
 	row: WebmcpOperationRow,
 	slug: string
@@ -134,10 +110,12 @@ export async function runInspectCompositionSessionOperation(): Promise<Compositi
 	const openSlug = readOpenSessionCompositionSlug();
 
 	let stored: UserCompositionMeta[];
+	let storage: CompositionSessionStorage;
 	try {
 		stored = await userCompositionStore.listUserCompositions();
+		storage = await userCompositionStore.inspectStorage();
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	const entries = stored.map<CompositionSessionEntry>((entry) => ({
@@ -156,7 +134,7 @@ export async function runInspectCompositionSessionOperation(): Promise<Compositi
 		entries: entries.slice(0, COMPOSITION_SESSION_ENTRY_LIMIT),
 		total: entries.length,
 		truncated: entries.length > COMPOSITION_SESSION_ENTRY_LIMIT,
-		storage: { available: true, usedBytes: null, quotaBytes: null }
+		storage
 	};
 }
 
@@ -176,7 +154,7 @@ export async function runDeleteSessionCompositionOperation(
 	try {
 		storedSlugs = (await userCompositionStore.listUserCompositions()).map((entry) => entry.slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	if (!storedSlugs.includes(request.slug)) {
@@ -192,7 +170,7 @@ export async function runDeleteSessionCompositionOperation(
 	try {
 		await userCompositionStore.deleteUserComposition(request.slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	return {
@@ -236,14 +214,14 @@ export async function runClearCompositionSessionOperation(
 	try {
 		storedSlugs = (await userCompositionStore.listUserCompositions()).map((entry) => entry.slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	for (const slug of storedSlugs) {
 		try {
 			await userCompositionStore.deleteUserComposition(slug);
 		} catch (cause) {
-			return refuseUnavailableSessionStore(row, cause);
+			return refuseCompositionSessionStoreFailure(row, cause);
 		}
 	}
 

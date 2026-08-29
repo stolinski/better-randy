@@ -16,6 +16,7 @@
  */
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
+import { isCompositionSessionStorageError } from './browser-user-composition-store';
 import {
 	boundCompositionFindings,
 	type CompositionValidationFinding
@@ -106,6 +107,36 @@ export function refuseCompositionOperation(
 		movedSince: details.movedSince ?? [],
 		revision
 	};
+}
+
+/**
+ * The refusal for a session store that would not do what an operation asked.
+ *
+ * A store that measures itself says why it refused — the session is full, or one
+ * composition is too large — and that code is what the caller needs to correct.
+ * Anything else is a store that did not answer, which is the same refusal
+ * whichever backend this build is configured with.
+ */
+export function refuseCompositionSessionStoreFailure(
+	row: WebmcpOperationRow,
+	cause: unknown
+): CompositionOperationFailure {
+	if (isCompositionSessionStorageError(cause)) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			cause.code,
+			cause.message
+		);
+	}
+	return refuseCompositionOperation(
+		row,
+		compositionEditHistory.revision,
+		'storage_unavailable',
+		`This browser session could not reach its composition store: ${
+			cause instanceof Error ? cause.message : 'the store did not respond'
+		}.`
+	);
 }
 
 /**

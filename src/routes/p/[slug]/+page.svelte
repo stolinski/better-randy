@@ -8,6 +8,7 @@
 	import { compositionAutosaveInvalidation } from '../../../lib/platform/composition-autosave-invalidation.svelte.ts';
 	import { compositionMeta } from '$lib/platform/composition-meta.svelte';
 	import { engineState, packState, transitionState } from '$lib/platform/engine-state.svelte';
+	import type { Preset } from '$lib/platform/engine-schema';
 	import { getPack } from '$lib/platform/packs/registry';
 	import { collectPresetRendererRequirements } from '$lib/platform/pipelines/preset-renderer-requirements';
 	import { pipelineRendererRuntime } from '$lib/platform/pipelines/runtime-context.svelte';
@@ -26,6 +27,13 @@
 
 	const routeKey = $derived(JSON.stringify([data.slug, data.source]));
 
+	// What this route resolved to. The corpus half arrives from the server load;
+	// the session half is read here, out of the store this build is configured
+	// with, because a browser-scoped session is one the origin cannot see and must
+	// never be sent (ADR-0053).
+	type CompositionRouteStatus = 'loading' | 'ready' | 'missing' | 'error';
+	let resolutionStatus = $state<CompositionRouteStatus>('loading');
+
 	// Content key for the poster of whatever composition is loaded — handed to the
 	// Workspace, which captures the settled frame under it once (see ./posters).
 	let posterKey = $state<string | null>(null);
@@ -37,7 +45,6 @@
 	let loadSnapshot = '';
 	let appliedRouteKey = $state<string | null>(null);
 	let rendererLoadError = $state<string | null>(null);
-	let rendererLoading = $state(true);
 	let routeLoadGeneration = 0;
 	let revertGeneration = 0;
 
@@ -61,10 +68,12 @@
 		const generation = ++routeLoadGeneration;
 		const nextData = data;
 		const nextRouteKey = JSON.stringify([nextData.slug, nextData.source]);
+		const isCurrentLoad = (): boolean =>
+			isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey);
 
 		appliedRouteKey = null;
 		rendererLoadError = null;
-		rendererLoading = nextData.status === 'ready';
+		resolutionStatus = 'loading';
 		posterKey = null;
 		loadSnapshot = '';
 		activeIsUserComposition = false;
@@ -75,36 +84,50 @@
 		compositionMeta.forkedFrom = null;
 		compositionMeta.persistenceError = null;
 
-		if (nextData.status !== 'ready') return;
+		// A session composition shadows the Starter at the same slug, which is what
+		// makes an edited Starter open as the fork rather than the pristine one.
+		// `?source=builtin` is how the pristine one is reachable again.
+		let sessionComposition: Preset | null = null;
+		if (nextData.source !== 'builtin') {
+			try {
+				sessionComposition = await userCompositionStore.loadUserComposition(nextData.slug);
+			} catch (cause) {
+				if (!isCurrentLoad()) return;
+				console.error('Failed to load the session composition.', { slug: nextData.slug, cause });
+				if (!nextData.corpusPreset) {
+					resolutionStatus = 'error';
+					return;
+				}
+			}
+			if (!isCurrentLoad()) return;
+		}
+
+		const preset = sessionComposition ?? nextData.corpusPreset;
+		if (!preset) {
+			resolutionStatus = 'missing';
+			return;
+		}
 
 		try {
-			const requirements = collectPresetRendererRequirements(nextData.preset, {
-				pack: getPack(nextData.preset.pack),
+			const requirements = collectPresetRendererRequirements(preset, {
+				pack: getPack(preset.pack),
 				resolvePack: getPack,
 				resolvePreset: getPresetBySlug
 			});
 			const rendererBundle = await pipelineRendererRuntime.resolve(requirements);
-			if (
-				!isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey)
-			) {
-				return;
-			}
+			if (!isCurrentLoad()) return;
 			pipelineRendererRuntime.activate(rendererBundle);
-			applyPreset(nextData.preset);
-			rendererLoading = false;
-			posterKey = posterKeyForPreset(nextData.preset);
-			activeIsUserComposition = nextData.provenance === 'user';
+			applyPreset(preset);
+			resolutionStatus = 'ready';
+			posterKey = posterKeyForPreset(preset);
+			activeIsUserComposition = sessionComposition !== null;
 			loadSnapshot = snapshotState();
 			compositionMeta.isUserComposition = activeIsUserComposition;
 			compositionMeta.userCompositionSlug = nextData.slug;
 			appliedRouteKey = nextRouteKey;
 		} catch (cause) {
-			if (
-				!isCurrentPresetRouteRendererLoad(generation, routeLoadGeneration, nextRouteKey, routeKey)
-			) {
-				return;
-			}
-			rendererLoading = false;
+			if (!isCurrentLoad()) return;
+			resolutionStatus = 'error';
 			console.error('Failed to load composition renderers.', {
 				slug: nextData.slug,
 				cause
@@ -121,7 +144,7 @@
 	$effect(() => {
 		const currentRouteKey = routeKey;
 		if (
-			data.status !== 'ready' ||
+			resolutionStatus !== 'ready' ||
 			data.source === 'builtin' ||
 			transitionState.capturing ||
 			appliedRouteKey !== currentRouteKey
@@ -197,7 +220,7 @@
 
 	async function handleRevert(): Promise<void> {
 		const currentRouteKey = appliedRouteKey;
-		if (data.status !== 'ready' || !currentRouteKey || routeKey !== currentRouteKey) return;
+		if (resolutionStatus !== 'ready' || !currentRouteKey || routeKey !== currentRouteKey) return;
 
 		const generation = ++revertGeneration;
 		const currentRouteGeneration = routeLoadGeneration;
@@ -261,19 +284,19 @@
 		<p>{rendererLoadError}</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else if data.status === 'error'}
+{:else if resolutionStatus === 'error'}
 	<main class="missing stack">
 		<h1>Couldn't load composition</h1>
 		<p>The composition store didn't respond. Reload to retry.</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else if data.status === 'missing'}
+{:else if resolutionStatus === 'missing'}
 	<main class="missing stack">
 		<h1>Preset not found</h1>
 		<p>No preset named "{data.slug}".</p>
 		<a href={resolve('/')}>All presets</a>
 	</main>
-{:else if data.status === 'ready' && rendererLoading}
+{:else if resolutionStatus === 'loading'}
 	<!-- Renderer bundles resolve asynchronously, so this stands in for the editor
 	     for a few frames after a card is clicked. It carries the chrome bar the
 	     Workspace is about to draw, holding the mark on its pixel instead of

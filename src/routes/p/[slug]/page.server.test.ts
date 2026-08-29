@@ -1,148 +1,42 @@
 import assert from 'node:assert/strict';
 
-import { afterEach, beforeEach, describe, it, vi } from 'vitest';
+import { describe, it } from 'vitest';
 
-import type { Preset } from '$lib/platform/engine-schema';
-import { parsePresetIngress } from '$lib/platform/preset-ingress';
-import { getPresetBySlug } from '$lib/platform/preset-catalog';
-import * as userCompositionFileIndex from '$lib/platform/user-composition-file-index.server';
-import { userCompositionStore } from '$lib/platform/user-composition-store';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { load } from './+page.server';
 
-const blankPreset = parsePresetIngress(blankPresetJson);
-const userPreset: Preset = parsePresetIngress({ ...blankPresetJson, name: 'User blank' });
-
-function createLoadEvent(
-	slug: string,
-	source: string | null = null,
-	requestFetch = vi.fn<typeof fetch>()
-): Parameters<typeof load>[0] {
+function createLoadEvent(slug: string, source: string | null = null): Parameters<typeof load>[0] {
 	const url = new URL(`http://localhost/p/${slug}`);
 	if (source !== null) url.searchParams.set('source', source);
 
-	return {
-		params: { slug },
-		url,
-		fetch: requestFetch
-	} as unknown as Parameters<typeof load>[0];
+	return { params: { slug }, url } as unknown as Parameters<typeof load>[0];
 }
 
-beforeEach(() => {
-	vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValue(true);
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
-});
-
 describe('/p/[slug] server load', () => {
-	it('returns a User composition without consulting the corpus', async () => {
-		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
-		const requestFetch = vi.fn<typeof fetch>();
-		const loadUserComposition = vi
-			.spyOn(userCompositionStore, 'loadUserComposition')
-			.mockImplementationOnce(async (_slug, suppliedFetch) => {
-				assert.equal(suppliedFetch, requestFetch);
-				return userPreset;
-			});
-
-		const result = await load(createLoadEvent('user-only', null, requestFetch));
-
-		assert.deepEqual(result, {
-			status: 'ready',
-			slug: 'user-only',
-			source: null,
-			provenance: 'user',
-			preset: userPreset
-		});
-		assert.equal(loadUserComposition.mock.calls.length, 1);
-	});
-
-	it('falls back to the corpus only when the User store returns null', async () => {
-		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
-		vi.spyOn(userCompositionStore, 'loadUserComposition').mockResolvedValueOnce(null);
-
+	it('resolves the corpus Starter this build ships', async () => {
 		const result = await load(createLoadEvent('blank'));
 
-		assert.deepEqual(result, {
-			status: 'ready',
-			slug: 'blank',
-			source: null,
-			provenance: 'builtin',
-			preset: blankPreset
-		});
+		assert.equal(result.slug, 'blank');
+		assert.equal(result.source, null);
+		assert.equal(result.corpusPreset?.name, blankPresetJson.name);
 	});
 
-	it('bypasses the User store for source=builtin', async () => {
-		const loadUserComposition = vi.spyOn(userCompositionStore, 'loadUserComposition');
-
+	it('carries source=builtin so the page skips the session composition shadowing it', async () => {
 		const result = await load(createLoadEvent('blank', 'builtin'));
 
-		assert.deepEqual(result, {
-			status: 'ready',
-			slug: 'blank',
-			source: 'builtin',
-			provenance: 'builtin',
-			preset: getPresetBySlug('blank')
-		});
-		assert.equal(loadUserComposition.mock.calls.length, 0);
+		assert.equal(result.source, 'builtin');
 	});
 
-	it('returns missing when neither User nor corpus composition exists', async () => {
-		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(true);
-		vi.spyOn(userCompositionStore, 'loadUserComposition').mockResolvedValueOnce(null);
+	it('reads any other source value as absent rather than passing it through', async () => {
+		const result = await load(createLoadEvent('blank', 'user'));
 
-		const result = await load(createLoadEvent('not-a-real-preset'));
-
-		assert.deepEqual(result, {
-			status: 'missing',
-			slug: 'not-a-real-preset',
-			source: null,
-			provenance: null,
-			preset: null
-		});
+		assert.equal(result.source, null);
 	});
 
-	it('logs and falls back to a built-in Preset when its optional User override fails', async () => {
-		vi.spyOn(userCompositionFileIndex, 'userCompositionFileExists').mockResolvedValueOnce(null);
-		const cause = new Error('Store unavailable');
-		vi.spyOn(userCompositionStore, 'loadUserComposition').mockRejectedValueOnce(cause);
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	it('reports no corpus Preset for a slug only a session can hold', async () => {
+		const result = await load(createLoadEvent('untitled-2'));
 
-		const result = await load(createLoadEvent('blank'));
-
-		assert.deepEqual(result, {
-			status: 'ready',
-			slug: 'blank',
-			source: null,
-			provenance: 'builtin',
-			preset: blankPreset
-		});
-		assert.deepEqual(consoleError.mock.calls[0], [
-			'Failed to load User composition; using built-in preset.',
-			{ slug: 'blank', cause }
-		]);
-	});
-
-	it('returns an error when a User-only composition fails to load', async () => {
-		const cause = new Error('Store unavailable');
-		vi.spyOn(userCompositionStore, 'loadUserComposition').mockRejectedValueOnce(cause);
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-
-		const result = await load(createLoadEvent('user-only'));
-
-		assert.deepEqual(result, {
-			status: 'error',
-			slug: 'user-only',
-			source: null,
-			provenance: null,
-			preset: null
-		});
-		assert.deepEqual(consoleError.mock.calls[0], [
-			'Failed to load composition route.',
-			{ slug: 'user-only', source: null, cause }
-		]);
+		assert.deepEqual(result, { slug: 'untitled-2', source: null, corpusPreset: null });
 	});
 });

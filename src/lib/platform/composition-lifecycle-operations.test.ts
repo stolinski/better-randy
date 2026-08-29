@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { ACCEPTED_COMPOSITION_SCHEMA_IDS } from '../utils/legacy-supers-compatibility';
+import { CompositionSessionStorageError } from './browser-user-composition-store';
 import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
@@ -34,7 +35,8 @@ vi.mock('./user-composition-store', () => ({
 		loadUserComposition: vi.fn(),
 		forkUserComposition: vi.fn(),
 		saveUserComposition: vi.fn(),
-		deleteUserComposition: vi.fn()
+		deleteUserComposition: vi.fn(),
+		inspectStorage: vi.fn()
 	}
 }));
 
@@ -151,12 +153,24 @@ describe('creating a composition', () => {
 	});
 
 	it('reports a session store that did not answer without opening anything', async () => {
-		sessionStore.forkUserComposition.mockRejectedValue(new Error('Quota exceeded'));
+		sessionStore.forkUserComposition.mockRejectedValue(new Error('The store went away'));
 
 		const failure = expectFailed(await runCreateBlankCompositionOperation());
 
 		expect(failure.code).toBe('storage_unavailable');
-		expect(failure.message).toContain('Quota exceeded');
+		expect(failure.message).toContain('The store went away');
+		expect(compositionMeta.userCompositionSlug).toBeNull();
+	});
+
+	it('passes a full session through as the quota refusal it is, not a missing store', async () => {
+		sessionStore.forkUserComposition.mockRejectedValue(
+			new CompositionSessionStorageError('quota_exceeded', 'This browser session is full.')
+		);
+
+		const failure = expectFailed(await runCreateBlankCompositionOperation());
+
+		expect(failure.code).toBe('quota_exceeded');
+		expect(failure.message).toBe('This browser session is full.');
 		expect(compositionMeta.userCompositionSlug).toBeNull();
 	});
 });

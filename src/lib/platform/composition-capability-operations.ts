@@ -15,7 +15,10 @@
  * contract declares. A member offered here is a member an operation accepts,
  * because there is only one list.
  */
-import { PUBLIC_EXPORT_RUNTIME_LIMITS } from './public-runtime-contract';
+import {
+	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
+	PUBLIC_EXPORT_RUNTIME_LIMITS
+} from './public-runtime-contract';
 import { readWebmcpDerivedEnums } from './webmcp-derived-tool-schemas';
 import { requireCompositionOperationRow } from './composition-operation-preflight';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
@@ -66,6 +69,11 @@ export interface CapabilityLimitsReceipt {
 		maxConcurrent: number;
 		idleTimeoutMs: number;
 		maxLifetimeMs: number;
+	};
+	/** What the browser-scoped session may hold before a save is refused. */
+	sessionStorage: {
+		maxStorageBytes: number;
+		maxCompositionBytes: number;
 	};
 	/** What a tool result may return before it fails rather than truncating. */
 	result: {
@@ -121,6 +129,10 @@ export function runInspectCapabilityLimitsOperation(): CapabilityLimitsReceipt {
 			maxConcurrent: PUBLIC_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
 			idleTimeoutMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
 			maxLifetimeMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionMaxLifetimeMs
+		},
+		sessionStorage: {
+			maxStorageBytes: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxStorageBytes,
+			maxCompositionBytes: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes
 		},
 		result: {
 			characterBudget: WEBMCP_RESULT_CHARACTER_BUDGET,

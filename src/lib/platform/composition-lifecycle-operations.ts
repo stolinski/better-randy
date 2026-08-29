@@ -23,6 +23,7 @@ import {
 	COMPOSITION_RECEIPT_FINDING_LIMIT,
 	readOpenCompositionSlug,
 	refuseCompositionOperation,
+	refuseCompositionSessionStoreFailure,
 	refuseDuringCompositionTransitionCapture,
 	refuseStaleCompositionRevision,
 	refuseUnlessCompositionEditable,
@@ -121,18 +122,6 @@ function describeOperationFailureCause(cause: unknown, fallback: string): string
 	return cause instanceof Error ? cause.message : fallback;
 }
 
-function refuseUnavailableSessionStore(
-	row: WebmcpOperationRow,
-	cause: unknown
-): CompositionOperationFailure {
-	return refuseCompositionOperation(
-		row,
-		compositionEditHistory.revision,
-		'storage_unavailable',
-		`This browser session could not reach its composition store: ${describeOperationFailureCause(cause, 'the store did not respond')}.`
-	);
-}
-
 /**
  * Load the Pipeline renderers a composition needs before anything commits to
  * it. A document this browser cannot draw never enters the session and never
@@ -201,7 +190,7 @@ async function forkCompositionIntoSession(
 	try {
 		sessionSlugs = (await userCompositionStore.listUserCompositions()).map((entry) => entry.slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	const slug = createCompositionSessionSlug(preset.name, reservedCompositionSlugs(sessionSlugs));
@@ -209,7 +198,7 @@ async function forkCompositionIntoSession(
 	try {
 		await userCompositionStore.forkUserComposition(slug, preset, forkedFrom);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	return openCompositionDocument(row, slug, preset, forkedFrom, true);
@@ -273,7 +262,7 @@ export async function runOpenCompositionOperation(
 	try {
 		sessionComposition = await userCompositionStore.loadUserComposition(request.slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	if (sessionComposition) {
@@ -393,7 +382,7 @@ export async function runRevertCompositionToStarterOperation(
 	try {
 		await userCompositionStore.deleteUserComposition(slug);
 	} catch (cause) {
-		return refuseUnavailableSessionStore(row, cause);
+		return refuseCompositionSessionStoreFailure(row, cause);
 	}
 
 	return openCompositionDocument(row, starterSlug, starter, null, false);

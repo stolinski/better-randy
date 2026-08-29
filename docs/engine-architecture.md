@@ -38,7 +38,9 @@ src/lib/
     transition-snapshot-controller.ts # endpoint state-swap bracket + typed transition Effect resources
     seekable-simulation-runtime.ts # fixed-step seeded reset/replay state for authored simulation Effects
     timeline-entity-identity.ts  # typed runtime track/selection/keyframe/sound identities
-    user-composition-store.ts    # typed client transport for User composition persistence/interchange
+    user-composition-store.ts    # User composition store contract + the configured backend choice
+    browser-user-composition-store.ts # browser-scoped Public demo session store + quota accounting
+    origin-composition-routes.server.ts # 404s the disk-backed composition routes off a public host
     Composition.svelte           # canvas root; mounts Surface/Diagram/Chart/Overlay/Captions
     SurfaceMount.svelte          # mounts the active SurfaceRenderer's CanvasSource + Pack vars
     OverlayMount.svelte          # iterates engineState.overlays, mounts each + Pack vars

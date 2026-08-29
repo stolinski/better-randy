@@ -4,11 +4,11 @@
 	import { onMount } from 'svelte';
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
-	import type { Preset, SurfaceType } from '$lib/platform/engine-schema';
+	import type { Preset } from '$lib/platform/engine-schema';
 	import type { PresetVerificationIssue } from '$lib/platform/preset-verification';
+	import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
-	import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
 	import PosterCard from './PosterCard.svelte';
 	import { SURFACE_LABELS } from './surface-labels';
 
@@ -16,15 +16,11 @@
 
 	let { data }: PageProps = $props();
 	type HomepagePresetCard = PageProps['data']['presets'][number];
-	interface UserCompositionCardMeta {
-		slug: string;
-		name: string;
-		forkedFrom: string | null;
-		savedAt: string;
-		posterKey: string | null;
-		durationSeconds: number;
-		surfaceType: SurfaceType;
-	}
+	/** The fields a session composition's card renders; the store types the rest. */
+	type UserCompositionCardMeta = Pick<
+		UserCompositionMeta,
+		'slug' | 'name' | 'forkedFrom' | 'savedAt' | 'posterKey' | 'durationSeconds' | 'surfaceType'
+	>;
 
 	// Posters that actually exist (server load reads the store) — cards get a
 	// thumbKey only for these, so nothing probes a not-yet-captured poster.
@@ -89,51 +85,14 @@
 	}
 	let importIssues = $state.raw<ImportIssue[]>([]);
 
-	function isRecord(value: unknown): value is Record<string, unknown> {
-		return typeof value === 'object' && value !== null && !Array.isArray(value);
-	}
-
-	function isSurfaceType(value: unknown): value is SurfaceType {
-		return typeof value === 'string' && Object.hasOwn(SURFACE_LABELS, value);
-	}
-
-	function parseUserCompositionCards(value: unknown): UserCompositionCardMeta[] {
-		if (!Array.isArray(value)) throw new TypeError('User composition list must be an array.');
-		return value.flatMap((entry) => {
-			// Each card links to `/p/<slug>`, so a slug outside the store's alphabet
-			// is not a card — it is an unresolvable route parameter.
-			if (
-				!isRecord(entry) ||
-				typeof entry.slug !== 'string' ||
-				!COMPOSITION_SESSION_SLUG_PATTERN.test(entry.slug) ||
-				typeof entry.name !== 'string' ||
-				!(entry.forkedFrom === null || typeof entry.forkedFrom === 'string') ||
-				typeof entry.savedAt !== 'string' ||
-				!(entry.posterKey === null || typeof entry.posterKey === 'string') ||
-				typeof entry.durationSeconds !== 'number' ||
-				!isSurfaceType(entry.surfaceType)
-			) {
-				return [];
-			}
-			return [
-				{
-					slug: entry.slug,
-					name: entry.name,
-					forkedFrom: entry.forkedFrom,
-					savedAt: entry.savedAt,
-					posterKey: entry.posterKey,
-					durationSeconds: entry.durationSeconds,
-					surfaceType: entry.surfaceType
-				}
-			];
-		});
-	}
-
+	// The library reads the same store the editor and every WebMCP operation
+	// write, so a composition an agent just created is on this page after a
+	// reload — whether that store is this origin's disk or the visitor's own
+	// browser (ADR-0053).
 	onMount(() => {
-		fetch('/api/user-compositions?view=cards')
-			.then(async (response) => {
-				if (!response.ok) throw new Error(`Failed to list User compositions: ${response.status}`);
-				userCompositions = parseUserCompositionCards(await response.json());
+		import('$lib/platform/user-composition-store')
+			.then(async ({ userCompositionStore }) => {
+				userCompositions = await userCompositionStore.listUserCompositions();
 			})
 			.catch(() => {
 				userCompositions = [];

@@ -7,7 +7,10 @@ import {
 	exportSessionRequestTelemetry
 } from '$lib/platform/export-session.server';
 import {
+	DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY,
+	parseCompositionSessionStoreConfig,
 	parsePublicRuntimeConfig,
+	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS,
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	PUBLIC_EXPORT_TELEMETRY_ATTRIBUTE_KEYS,
 	PUBLIC_RUNTIME_DEPLOYMENT_INPUTS,
@@ -77,7 +80,9 @@ describe('public runtime deployment inputs', () => {
 			'GFX_EXPORT_TEMPORARY_DIRECTORY',
 			'GFX_EXPORT_SESSION_IDLE_TIMEOUT_MS',
 			'GFX_EXPORT_MAX_CONCURRENT_SESSIONS',
-			'GFX_RELEASE'
+			'GFX_RELEASE',
+			'PUBLIC_GFX_COMPOSITION_STORE',
+			'PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY'
 		]) {
 			assert.ok(inventory.has(name), `${name} is parsed but missing from the input inventory`);
 		}
@@ -86,6 +91,58 @@ describe('public runtime deployment inputs', () => {
 			new Set(PUBLIC_RUNTIME_DEPLOYMENT_INPUTS.map((input) => input.name)).size,
 			'deployment input names must be unique'
 		);
+	});
+});
+
+describe('composition session store configuration', () => {
+	it('serves the disk-backed development store until a host configures otherwise', () => {
+		assert.deepEqual(parseCompositionSessionStoreConfig({}), {
+			kind: 'origin',
+			storageIdentity: DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY
+		});
+	});
+
+	it('reads the browser-scoped store a public host configures', () => {
+		assert.deepEqual(
+			parseCompositionSessionStoreConfig({
+				PUBLIC_GFX_COMPOSITION_STORE: 'browser',
+				PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY: 'gfx-demo@2'
+			}),
+			{ kind: 'browser', storageIdentity: 'gfx-demo@2' }
+		);
+	});
+
+	it('fails fast on a store it does not serve, naming the ones it does', () => {
+		assert.throws(
+			() => parseCompositionSessionStoreConfig({ PUBLIC_GFX_COMPOSITION_STORE: 'cloud' }),
+			(error: unknown) =>
+				error instanceof PublicRuntimeConfigError &&
+				error.message.includes('browser') &&
+				error.message.includes('origin')
+		);
+	});
+
+	it('rejects a storage identity that would not survive being a key', () => {
+		assert.throws(
+			() =>
+				parseCompositionSessionStoreConfig({
+					PUBLIC_GFX_COMPOSITION_STORAGE_IDENTITY: 'gfx:session'
+				}),
+			PublicRuntimeConfigError
+		);
+	});
+});
+
+describe('bounded composition session storage limits', () => {
+	it('leaves room for more than one composition in a full session', () => {
+		assert.ok(
+			PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes * 2 <=
+				PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxStorageBytes
+		);
+	});
+
+	it('stays inside the roughly 5 MiB browsers allow one origin for local storage', () => {
+		assert.ok(PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxStorageBytes <= 5 * 1024 * 1024);
 	});
 });
 
