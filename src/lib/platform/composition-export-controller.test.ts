@@ -446,3 +446,109 @@ describe('composition export controller lifecycle', () => {
 		assert.equal(harness.getDisposedManagerCount(), 0);
 	});
 });
+
+// The `delivery` family turns these outcomes into a receipt or a corrective
+// refusal, so every way an export can end has to be distinguishable from the
+// outside — never a bare resolution a caller would read as success.
+describe('composition export outcome', () => {
+	it('reports the delivered plan and the sidecar it also downloaded', async () => {
+		const harness = createHarness({ audio: {} as AudioBuffer, separateWav: true });
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'delivered');
+		if (outcome.status !== 'delivered') return;
+		assert.equal(outcome.plan.videoFilename, 'gfx-overlay.webm');
+		assert.equal(outcome.wavFilename, 'gfx-overlay.wav');
+	});
+
+	it('reports no sidecar when the audio stayed inside the video', async () => {
+		const harness = createHarness({ audio: {} as AudioBuffer });
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status === 'delivered' && outcome.wavFilename, null);
+	});
+
+	it('reports an encoder failure as failed, carrying the message', async () => {
+		const harness = createHarness({
+			exportWebM: async () => {
+				throw new Error('encoder failed');
+			}
+		});
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'failed');
+		assert.equal(outcome.status === 'failed' && outcome.message, 'encoder failed');
+	});
+
+	it('reports an unavailable stage separately from a failed encode', async () => {
+		const harness = createHarness();
+		harness.dependencies.isFrameRendererReady = () => false;
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'unavailable');
+	});
+
+	it('stops an in-flight export from the caller own signal and reports cancelled', async () => {
+		let markStarted = (): void => undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		const harness = createHarness({
+			exportWebM: async ({ signal }) => {
+				markStarted();
+				return new Promise<VideoExportDownload>((_resolve, reject) => {
+					signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+				});
+			}
+		});
+		const caller = new AbortController();
+
+		const pending = harness.controller.export(harness.dependencies, undefined, caller.signal);
+		await started;
+		caller.abort();
+
+		assert.equal((await pending).status, 'cancelled');
+		assert.deepEqual(harness.downloads, []);
+		assert.equal(harness.getFailureCount(), 0);
+	});
+
+	it('never starts an export whose caller has already withdrawn', async () => {
+		const harness = createHarness();
+		const caller = new AbortController();
+		caller.abort();
+
+		const outcome = await harness.controller.export(harness.dependencies, undefined, caller.signal);
+
+		assert.equal(outcome.status, 'cancelled');
+		assert.deepEqual(harness.uiStates, []);
+	});
+
+	it('reports a second concurrent export as busy rather than silently dropping it', async () => {
+		let markStarted = (): void => undefined;
+		const started = new Promise<void>((resolve) => {
+			markStarted = resolve;
+		});
+		let releaseExport = (): void => undefined;
+		const harness = createHarness({
+			exportWebM: async () => {
+				markStarted();
+				await new Promise<void>((resolve) => {
+					releaseExport = resolve;
+				});
+				return { downloadUrl: '/api/export/sessions/test/output' };
+			}
+		});
+
+		const pending = harness.controller.export(harness.dependencies);
+		await started;
+		const second = await harness.controller.export(harness.dependencies);
+		releaseExport();
+		await pending;
+
+		assert.equal(second.status, 'busy');
+	});
+});

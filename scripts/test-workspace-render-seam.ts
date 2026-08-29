@@ -60,8 +60,18 @@ assert.match(
 );
 assert.match(
 	source,
-	/async function performExport\(request\?: SyncExportRequest\): Promise<void> \{\s*await tick\(\);\s*await transitionSnapshotPreparation;/,
+	/async function performExport\([\s\S]*?\): Promise<CompositionExportOutcome> \{\s*await tick\(\);\s*await transitionSnapshotPreparation;/,
 	'export must flush reactive effects before awaiting transition snapshot preparation'
+);
+assert.match(
+	source,
+	/compositionExportHandle\.current = \(\{ request, signal \}\) =>\s*performExport\(request, signal\);/,
+	'the delivery family must export through the same Workspace runner the Export button uses'
+);
+assert.match(
+	source,
+	/compositionVerificationProbe\.current = \{[\s\S]*?captureSettledFrame:[\s\S]*?settleDeterministicCompositionFrame\(/,
+	'the verification family must measure frames through the shared deterministic settle'
 );
 assert.match(
 	exportController,

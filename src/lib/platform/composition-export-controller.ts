@@ -62,6 +62,26 @@ export interface CompositionExportUiState {
 	status: string;
 }
 
+/**
+ * What one export invocation really did. The GUI reads this as status text; the
+ * `delivery` family turns it into a receipt or a corrective refusal, which is
+ * why every way an export can end has its own case rather than collapsing into
+ * "finished". A `delivered` outcome means the encoded file exists and the
+ * browser download for it was started — never that an encode was merely queued
+ * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7).
+ */
+export type CompositionExportOutcome =
+	| {
+			status: 'delivered';
+			plan: CompositionExportPlan;
+			/** The sidecar WAV filename, or null when audio stayed in the video. */
+			wavFilename: string | null;
+	  }
+	| { status: 'busy' }
+	| { status: 'unavailable'; message: string }
+	| { status: 'cancelled' }
+	| { status: 'failed'; message: string };
+
 interface CompositionExportAnimationManager {
 	rebuild(manifest: AnimationManifest): void;
 	progress(fraction: number): void;
@@ -191,16 +211,20 @@ export class CompositionExportController {
 
 	async export(
 		dependencies: CompositionExportControllerDependencies,
-		request?: SyncExportRequest
-	): Promise<void> {
+		request?: SyncExportRequest,
+		externalSignal?: AbortSignal
+	): Promise<CompositionExportOutcome> {
 		if (this.#isDisposed || this.#activeAbortController) {
-			return;
+			return { status: 'busy' };
+		}
+		if (externalSignal?.aborted) {
+			return { status: 'cancelled' };
 		}
 
 		const canvas = dependencies.readCanvas();
 		if (!canvas || !dependencies.isFrameRendererReady()) {
 			this.#publish(dependencies, { status: 'Stage is unavailable.' });
-			return;
+			return { status: 'unavailable', message: 'Stage is unavailable.' };
 		}
 
 		let plan: CompositionExportPlan;
@@ -212,12 +236,17 @@ export class CompositionExportController {
 			});
 			assertNativeCanvasSize(canvas, plan.size);
 		} catch (error) {
-			this.#publish(dependencies, { status: compositionExportErrorMessage(error) });
-			return;
+			const message = compositionExportErrorMessage(error);
+			this.#publish(dependencies, { status: message });
+			return { status: 'unavailable', message };
 		}
 
 		const abortController = new AbortController();
 		const { signal } = abortController;
+		// A caller's own signal cancels the same run the Export button cancels;
+		// there is one export at a time and one way to stop it.
+		const relayExternalAbort = (): void => abortController.abort();
+		externalSignal?.addEventListener('abort', relayExternalAbort, { once: true });
 		this.#activeAbortController = abortController;
 		const animationManager = this.#services.createAnimationManager();
 		const state = dependencies.readState();
@@ -284,17 +313,24 @@ export class CompositionExportController {
 			signal.throwIfAborted();
 			this.#services.downloadVideo(video, plan.videoFilename);
 
+			let wavFilename: string | null = null;
 			if (dependencies.readSeparateWav() && audio) {
 				signal.throwIfAborted();
 				const wavBytes = new Uint8Array(this.#services.encodeWav(audio));
 				this.#services.downloadBlob(new Blob([wavBytes], { type: 'audio/wav' }), plan.wavFilename);
+				wavFilename = plan.wavFilename;
 			}
+			return { status: 'delivered', plan, wavFilename };
 		} catch (error) {
-			if (!isCompositionExportCancellation(error, signal)) {
-				this.#services.reportFailure('Unable to export overlay.', error);
-				this.#publish(dependencies, { status: compositionExportErrorMessage(error) });
+			if (isCompositionExportCancellation(error, signal)) {
+				return { status: 'cancelled' };
 			}
+			const message = compositionExportErrorMessage(error);
+			this.#services.reportFailure('Unable to export overlay.', error);
+			this.#publish(dependencies, { status: message });
+			return { status: 'failed', message };
 		} finally {
+			externalSignal?.removeEventListener('abort', relayExternalAbort);
 			animationManager.dispose();
 			if (this.#activeAbortController === abortController) {
 				this.#activeAbortController = null;

@@ -1428,8 +1428,11 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		id: 'media.add-library-entry',
 		family: 'media',
 		toolName: 'gfx_media_add_library_entry',
+		// ADR-0054 §7 also names a bundled demo-asset source. The engine bundles no
+		// demo video yet, so this summary names only the source that exists today:
+		// a description promising a catalog an agent cannot reach is a defect.
 		summary:
-			'Add a bundled demo media asset, or a file the visitor has already granted this page, to the composition Media library. Never opens a file picker on its own.',
+			'Add a video the visitor has already granted this page to the composition Media library, naming the grant. Never opens a file picker and never reads the disk.',
 		effect: 'write',
 		writes: ['/state/media'],
 		precondition: 'media-permitted',

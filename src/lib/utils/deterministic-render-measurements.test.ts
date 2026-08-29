@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	calculateDeterministicRectUnionArea,
 	deterministicFrameAddressFor,
+	findUnintentionalReadableOverlaps,
 	measureReadableClippedPixels,
 	measureReadableOccludedPixels,
 	measureStableFrameGeometryDelta,
@@ -213,5 +214,42 @@ describe('deterministic region, timing, and stable-frame selection', () => {
 			frameIndex: 30,
 			timestampMicroseconds: 1_001_000
 		});
+	});
+});
+
+describe('unintentional readable overlaps', () => {
+	it('reports a collision once, in stable id order, with how much is buried', () => {
+		const overlaps = findUnintentionalReadableOverlaps([
+			readable('overlay:lower-third:title', { x: 100, y: 100, width: 200, height: 100 }),
+			readable('surface:paper:kicker', { x: 200, y: 100, width: 200, height: 100 })
+		]);
+
+		expect(overlaps).toHaveLength(1);
+		expect(overlaps[0].readableIds).toEqual(['overlay:lower-third:title', 'surface:paper:kicker']);
+		expect(overlaps[0].rect).toEqual({ x: 200, y: 100, width: 100, height: 100 });
+		expect(overlaps[0].coveredFractionOfSmaller).toBeCloseTo(0.5, 10);
+	});
+
+	it('leaves a declared overlap alone whichever side declared it', () => {
+		const declaring: DeterministicReadableRegion = {
+			...readable('overlay:watermark:mark', { x: 0, y: 0, width: 100, height: 100 }),
+			intentionalOverlapIds: ['surface:paper:title']
+		};
+
+		expect(
+			findUnintentionalReadableOverlaps([
+				declaring,
+				readable('surface:paper:title', { x: 50, y: 50, width: 100, height: 100 })
+			])
+		).toEqual([]);
+	});
+
+	it('reports nothing for regions that never touch', () => {
+		expect(
+			findUnintentionalReadableOverlaps([
+				readable('surface:paper:title', { x: 0, y: 0, width: 100, height: 100 }),
+				readable('surface:paper:body:0', { x: 100, y: 0, width: 100, height: 100 })
+			])
+		).toEqual([]);
 	});
 });

@@ -6,6 +6,7 @@
 		renameCompositionMediaAsset,
 		uploadNativeVideoToCompositionMedia
 	} from './composition-media-library';
+	import { compositionMediaGrants } from './composition-media-grants.svelte';
 	import { compositionMediaInspection } from './composition-media-inspection.svelte';
 	import { engineState } from './engine-state.svelte';
 	import { writeMediaLibraryAssetDragTransfer } from './media-library-drag-transfer';
@@ -42,6 +43,10 @@
 			async (uploadFile) => {
 				const descriptor = await uploadUserVideo(uploadFile);
 				uploadCapture.descriptor = descriptor;
+				// The drop IS the consent: recording it here is what later lets an
+				// agent name this file without any tool ever opening a picker
+				// (ADR-0054 §7).
+				compositionMediaGrants.record(uploadFile.name, descriptor);
 				return descriptor;
 			}
 		);

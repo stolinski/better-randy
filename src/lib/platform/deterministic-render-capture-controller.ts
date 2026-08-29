@@ -1,4 +1,4 @@
-import { captureCanvasPng } from '$lib/utils/canvas-capture';
+import { captureCanvasPng, readImageBlobPixels } from '$lib/utils/canvas-capture';
 import type {
 	DeterministicReadableCompositedMask,
 	DeterministicReadableRegion,
@@ -118,19 +118,6 @@ function paintTargetWhite(snapshot: ElementPaintSnapshot): void {
 async function blobSha256(blob: Blob): Promise<string> {
 	const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
 	return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-async function blobImageData(blob: Blob): Promise<ImageData> {
-	const bitmap = await createImageBitmap(blob);
-	try {
-		const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (!context) throw new Error('Could not create a 2D capture analysis context.');
-		context.drawImage(bitmap, 0, 0);
-		return context.getImageData(0, 0, bitmap.width, bitmap.height);
-	} finally {
-		bitmap.close();
-	}
 }
 
 function readableMaskSignal(mask: ImageData, offset: number): number {
@@ -363,9 +350,9 @@ export class DeterministicRenderCaptureController {
 			throw new Error('Readable capture restoration did not reproduce the canonical frame.');
 		}
 		const [canonicalPixels, backgroundPixels, maskPixels] = await Promise.all([
-			blobImageData(canonical),
-			blobImageData(background),
-			blobImageData(mask)
+			readImageBlobPixels(canonical),
+			readImageBlobPixels(background),
+			readImageBlobPixels(mask)
 		]);
 		const analysis = analyzeDeterministicReadableCapture({
 			canonical: canonicalPixels,

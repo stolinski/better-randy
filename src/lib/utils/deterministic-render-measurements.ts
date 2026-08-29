@@ -234,6 +234,55 @@ export function measureReadableOccludedPixels(
 	return affectedPixels;
 }
 
+/** Two readable regions that collide in the frame without either declaring it. */
+export interface DeterministicReadableOverlap {
+	readableIds: readonly [string, string];
+	rect: DeterministicRenderRect;
+	/** Overlapping area as a fraction of the smaller region — how much is buried. */
+	coveredFractionOfSmaller: number;
+}
+
+/**
+ * The readable regions that land on top of each other without either side
+ * declaring the overlap.
+ *
+ * A designed composition overlaps on purpose all the time — a lower third sits
+ * over a Surface, a badge over a caption — so a renderer declares those pairs
+ * through `intentionalOverlapIds` and they are not findings. What is left is a
+ * collision nobody asked for, which is the readable defect an author cannot see
+ * in a still they have already learned to read. Each pair is reported once, in
+ * stable id order, so a receipt does not name the same collision twice.
+ */
+export function findUnintentionalReadableOverlaps(
+	readableRegions: readonly DeterministicReadableRegion[]
+): readonly DeterministicReadableOverlap[] {
+	const overlaps: DeterministicReadableOverlap[] = [];
+	for (let index = 0; index < readableRegions.length; index += 1) {
+		for (let other = index + 1; other < readableRegions.length; other += 1) {
+			const left = readableRegions[index];
+			const right = readableRegions[other];
+			if (
+				left.intentionalOverlapIds.includes(right.id) ||
+				right.intentionalOverlapIds.includes(left.id)
+			) {
+				continue;
+			}
+			const rect = intersectDeterministicRenderRects(left.rect, right.rect);
+			if (!rect) continue;
+			const smallestArea = Math.min(
+				left.rect.width * left.rect.height,
+				right.rect.width * right.rect.height
+			);
+			overlaps.push({
+				readableIds: left.id <= right.id ? [left.id, right.id] : [right.id, left.id],
+				rect,
+				coveredFractionOfSmaller: smallestArea > 0 ? (rect.width * rect.height) / smallestArea : 0
+			});
+		}
+	}
+	return overlaps;
+}
+
 export function selectDeterministicProbeRegions(
 	regions: readonly DeterministicProbeRegion[]
 ): Partial<Record<DeterministicProbeRegion['kind'], DeterministicProbeRegion>> {

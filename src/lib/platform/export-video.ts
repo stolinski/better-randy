@@ -59,11 +59,13 @@ interface ExportSessionControl {
 declare global {
 	interface Window {
 		/**
-		 * Workspace-bound export seam (peer to `__gfxTimeline`): lets an
-		 * agent drive the real export path with a `SyncExportRequest`. Set
-		 * while a Workspace is mounted.
+		 * Workspace-bound export seam (peer to `__gfxTimeline`): lets a scripted
+		 * runner drive the real export path with a `SyncExportRequest` and stop it
+		 * with a signal. Set while a Workspace is mounted. It resolves to the
+		 * Workspace's `CompositionExportOutcome`, typed `unknown` here because
+		 * naming it would point this module back at the controller that imports it.
 		 */
-		__gfxExport?: (request?: SyncExportRequest) => Promise<void>;
+		__gfxExport?: (request?: SyncExportRequest, signal?: AbortSignal) => Promise<unknown>;
 	}
 }
 

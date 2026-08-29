@@ -9,8 +9,11 @@
 	import { trackCompositionAuthoringDependencies } from './composition-authoring-dependencies';
 	import {
 		CompositionExportController,
+		type CompositionExportOutcome,
 		type CompositionExportUiState
 	} from './composition-export-controller';
+	import { compositionExportHandle } from './composition-export-handle.svelte';
+	import { compositionVerificationProbe } from './composition-verification-probe.svelte';
 	import { buildCompositionTimelineTracks } from './composition-timeline-tracks';
 	import { compositionEditHistory } from './composition-edit-history';
 	import Composition from './Composition.svelte';
@@ -69,10 +72,11 @@
 	import { seekDeterministicTimelineFrame } from './deterministic-render-capture-authority';
 	import { deriveDeterministicTransitionReadableContracts } from './deterministic-readable-contract';
 	import { DeterministicRenderCaptureController } from './deterministic-render-capture-controller';
-	import { captureCanvasWebp } from '$lib/utils/canvas-capture';
+	import { captureCanvasWebp, readCanvasFramePixels } from '$lib/utils/canvas-capture';
 	import { cloneJsonValue } from '$lib/utils/json-clone';
 	import {
 		deterministicFrameAddressFor,
+		type DeterministicFrameRequest,
 		type DeterministicSettledFrame
 	} from '$lib/utils/deterministic-render-measurements';
 	import { posterExists, putPoster } from './posters';
@@ -744,6 +748,10 @@
 					// real export path with a start timecode + sync filename.
 					window.__gfxExport = performExport;
 				}
+				// The `delivery` family exports through this handle, and waits on the
+				// same outcome the Export button produces (ADR-0054 §7).
+				compositionExportHandle.current = ({ request, signal }) =>
+					performExport(request, signal);
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
 				timelineHandle.current = timeline;
@@ -936,7 +944,12 @@
 		window.__captureGfxDeterministicReadablePngArtifacts = (readableId) =>
 			deterministicRenderCaptureController.artifactDataUrls(readableId);
 		window.__readGfxRuntimeRenderRegistryIdentity = readRuntimeRenderRegistryIdentity;
-		window.__settleGfxDeterministicCompositionFrame = async (request) => {
+		// The one settle every exact-frame reader goes through: the scripted CDP
+		// handle below, and the `verification` family's probe. A second settle path
+		// would be a second set of guarantees about which frame is on the canvas.
+		const settleDeterministicCompositionFrame = async (
+			request: DeterministicFrameRequest
+		): Promise<DeterministicSettledFrame & { settleMilliseconds: number }> => {
 			const startedAt = performance.now();
 			// Every await in a settle can resolve without a composite reaching the
 			// canvas: a queued preview is dropped when its host reads back null, when
@@ -973,6 +986,45 @@
 			await nextFrame();
 			return { ...settled, settleMilliseconds: performance.now() - startedAt };
 		};
+		window.__settleGfxDeterministicCompositionFrame = settleDeterministicCompositionFrame;
+
+		function deterministicFrameRequestFor(frame: number): DeterministicFrameRequest {
+			const frameRate = resolveFrameRate(engineState.transport.fps);
+			return {
+				address: deterministicFrameAddressFor(frame, frameRate),
+				frameRate: { num: frameRate.num, den: frameRate.den }
+			};
+		}
+
+		compositionVerificationProbe.current = {
+			captureSettledFrame: async (frame, signal) => {
+				const settled = await settleDeterministicCompositionFrame(
+					deterministicFrameRequestFor(frame)
+				);
+				signal.throwIfAborted();
+				if (!canvas) throw new Error('The composition canvas is unavailable.');
+				const pixels = await readCanvasFramePixels(canvas);
+				if (!pixels) throw new Error('The composition canvas presented no pixels to measure.');
+				return {
+					frame: settled.address.frameIndex,
+					timestampMicroseconds: settled.address.timestampMicroseconds,
+					frameRate: settled.activeFrameRate,
+					pixels
+				};
+			},
+			auditSettledFrameReadableText: async (frame, signal) => {
+				const settled = await settleDeterministicCompositionFrame(
+					deterministicFrameRequestFor(frame)
+				);
+				signal.throwIfAborted();
+				return captureDeterministicRenderRegionManifest(engineState, settled, {
+					compositionRoot: baseAuthority.compositionRoot,
+					overlayRoot: baseAuthority.overlayRoot,
+					captureReadableCompositedMasks: baseAuthority.captureReadableCompositedMasks
+				});
+			}
+		};
+
 		window.__captureGfxDeterministicFrameGeometry = (candidateIds) => {
 			const width = engineState.transport.orientation === 'horizontal' ? 3840 : 2160;
 			const height = engineState.transport.orientation === 'horizontal' ? 2160 : 3840;
@@ -1072,6 +1124,10 @@
 			};
 		};
 		exposeDeterministicRenderAudit(engineState, authority);
+
+		return () => {
+			compositionVerificationProbe.current = null;
+		};
 	});
 
 	$effect(() => {
@@ -1157,6 +1213,7 @@
 		timeline?.dispose();
 		timeline = null;
 		timelineHandle.current = null;
+		compositionExportHandle.current = null;
 		audioPreview.dispose();
 		transitionSnapshotController.dispose();
 		compositionExportController.dispose();
@@ -1174,10 +1231,13 @@
 	// Workspace retains the live Svelte/DOM/GPU ownership required by export.
 	// The controller owns planning, deterministic stepping, encoding handoff,
 	// downloads, status, cancellation, and cleanup.
-	async function performExport(request?: SyncExportRequest): Promise<void> {
+	async function performExport(
+		request?: SyncExportRequest,
+		signal?: AbortSignal
+	): Promise<CompositionExportOutcome> {
 		await tick();
 		await transitionSnapshotPreparation;
-		await compositionExportController.export(
+		return compositionExportController.export(
 			{
 				readState: () => engineState,
 				readTransition: () => transitionState.active,
@@ -1215,14 +1275,15 @@
 					status = next.status;
 				}
 			},
-			request
+			request,
+			signal
 		);
 	}
 
 	// The GUI export handler — seals arity at the DOM event boundary so a
 	// MouseEvent can never leak into `performExport`'s request (the
 	// phantom-fork lesson: never bind a possibly-absent param to DOM input).
-	function handleExport(): Promise<void> {
+	function handleExport(): Promise<CompositionExportOutcome> {
 		return performExport();
 	}
 </script>

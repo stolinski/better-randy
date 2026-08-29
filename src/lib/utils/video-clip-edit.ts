@@ -68,7 +68,12 @@ function cloneVideoClip(clip: ImmutableVideoClip): VideoClip {
 	return { ...clip, audio: { ...clip.audio } };
 }
 
-function frameCapacity(seconds: number, rate: FrameRate): number {
+/**
+ * Whole frames of source `seconds` can supply at `rate` — the ceiling every
+ * clip edit and every clip insertion is bounded by, so a cut, a trim, and an
+ * agent's prospective duration all agree on where a source ends.
+ */
+export function videoClipSourceFrameCapacity(seconds: number, rate: FrameRate): number {
 	if (seconds <= 0) return 0;
 	const rawFrames = (seconds * rate.num) / rate.den;
 	// Probe durations are floating seconds. Admit an integer frame boundary that
@@ -187,7 +192,7 @@ export function createVideoClipDragOrigin(
 	if (index < 0) throw new Error(`Video clip "${options.clipId}" does not exist.`);
 	const clip = options.clips[index];
 	requireFiniteSeconds(clip.sourceStartSeconds, `Video clip "${clip.id}" source start`);
-	const availableSourceFrames = frameCapacity(
+	const availableSourceFrames = videoClipSourceFrameCapacity(
 		options.sourceDurationSeconds - clip.sourceStartSeconds,
 		options.frameRate
 	);
@@ -235,7 +240,7 @@ export function resolveVideoClipDrag(
 			return clip;
 		}
 		case 'trim-left': {
-			const sourceFramesBeforeStart = frameCapacity(
+			const sourceFramesBeforeStart = videoClipSourceFrameCapacity(
 				origin.clip.sourceStartSeconds,
 				origin.frameRate
 			);
@@ -257,7 +262,7 @@ export function resolveVideoClipDrag(
 			return clip;
 		}
 		case 'trim-right': {
-			const sourceFrameCapacity = frameCapacity(
+			const sourceFrameCapacity = videoClipSourceFrameCapacity(
 				origin.sourceDurationSeconds - origin.clip.sourceStartSeconds,
 				origin.frameRate
 			);
@@ -276,11 +281,11 @@ export function resolveVideoClipDrag(
 			return clip;
 		}
 		case 'slip': {
-			const sourceFramesBeforeStart = frameCapacity(
+			const sourceFramesBeforeStart = videoClipSourceFrameCapacity(
 				origin.clip.sourceStartSeconds,
 				origin.frameRate
 			);
-			const sourceFrameCapacity = frameCapacity(
+			const sourceFrameCapacity = videoClipSourceFrameCapacity(
 				origin.sourceDurationSeconds -
 					origin.clip.sourceStartSeconds,
 				origin.frameRate
@@ -327,7 +332,7 @@ export function resolveVideoClipDrop(options: ResolveVideoClipDropOptions): Vide
 	}
 	requireFrame(options.clip.durationFrames, 'Dropped Video clip duration', 1);
 	requireFiniteSeconds(options.clip.sourceStartSeconds, 'Dropped Video clip source start');
-	const sourceCapacity = frameCapacity(
+	const sourceCapacity = videoClipSourceFrameCapacity(
 		options.sourceDurationSeconds - options.clip.sourceStartSeconds,
 		options.frameRate
 	);
