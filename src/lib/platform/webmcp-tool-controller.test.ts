@@ -64,6 +64,49 @@ class FakeModelContext implements WebmcpModelContextHost {
 	}
 }
 
+/**
+ * A `document.modelContext` that still holds names a previous controller has not
+ * finished releasing. Re-registering one rejects the way Chrome 152 does —
+ * `InvalidStateError: Duplicate tool name` — which is the teardown race a layout
+ * re-mount loses.
+ */
+class ContendedModelContext implements WebmcpModelContextHost {
+	readonly #heldNames: Set<string>;
+	readonly #accepted = new Map<string, WebmcpToolDescriptor>();
+
+	constructor(heldNames: readonly string[]) {
+		this.#heldNames = new Set(heldNames);
+	}
+
+	/** The controller that held those names finished tearing down. */
+	releaseHeldNames(): void {
+		this.#heldNames.clear();
+	}
+
+	async registerTool(descriptor: WebmcpToolDescriptor): Promise<void> {
+		if (this.#heldNames.has(descriptor.name)) {
+			throw new DOMException('Duplicate tool name', 'InvalidStateError');
+		}
+		this.#accepted.set(descriptor.name, descriptor);
+		descriptor.signal.addEventListener('abort', () => this.#accepted.delete(descriptor.name), {
+			once: true
+		});
+	}
+
+	getTools(): Iterable<{ name: string }> {
+		return [...this.#accepted.keys()].map((name) => ({ name }));
+	}
+}
+
+/** Every `name` down an error's `cause` chain, nearest cause last. */
+function causeChainNames(error: unknown): string[] {
+	const names: string[] = [];
+	for (let current: unknown = error; current instanceof Error; current = current.cause) {
+		names.push(current.name);
+	}
+	return names;
+}
+
 const CLOSED_PAGE: WebmcpCompositionPreconditions = {
 	always: true,
 	'composition-open': false,
@@ -272,6 +315,42 @@ describe('WebMCP tool registration', () => {
 
 		expect([...host.getTools()]).toEqual([]);
 		expect(controller.registeredToolNames).toEqual([]);
+	});
+
+	it('reports a refused registration through synchronize rather than dropping the promise', async () => {
+		const createBlank = toolNameFor('composition.create-blank');
+		const host = new ContendedModelContext([createBlank]);
+		const controller = new WebmcpToolController({
+			host,
+			definitions: [definition('composition.create-blank')],
+			lifetime: new AbortController().signal
+		});
+
+		const refusal = await controller.synchronize(CLOSED_PAGE, '/').catch((error: unknown) => error);
+
+		expect(refusal).toBeInstanceOf(Error);
+		expect((refusal as Error).message).toContain(createBlank);
+		expect(causeChainNames(refusal)).toContain('InvalidStateError');
+		expect([...host.getTools()]).toEqual([]);
+	});
+
+	it('retries a refused registration once the contended name is released', async () => {
+		const createBlank = toolNameFor('composition.create-blank');
+		const host = new ContendedModelContext([createBlank]);
+		const controller = new WebmcpToolController({
+			host,
+			definitions: [definition('composition.create-blank')],
+			lifetime: new AbortController().signal
+		});
+
+		await controller.synchronize(CLOSED_PAGE, '/').catch(() => undefined);
+		expect(controller.registeredToolNames).toEqual([]);
+
+		host.releaseHeldNames();
+		const summary = await controller.synchronize(CLOSED_PAGE, '/');
+
+		expect(summary.added).toEqual([createBlank]);
+		expect(summary.registered).toEqual([createBlank]);
 	});
 
 	it('refuses a definition for an internal-only row outright', () => {

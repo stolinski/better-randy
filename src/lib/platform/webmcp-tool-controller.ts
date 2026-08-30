@@ -19,6 +19,13 @@
  *   or when the page tears down. A call already in flight on an aborted
  *   registration resolves as `cancelled` rather than mutating a composition that
  *   has moved on.
+ * - **Registration is the browser's to refuse.** `registerTool` answers
+ *   asynchronously and can say no — a name the document still holds from a
+ *   controller that has not finished tearing down refuses as
+ *   `InvalidStateError: Duplicate tool name`. The controller awaits that answer
+ *   and reports a refusal through `synchronize`, because a discarded
+ *   registration promise surfaces as an unhandled rejection on the page, and a
+ *   refused tool recorded as owned would never be attempted again.
  * - **Results are bounded.** An operation that overruns its budget fails with
  *   `limit_exceeded` naming the overrun, because silently truncating a receipt
  *   would hand an agent a document it cannot trust.
@@ -76,6 +83,7 @@ export interface WebmcpToolDescriptor {
  * bookkeeping, is the authority on what is registered.
  */
 export interface WebmcpModelContextHost {
+	/** Settles when the document accepts the tool, and rejects when it refuses it. */
 	registerTool(descriptor: WebmcpToolDescriptor): unknown;
 	getTools(): Iterable<{ name: string }> | Promise<Iterable<{ name: string }>>;
 }
@@ -305,11 +313,29 @@ export class WebmcpToolController {
 			removed.push(toolName);
 		}
 
+		// Registrations are awaited one at a time so a refusal is attributable to
+		// the tool that drew it, and so a lifetime aborted mid-reconcile stops the
+		// loop instead of re-populating the map `#abortAll` just cleared.
 		const added: string[] = [];
+		const refused: string[] = [];
+		let firstRefusal: unknown = null;
 		for (const { row, definition } of eligible) {
+			if (this.#lifetime.aborted) break;
 			if (this.#registrations.has(row.toolName)) continue;
-			this.#register(row, definition);
-			added.push(row.toolName);
+			try {
+				await this.#register(row, definition);
+				added.push(row.toolName);
+			} catch (error) {
+				refused.push(row.toolName);
+				firstRefusal ??= error;
+			}
+		}
+
+		if (refused.length > 0) {
+			throw new Error(
+				`document.modelContext refused ${refused.length} WebMCP registration(s): ${refused.join(', ')}. The next synchronize retries them.`,
+				{ cause: firstRefusal }
+			);
 		}
 
 		return this.#summarize(routeId, added, removed);
@@ -343,13 +369,19 @@ export class WebmcpToolController {
 		return eligible;
 	}
 
-	#register(row: WebmcpOperationRow, definition: WebmcpToolDefinition): void {
+	/**
+	 * Register one tool and wait for the document's answer. A refusal leaves no
+	 * trace: the entry is dropped so the next reconcile treats the tool as
+	 * missing and tries again, which is what a duplicate name during a teardown
+	 * race needs.
+	 */
+	async #register(row: WebmcpOperationRow, definition: WebmcpToolDefinition): Promise<void> {
 		const registration = new AbortController();
 		this.#registrations.set(row.toolName, registration);
 		const signal = registration.signal;
 		const budget = readResultBudget(row);
 
-		this.#host.registerTool({
+		const accepted = this.#host.registerTool({
 			name: row.toolName,
 			description: row.summary,
 			inputSchema: definition.inputSchema,
@@ -386,6 +418,16 @@ export class WebmcpToolController {
 				);
 			}
 		});
+
+		try {
+			await accepted;
+		} catch (error) {
+			registration.abort();
+			this.#registrations.delete(row.toolName);
+			throw new Error(`document.modelContext refused to register ${row.toolName}.`, {
+				cause: error
+			});
+		}
 	}
 
 	#abortAll(): void {
