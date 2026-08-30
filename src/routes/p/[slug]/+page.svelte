@@ -18,6 +18,7 @@
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
+	import { isUserCompositionNotHeldError } from '$lib/platform/user-composition-store-errors';
 	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
@@ -242,7 +243,14 @@
 			) {
 				return;
 			}
-			await userCompositionStore.deleteUserComposition(currentSlug);
+			try {
+				await userCompositionStore.deleteUserComposition(currentSlug);
+			} catch (cause) {
+				// Reverting wants the fork gone; a store that no longer holds it —
+				// another tab discarded it, or this revert already landed — has given
+				// exactly that, so the corpus Preset still gets applied below.
+				if (!isUserCompositionNotHeldError(cause)) throw cause;
+			}
 			if (
 				generation !== revertGeneration ||
 				currentRouteGeneration !== routeLoadGeneration ||

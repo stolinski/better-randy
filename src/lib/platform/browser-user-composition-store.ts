@@ -35,6 +35,7 @@ import { posterKeyForPreset } from './posters';
 import { parsePresetIngress, readCompositionLegacyUpgrades } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
 import { validatePresetSemantics } from './preset-validation';
+import { UserCompositionNotHeldError } from './user-composition-store-errors';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '../utils/composition-session-slug';
 
 import type { Preset } from './engine-schema';
@@ -425,7 +426,10 @@ export function createBrowserUserCompositionStore(
 			const storage = requireStorage();
 			const key = storageKeyForSlug(slug);
 			if (storage.getItem(key) === null) {
-				throw new Error(`Failed to delete User composition "${slug}": this session holds none.`);
+				throw new UserCompositionNotHeldError(
+					slug,
+					`Failed to delete User composition "${slug}": this session holds none.`
+				);
 			}
 			storage.removeItem(key);
 			// Nothing is left to have been written by anyone, so the next write at

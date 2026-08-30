@@ -44,6 +44,7 @@ import { ensureCompositionRenderersLoaded } from './composition-renderer-readine
 import { getPresetBySlug, listFixtures, listPresets } from './preset-catalog';
 import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
 import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
+import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 
 import type {
@@ -433,7 +434,12 @@ export async function runRevertCompositionToStarterOperation(
 	try {
 		await userCompositionStore.deleteUserComposition(slug);
 	} catch (cause) {
-		return refuseCompositionSessionStoreFailure(row, cause);
+		// A fork the store no longer holds is the state this operation was asked
+		// to reach, so it opens the Starter rather than refusing. Anything else is
+		// a store that would not do what it was asked.
+		if (!isUserCompositionNotHeldError(cause)) {
+			return refuseCompositionSessionStoreFailure(row, cause);
+		}
 	}
 
 	return openCompositionDocument(row, starterSlug, starter, null, false);

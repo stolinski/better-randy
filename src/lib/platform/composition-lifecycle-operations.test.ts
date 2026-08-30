@@ -23,6 +23,7 @@ import {
 	type CompositionLifecycleOutcome,
 	type CompositionLifecycleReceipt
 } from './composition-lifecycle-operations';
+import { UserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 
 import type { CompositionOperationFailure } from './composition-operation-preflight';
@@ -383,6 +384,43 @@ describe('reverting to a Starter', () => {
 
 		expect(sessionStore.deleteUserComposition).toHaveBeenCalledWith('lower-third-2');
 		expect(receipt.slug).toBe(STARTER_SLUG);
+	});
+
+	// The reported defect: the fork was already gone — discarded from another tab,
+	// or by a revert that had already landed — and the strict delete's refusal
+	// stranded the composition on the fork it was trying to leave.
+	it('opens the Starter when the store no longer holds the fork', async () => {
+		compositionMeta.isUserComposition = true;
+		compositionMeta.userCompositionSlug = STARTER_SLUG;
+		compositionMeta.forkedFrom = STARTER_SLUG;
+		sessionStore.deleteUserComposition.mockRejectedValue(
+			new UserCompositionNotHeldError(
+				STARTER_SLUG,
+				`Failed to delete User composition "${STARTER_SLUG}": 404 Not Found: User composition "${STARTER_SLUG}" not found`
+			)
+		);
+
+		const receipt = expectApplied(
+			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
+		);
+
+		expect(receipt.slug).toBe(STARTER_SLUG);
+		expect(compositionMeta.isUserComposition).toBe(false);
+		expect(engineState.overlays.map((overlay) => overlay.type)).toEqual(['lower-third']);
+	});
+
+	it('still refuses when the store would not answer at all', async () => {
+		compositionMeta.isUserComposition = true;
+		compositionMeta.userCompositionSlug = STARTER_SLUG;
+		compositionMeta.forkedFrom = STARTER_SLUG;
+		sessionStore.deleteUserComposition.mockRejectedValue(new Error('the store did not respond'));
+
+		const failure = expectFailed(
+			await runRevertCompositionToStarterOperation({ expectedRevision: 0 })
+		);
+
+		expect(failure.code).toBe('storage_unavailable');
+		expect(compositionMeta.isUserComposition).toBe(true);
 	});
 
 	it('refuses when the open composition never came from a Starter', async () => {

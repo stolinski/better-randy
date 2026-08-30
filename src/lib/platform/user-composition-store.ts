@@ -27,6 +27,7 @@ import {
 	parseCompositionSessionStoreConfig,
 	PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS
 } from './public-runtime-contract';
+import { UserCompositionNotHeldError } from './user-composition-store-errors';
 
 const UserCompositionMediaStatusSchema = z.enum(['ready', 'missing', 'undecodable']);
 const UserCompositionMediaIssueSchema = z.strictObject({
@@ -197,11 +198,13 @@ export const originUserCompositionStore: UserCompositionStore = {
 		const response = await fetch(`${USER_COMPOSITION_API_BASE}/${encodeURIComponent(slug)}`, {
 			method: 'DELETE'
 		});
-		if (!response.ok) {
-			throw new Error(
-				`Failed to delete User composition "${slug}": ${await userCompositionFailureContext(response)}`
-			);
-		}
+		if (response.ok) return;
+		const message = `Failed to delete User composition "${slug}": ${await userCompositionFailureContext(response)}`;
+		// An origin holding nothing at this slug is a different answer from an
+		// origin that would not answer, and reverting a fork depends on the
+		// difference — see UserCompositionNotHeldError.
+		if (response.status === 404) throw new UserCompositionNotHeldError(slug, message);
+		throw new Error(message);
 	},
 
 	async inspectStorage(): Promise<CompositionSessionStorage> {

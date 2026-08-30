@@ -11,6 +11,7 @@ import {
 } from './browser-user-composition-store';
 import { parsePresetIngress } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
+import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 
 import type { Preset } from './engine-schema';
 import type { PublicCompositionSessionStorageLimits } from './public-runtime-contract';
@@ -159,7 +160,14 @@ describe('browser-scoped composition session store', () => {
 		await store.deleteUserComposition('untitled');
 
 		assert.deepEqual(await store.listUserCompositions(), []);
-		await assert.rejects(store.deleteUserComposition('untitled'), /this session holds none/);
+		// Named as not-held rather than as a generic failure, so reverting a fork
+		// this session already discarded still reaches its Starter.
+		await assert.rejects(store.deleteUserComposition('untitled'), (cause) => {
+			assert.ok(isUserCompositionNotHeldError(cause));
+			assert.equal(cause.slug, 'untitled');
+			assert.match(cause.message, /this session holds none/);
+			return true;
+		});
 	});
 
 	it('ignores records outside its identity, so another origin key is not a composition', async () => {

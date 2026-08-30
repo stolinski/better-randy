@@ -11,6 +11,7 @@ import {
 	LEGACY_SOURCE_VIDEO_CLIP_ID
 } from './preset-ingress';
 import { presetToWireFormat } from './preset-pure';
+import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
 
 const blankPreset: Preset = parsePresetIngress(blankPresetJson);
@@ -257,6 +258,34 @@ describe('userCompositionStore', () => {
 			userCompositionStore.loadUserComposition('blank-copy'),
 			/Failed to load User composition "blank-copy": 503 Store unavailable/
 		);
+	});
+
+	// The origin half of the reported revert defect: a delete of a slug this
+	// origin never had has to be tellable apart from an origin that would not
+	// answer, so reverting a fork that is already gone can finish.
+	it('names a delete of a slug the origin does not hold as a not-held refusal', async () => {
+		fetchMock.mockResolvedValueOnce(
+			jsonResponse({ message: 'User composition "blank-copy" not found' }, { status: 404 })
+		);
+
+		await assert.rejects(userCompositionStore.deleteUserComposition('blank-copy'), (cause) => {
+			assert.ok(isUserCompositionNotHeldError(cause));
+			assert.equal(cause.slug, 'blank-copy');
+			assert.match(cause.message, /404: User composition "blank-copy" not found/);
+			return true;
+		});
+	});
+
+	it('leaves an unreachable origin as an ordinary delete failure', async () => {
+		fetchMock.mockResolvedValueOnce(
+			new Response(null, { status: 503, statusText: 'Store unavailable' })
+		);
+
+		await assert.rejects(userCompositionStore.deleteUserComposition('blank-copy'), (cause) => {
+			assert.equal(isUserCompositionNotHeldError(cause), false);
+			assert.match(cause instanceof Error ? cause.message : '', /503 Store unavailable/);
+			return true;
+		});
 	});
 
 	it('includes an actionable API error message in HTTP failures', async () => {
