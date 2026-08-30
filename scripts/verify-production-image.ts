@@ -41,6 +41,10 @@ const { PUBLIC_EXPORT_RUNTIME_LIMITS, REQUIRED_FFMPEG_ENCODERS } =
 	await import('../src/lib/platform/public-runtime-contract.ts');
 const { expectedDecodedExport, findDecodedExportShapeFaults } =
 	await import('../src/lib/platform/public-export-decode-contract.ts');
+const { PUBLIC_PERMISSIONS_POLICY, PUBLIC_SECURITY_RESPONSE_HEADERS } =
+	await import('../src/lib/platform/public-response-headers.ts');
+const { PUBLIC_SURFACE_INVENTORY } =
+	await import('../src/lib/platform/public-surface-inventory.ts');
 
 const execFileAsync = promisify(execFile);
 
@@ -58,6 +62,17 @@ const SMOKE_WIDTH = 640;
 const SMOKE_HEIGHT = 360;
 const SMOKE_FRAME_COUNT = 4;
 const SMOKE_FPS = 30;
+
+/**
+ * A path that really exists behind each development-only prefix that names a
+ * subtree, so a 404 from the running image means "excluded" rather than "no such
+ * route". Prefixes that are already a whole path are probed as themselves.
+ */
+const DEVELOPMENT_ONLY_SURFACE_PROBES: Readonly<Record<string, string>> = {
+	'/poc/': '/poc/dof3d',
+	'/api/posters/': '/api/posters/abcdef01',
+	'/api/verification/': '/api/verification/source-identity'
+};
 
 /** Seconds `docker stop` waits before SIGKILL. Must exceed the image's SHUTDOWN_TIMEOUT. */
 const STOP_GRACE_SECONDS = 30;
@@ -739,6 +754,66 @@ try {
 		fontPaths.every((path) => path.endsWith('.woff2')) &&
 			servedAssets.every((asset) => asset.status === 200 && asset.bytes > 0),
 		`served ${JSON.stringify(servedAssets)}`
+	);
+
+	console.log('Reading the public response headers off the app shell…');
+	const appShell = await fetch(`${origin}/`);
+	const appShellHeaders = Object.fromEntries(
+		[
+			...Object.keys(PUBLIC_SECURITY_RESPONSE_HEADERS),
+			'Permissions-Policy',
+			'Cache-Control',
+			'Content-Security-Policy'
+		].map((name) => [name, appShell.headers.get(name)])
+	);
+	const contentSecurityPolicy = appShellHeaders['Content-Security-Policy'] ?? '';
+	evidence.publicResponseHeaders = appShellHeaders;
+	expect(
+		'app-shell-carries-every-public-security-header',
+		Object.entries(PUBLIC_SECURITY_RESPONSE_HEADERS).every(
+			([name, value]) => appShellHeaders[name] === value
+		) &&
+			appShellHeaders['Permissions-Policy'] === PUBLIC_PERMISSIONS_POLICY &&
+			appShellHeaders['Cache-Control'] === 'no-store',
+		JSON.stringify(appShellHeaders)
+	);
+	// The nonce is the part that cannot be asserted from the contract alone: it
+	// proves the composed policy still carries what SvelteKit put on the inline
+	// bootstrap script, so a hardened origin serves an app shell that runs.
+	expect(
+		'app-shell-policy-keeps-the-bootstrap-nonce',
+		/script-src [^;]*'nonce-[^']+'/.test(contentSecurityPolicy) &&
+			contentSecurityPolicy.includes("frame-ancestors 'none'") &&
+			contentSecurityPolicy.includes("object-src 'none'"),
+		contentSecurityPolicy
+	);
+
+	console.log('Probing the development-only surfaces…');
+	const excludedRows: { pathPrefix: string; exposure: string }[] = PUBLIC_SURFACE_INVENTORY.filter(
+		(row: { exposure: string }) => row.exposure === 'development-only'
+	);
+	// A subtree prefix answers 404 for a path that does not exist either, so a new
+	// one has to name a route that really is behind it before this check means
+	// anything.
+	const unprobedSubtrees = excludedRows
+		.map((row) => row.pathPrefix)
+		.filter(
+			(prefix) => prefix.endsWith('/') && DEVELOPMENT_ONLY_SURFACE_PROBES[prefix] === undefined
+		);
+	const excludedSurfaces = await Promise.all(
+		excludedRows.map(async (row) => {
+			const path = DEVELOPMENT_ONLY_SURFACE_PROBES[row.pathPrefix] ?? row.pathPrefix;
+			const response = await fetch(`${origin}${path}`);
+			return { path, status: response.status };
+		})
+	);
+	evidence.excludedSurfaces = { probed: excludedSurfaces, unprobedSubtrees };
+	expect(
+		'development-only-surfaces-are-not-served',
+		unprobedSubtrees.length === 0 && excludedSurfaces.every((surface) => surface.status === 404),
+		unprobedSubtrees.length > 0
+			? `no probe path declared for ${unprobedSubtrees.join(', ')}`
+			: JSON.stringify(excludedSurfaces)
 	);
 
 	console.log('Exporting through the container…');

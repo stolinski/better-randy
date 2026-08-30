@@ -10,7 +10,15 @@ const config = {
 		// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
-	kit: { adapter: adapter() }
+	kit: {
+		adapter: adapter(),
+		// SvelteKit owns the app shell's inline bootstrap script, so it owns the
+		// nonce that script needs. Declaring `script-src` here is what makes it
+		// emit one; the public origin then merges that nonce into the full policy
+		// at request time, because the rest of the policy depends on the runtime
+		// profile rather than the build (see public-response-headers.ts).
+		csp: { mode: 'auto', directives: { 'script-src': ['self'] } }
+	}
 };
 
 export default config;

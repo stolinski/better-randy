@@ -1,6 +1,7 @@
 import { listPosterKeys } from '$lib/platform/poster-store.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { listFixtures, listPresets, type CataloguedPreset } from '$lib/platform/preset-catalog';
+import { areDevelopmentOnlySurfacesServed } from '$lib/platform/public-runtime-profile.server';
 
 import type { PageServerLoad } from './$types';
 
@@ -21,8 +22,18 @@ function homepagePresetCard(entry: CataloguedPreset) {
 // Keep full, frequently changing Presets on the server for the library view.
 // The browser receives only the fields each card renders instead of importing
 // and validating the complete engine catalog during hydration.
-export const load: PageServerLoad = async () => ({
-	posterKeys: await listPosterKeys(),
-	presets: listPresets().map(homepagePresetCard),
-	fixtures: listFixtures().map(homepagePresetCard)
-});
+//
+// Fixtures and the poster store are both development-only (ADR-0039, ADR-0053):
+// a fixture documents an engine gap rather than shipping as a deliverable, and
+// the public runtime has no disk-backed poster store to read. A public visitor
+// gets the deliverable library and nothing else.
+export const load: PageServerLoad = async () => {
+	if (!areDevelopmentOnlySurfacesServed()) {
+		return { posterKeys: [], presets: listPresets().map(homepagePresetCard), fixtures: [] };
+	}
+	return {
+		posterKeys: await listPosterKeys(),
+		presets: listPresets().map(homepagePresetCard),
+		fixtures: listFixtures().map(homepagePresetCard)
+	};
+};

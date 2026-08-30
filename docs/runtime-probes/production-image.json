@@ -1,9 +1,9 @@
 {
-	"measuredAt": "2026-08-30T21:14:35.271Z",
+	"measuredAt": "2026-08-30T21:47:38.721Z",
 	"image": "gfx-production-image:verify",
-	"release": "gfx@5a7c9172d887ed82fa3f012e842a4a4b8af30bc0",
+	"release": "gfx@f6933b9458b182cd5eeeb4ae78be9534f70d100b",
 	"build": {
-		"buildMs": 46711,
+		"buildMs": 44157,
 		"versions": {
 			"node": "v24.20.0",
 			"ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
@@ -11,7 +11,7 @@
 		}
 	},
 	"rebuild": {
-		"rebuildMs": 52977,
+		"rebuildMs": 60425,
 		"versions": {
 			"node": "v24.20.0",
 			"ffmpeg": "ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2026 the FFmpeg developers",
@@ -50,10 +50,10 @@
 		{ "name": "unreserved-concurrency", "exitCode": 1, "namedTheInput": true, "listened": false }
 	],
 	"readiness": {
-		"readyMs": 1173,
+		"readyMs": 1171,
 		"body": {
 			"status": "ready",
-			"release": "gfx@5a7c9172d887ed82fa3f012e842a4a4b8af30bc0",
+			"release": "gfx@f6933b9458b182cd5eeeb4ae78be9534f70d100b",
 			"checks": { "ffmpeg": "ok", "temporaryDisk": "ok" }
 		},
 		"cacheControl": "no-store"
@@ -61,7 +61,7 @@
 	"processIdentity": { "uid": "1000", "userName": "node", "exportDirectory": "node 755" },
 	"ffmpeg": { "missingEncoders": [] },
 	"servedAssets": [
-		{ "path": "/", "status": 200, "bytes": 74749 },
+		{ "path": "/", "status": 200, "bytes": 62529 },
 		{
 			"path": "/_app/immutable/assets/archivo-latin-400-normal.C81ewxNO.woff2",
 			"status": 200,
@@ -69,6 +69,31 @@
 		},
 		{ "path": "/fonts/PaperMono-Variable.woff2", "status": 200, "bytes": 38720 }
 	],
+	"publicResponseHeaders": {
+		"Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+		"X-Content-Type-Options": "nosniff",
+		"Referrer-Policy": "no-referrer",
+		"Cross-Origin-Opener-Policy": "same-origin",
+		"Cross-Origin-Resource-Policy": "same-origin",
+		"Origin-Agent-Cluster": "?1",
+		"Permissions-Policy": "tools=(self), autoplay=(self), fullscreen=(self), accelerometer=(), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), geolocation=(), gyroscope=(), idle-detection=(), local-fonts=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()",
+		"Cache-Control": "no-store",
+		"Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'nonce-ImKVVYH8BwrozkYp9rQyVg=='; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self'; connect-src 'self' blob:; upgrade-insecure-requests"
+	},
+	"excludedSurfaces": {
+		"probed": [
+			{ "path": "/poc/dof3d", "status": 404 },
+			{ "path": "/api/backdrops", "status": 404 },
+			{ "path": "/api/posters/abcdef01", "status": 404 },
+			{ "path": "/api/sentry-canary", "status": 404 },
+			{ "path": "/api/user-assets", "status": 404 },
+			{ "path": "/api/user-compositions", "status": 404 },
+			{ "path": "/api/verification/source-identity", "status": 404 },
+			{ "path": "/api/website-capture", "status": 404 },
+			{ "path": "/api/x-post", "status": 404 }
+		],
+		"unprobedSubtrees": []
+	},
 	"exportLanes": [
 		{
 			"lane": "webm-transparent-silent",
@@ -89,7 +114,7 @@
 	],
 	"shutdown": {
 		"openWorkDirectoriesBeforeStop": 1,
-		"stopMs": 145,
+		"stopMs": 156,
 		"exitCode": 0,
 		"retainedWorkDirectories": 0,
 		"stopLine": "GFX runtime stopped (SIGTERM): released 1 export session(s)."

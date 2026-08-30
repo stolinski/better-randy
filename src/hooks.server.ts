@@ -7,7 +7,15 @@ import { sequence } from '@sveltejs/kit/hooks';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 
 import { resolveGitRelease } from '$lib/platform/git-version.server';
+import { describeErrorResponse } from '$lib/platform/public-error-observability';
+import { applyPublicResponseHeaders } from '$lib/platform/public-response-headers';
 import { startPublicRuntime } from '$lib/platform/public-runtime-lifecycle.server';
+import { servedPublicRuntimeProfile } from '$lib/platform/public-runtime-profile.server';
+import {
+	DEVELOPMENT_ONLY_SURFACE_MESSAGE,
+	DEVELOPMENT_ONLY_SURFACE_STATUS,
+	isDevelopmentOnlySurfacePath
+} from '$lib/platform/public-surface-inventory';
 
 // Server-side Sentry (errors, request tracing, logs). The DSN comes from
 // SENTRY_DSN in .env — absent, the SDK stays disabled and every capture below
@@ -39,6 +47,34 @@ export const init: ServerInit = async () => {
 	await startPublicRuntime({ ...env, ...publicEnv });
 };
 
+// A surface a public origin does not have answers 404 before its route module
+// runs, so an excluded route never reads a body, touches disk, or spawns a
+// browser (ADR-0053). Which surfaces those are is one inventory, not a condition
+// scattered across route modules.
+const refuseDevelopmentOnlySurfaces: Handle = async ({ event, resolve }) => {
+	if (
+		servedPublicRuntimeProfile() === 'public' &&
+		isDevelopmentOnlySurfacePath(event.url.pathname)
+	) {
+		return new Response(DEVELOPMENT_ONLY_SURFACE_MESSAGE, {
+			status: DEVELOPMENT_ONLY_SURFACE_STATUS,
+			headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+		});
+	}
+	return resolve(event);
+};
+
+// Hold every public response to the header contract — origin isolation, the
+// WebMCP `tools` Permissions Policy, CSP, HSTS, referrer and content-type
+// protections, and no-store by default (ADR-0052, ADR-0054). A development host
+// is held to none of it: the dev server runs Vite HMR, the CDP verification
+// harness, and the development-only routes above.
+const publicResponseHeaders: Handle = async ({ event, resolve }) => {
+	const response = await resolve(event);
+	if (servedPublicRuntimeProfile() === 'public') applyPublicResponseHeaders(response);
+	return response;
+};
+
 // Log every error response server-side. Intentional error(...) HttpErrors from
 // endpoints never reach handleError — without this hook they leave no trace in
 // the dev-server logs at all (only unexpected crashes get logged).
@@ -55,24 +91,39 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 		transformPageChunk: ({ html }) => html.replace('%gfx.release%', release ?? '')
 	});
 	if (response.status >= 400) {
-		const line = `[${new Date().toISOString()}] ${response.status} ${event.request.method} ${event.url.pathname}${event.url.search}`;
-		if (response.status >= 500) {
-			const body = await response.clone().text();
-			console.error(`${line}\n${body.slice(0, 2000)}`);
+		// What survives into the log depends on the profile: a public host keeps no
+		// query string and strips absolute paths out of the body (ADR-0052).
+		const report = describeErrorResponse({
+			profile: servedPublicRuntimeProfile(),
+			timestamp: new Date().toISOString(),
+			status: response.status,
+			method: event.request.method,
+			pathname: event.url.pathname,
+			search: event.url.search,
+			body: response.status >= 500 ? await response.clone().text() : null
+		});
+		console.error(report.line);
+		if (report.diagnostic !== null) {
 			// Promote every resolved 5xx response; intentional error(...) never reaches
 			// handleError, while 4xx stays a log line only.
-			Sentry.captureMessage(
-				`${response.status} ${event.request.method} ${event.url.pathname}`,
-				{ level: 'error', extra: { body: body.slice(0, 2000), search: event.url.search } }
-			);
-		} else {
-			console.error(line);
+			Sentry.captureMessage(`${response.status} ${event.request.method} ${event.url.pathname}`, {
+				level: 'error',
+				extra: { ...report.diagnostic }
+			});
 		}
 	}
 	return response;
 };
 
-export const handle = sequence(Sentry.sentryHandle(), logErrorResponses);
+// Outermost first. Logging wraps the exclusion so a refused surface is still
+// observed, and the header layer sits between them so the refusal carries the
+// same headers every other public response does.
+export const handle = sequence(
+	Sentry.sentryHandle(),
+	logErrorResponses,
+	publicResponseHeaders,
+	refuseDevelopmentOnlySurfaces
+);
 
 // Surface real SSR failures during development — SvelteKit's default masks
 // everything as "Internal Error", which hides the stack from the browser and
