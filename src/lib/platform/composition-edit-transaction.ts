@@ -136,10 +136,17 @@ export interface CompositionEditTransactionRequest {
 
 export type CompositionHistoryDirection = 'undo' | 'redo';
 
-const HISTORY_OPERATION_IDS: Record<CompositionHistoryDirection, string> = {
-	undo: 'composition.undo',
-	redo: 'composition.redo'
-};
+/**
+ * The inventory row a history replay runs as. Both ids are spelled as literal
+ * arguments rather than resolved from a lookup table, so the operation layer
+ * claims undo and redo the same way it claims every other row — which is the
+ * call site `scripts/audit-webmcp-operation-parity.ts` scans for.
+ */
+function requireCompositionHistoryRow(direction: CompositionHistoryDirection): WebmcpOperationRow {
+	return direction === 'undo'
+		? requireCompositionOperationRow('composition.undo')
+		: requireCompositionOperationRow('composition.redo');
+}
 
 function isAborted(signal: AbortSignal | undefined): boolean {
 	return signal?.aborted === true;
@@ -335,7 +342,7 @@ export function runCompositionHistoryTransaction(
 	direction: CompositionHistoryDirection,
 	expectedRevision: number
 ): CompositionOperationOutcome {
-	const row = requireCompositionOperationRow(HISTORY_OPERATION_IDS[direction]);
+	const row = requireCompositionHistoryRow(direction);
 	const focus: CompositionWorkspaceFocus = { target: 'composition-root' };
 
 	const captureRefusal = refuseDuringCompositionTransitionCapture(row);

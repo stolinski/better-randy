@@ -37,7 +37,7 @@ One of the fifteen non-overlapping domains an **Operation** belongs to, defined 
 _Avoid_: namespace, tool group, category, module.
 
 **Operation inventory**:
-The machine-readable contract in `src/lib/platform/webmcp-operation-inventory.ts` — one row per **Operation**, naming its family, WebMCP tool, written pointers, registration precondition, revision and undo obligations, Workspace focus, and GUI surface. The bidirectional parity gate reads it: a row reachable from only one transport is a defect.
+The machine-readable contract in `src/lib/platform/webmcp-operation-inventory.ts` — one row per **Operation**, naming its family, WebMCP tool, written pointers, registration precondition, revision and undo obligations, Workspace focus, and GUI surface. The bidirectional parity gate (`pnpm audit:webmcp-parity`) reads it: a row reachable from only one transport is a defect, unless the row is annotated `internal-only`.
 _Avoid_: tool manifest, tool registry (the **Registry** is the Pipeline registry), API surface, schema.
 
 **Composition revision**:
