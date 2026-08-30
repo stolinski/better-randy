@@ -50,6 +50,8 @@ const NATIVE_WIDTH = 3840;
 const NATIVE_HEIGHT = 2160;
 const LANE_FRAME_COUNT = 8;
 const CONCURRENT_FRAME_COUNT = 4;
+const TERMINAL_PATH_FRAME_COUNT = 2;
+const TERMINAL_PATH_REPETITIONS = 3;
 
 const runtimeConfig = parsePublicRuntimeConfig(process.env);
 const exportTemporaryDirectory = runtimeConfig.exportTemporaryDirectory ?? tmpdir();
@@ -384,6 +386,152 @@ async function measureCancellation(frames: readonly Uint8Array[]): Promise<{
 	};
 }
 
+/**
+ * How one export session ended. Each of these is acknowledged by the origin only
+ * after it has disposed the session, so retention is read straight afterwards
+ * with nothing left to settle.
+ */
+type ExportTerminalPath = 'downloaded' | 'cancelled' | 'invalid-frame' | 'encoder-failure';
+
+interface TerminalPathMeasurement {
+	path: ExportTerminalPath;
+	repetition: number;
+	/** Status the path's own last request answered with. */
+	status: number;
+	sessionGone: boolean;
+	exportDirectoriesAfter: number;
+	encoderProcessesAfter: number;
+}
+
+/** A session the host has forgotten: nothing it owned answers for it again. */
+async function isExportSessionGone(session: CreatedSession): Promise<boolean> {
+	const response = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, {
+		method: 'POST',
+		headers: sessionHeaders(session)
+	});
+	await response.arrayBuffer();
+	return response.status === 404 || response.status === 410;
+}
+
+/**
+ * Drive one session to one terminal path against the real encoder, then read
+ * what the host kept. Repeated across every path, this is what proves the
+ * ratified zero-retention rule holds for a live ffmpeg rather than a fixture's
+ * stand-in for one.
+ */
+async function measureTerminalPath(
+	path: ExportTerminalPath,
+	repetition: number,
+	frames: readonly Uint8Array[]
+): Promise<TerminalPathMeasurement> {
+	const session = await createSession({
+		format: 'webm',
+		fps: 30,
+		frameCount: frames.length,
+		opaque: false,
+		audioBytes: 0
+	});
+	let status = 201;
+
+	if (path === 'invalid-frame') {
+		// The encoder is spawned before the body is read, so a body that is not a
+		// PNG is refused with a real ffmpeg already running behind it.
+		const response = await fetch(
+			`${PROBE_ORIGIN}${session.frameUrlTemplate.replace('{frame}', '0')}`,
+			{
+				method: 'PUT',
+				headers: sessionHeaders(session, { 'content-type': 'image/png' }),
+				body: new TextEncoder().encode('this is not a PNG frame')
+			}
+		);
+		await response.arrayBuffer();
+		status = response.status;
+	} else if (path === 'encoder-failure') {
+		// Well-framed PNG headers over bytes the decoder cannot read, so the real
+		// encoder — not the transport — is what fails.
+		for (const [index, frame] of frames.entries()) {
+			const undecodable = new Uint8Array(frame.byteLength);
+			undecodable.set(frame.subarray(0, 8));
+			undecodable.fill(0x7f, 8);
+			const response = await fetch(
+				`${PROBE_ORIGIN}${session.frameUrlTemplate.replace('{frame}', String(index))}`,
+				{
+					method: 'PUT',
+					headers: sessionHeaders(session, { 'content-type': 'image/png' }),
+					body: undecodable
+				}
+			);
+			await response.arrayBuffer();
+			status = response.status;
+			if (!response.ok) break;
+		}
+		if (status < 400) {
+			const complete = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, {
+				method: 'POST',
+				headers: sessionHeaders(session)
+			});
+			await complete.arrayBuffer();
+			status = complete.status;
+		}
+	} else {
+		for (const [index, frame] of frames.entries()) await uploadFrame(session, index, frame);
+	}
+
+	if (path === 'cancelled') {
+		const response = await fetch(`${PROBE_ORIGIN}${session.cancelUrl}`, {
+			method: 'DELETE',
+			headers: sessionHeaders(session)
+		});
+		await response.arrayBuffer();
+		status = response.status;
+	}
+
+	if (path === 'downloaded') {
+		const complete = await fetch(`${PROBE_ORIGIN}${session.completeUrl}`, {
+			method: 'POST',
+			headers: sessionHeaders(session)
+		});
+		if (!complete.ok) {
+			throw new Error(`Complete failed (${complete.status}): ${await complete.text()}`);
+		}
+		const { downloadUrl } = (await complete.json()) as { downloadUrl: string };
+		const download = await fetch(`${PROBE_ORIGIN}${downloadUrl}`, {
+			headers: { cookie: session.credentialCookie, 'sec-fetch-site': 'same-origin' }
+		});
+		// The origin disposes the session as the last chunk goes out, so the body
+		// is drained before retention is read.
+		await download.arrayBuffer();
+		status = download.status;
+	}
+
+	return {
+		path,
+		repetition,
+		status,
+		sessionGone: await isExportSessionGone(session),
+		exportDirectoriesAfter: await exportDirectoryCount(),
+		encoderProcessesAfter: await ffmpegChildProcessCount()
+	};
+}
+
+async function measureTerminalPaths(
+	frames: readonly Uint8Array[]
+): Promise<TerminalPathMeasurement[]> {
+	const paths: ExportTerminalPath[] = [
+		'downloaded',
+		'cancelled',
+		'invalid-frame',
+		'encoder-failure'
+	];
+	const measurements: TerminalPathMeasurement[] = [];
+	for (let repetition = 0; repetition < TERMINAL_PATH_REPETITIONS; repetition += 1) {
+		for (const path of paths) {
+			measurements.push(await measureTerminalPath(path, repetition, frames));
+		}
+	}
+	return measurements;
+}
+
 async function measureConcurrency(
 	frames: readonly Uint8Array[],
 	workingDirectory: string
@@ -479,6 +627,7 @@ async function main(): Promise<void> {
 			})
 		];
 		const cancellation = await measureCancellation(frames);
+		const terminalPaths = await measureTerminalPaths(frames.slice(0, TERMINAL_PATH_FRAME_COUNT));
 		const concurrency = await measureConcurrency(frames, workingDirectory);
 
 		const evidence = {
@@ -511,6 +660,7 @@ async function main(): Promise<void> {
 			serverNodeBuiltins: await serverNodeBuiltins(),
 			exportLanes,
 			cancellation,
+			terminalPaths,
 			concurrency,
 			limits: {
 				ratified: PUBLIC_EXPORT_RUNTIME_LIMITS,
@@ -567,6 +717,28 @@ async function main(): Promise<void> {
 				`Cancellation left ${cancellation.ffmpegChildrenAfterCancel} encoder processes.`
 			);
 		}
+		for (const terminal of terminalPaths) {
+			const ended = `${terminal.path} (repetition ${terminal.repetition})`;
+			if (!terminal.sessionGone) {
+				failures.push(`${ended} left its session open after it ended.`);
+			}
+			if (terminal.exportDirectoriesAfter !== 0) {
+				failures.push(`${ended} left ${terminal.exportDirectoriesAfter} work directories.`);
+			}
+			if (terminal.encoderProcessesAfter !== 0) {
+				failures.push(`${ended} left ${terminal.encoderProcessesAfter} encoder processes.`);
+			}
+		}
+		if (
+			terminalPaths.some((terminal) => terminal.path === 'downloaded' && terminal.status !== 200)
+		) {
+			failures.push('A repeated export download did not answer 200.');
+		}
+		if (
+			terminalPaths.some((terminal) => terminal.path === 'encoder-failure' && terminal.status < 400)
+		) {
+			failures.push('An undecodable export was accepted instead of refused.');
+		}
 		if (!concurrency.allCompleted || concurrency.exportDirectoriesAfter !== 0) {
 			failures.push('Concurrent sessions did not all complete and clean up.');
 		}
@@ -589,6 +761,13 @@ async function main(): Promise<void> {
 				`${lane.format}: ${lane.outputBytesPerFrame} bytes/frame, complete in ${lane.completeMs} ms, download ${lane.download.status}`
 			);
 		}
+		const retained = terminalPaths.reduce(
+			(total, terminal) => total + terminal.exportDirectoriesAfter + terminal.encoderProcessesAfter,
+			0
+		);
+		console.log(
+			`terminal paths: ${terminalPaths.length} sessions ended, ${terminalPaths.filter((terminal) => terminal.sessionGone).length} forgotten, ${retained} directories or encoders retained`
+		);
 		if (failures.length > 0) {
 			throw new Error(`Public runtime probe failed:\n- ${failures.join('\n- ')}`);
 		}

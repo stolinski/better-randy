@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { ChildProcessWithoutNullStreams, spawn as nodeSpawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough, Writable } from 'node:stream';
@@ -17,6 +17,7 @@ import {
 	parseExportFrameIndex,
 	parseExportSessionRequest
 } from '$lib/platform/export-session.server';
+import { findExportCleanupLeaks } from '$lib/platform/public-export-cleanup';
 import { EXPORT_CONTROL_DOCUMENT_MAX_BYTES } from '$lib/platform/public-export-limits';
 import {
 	EXPORT_SESSION_IDENTITY_LENGTH,
@@ -46,12 +47,19 @@ interface FakeEncoderOptions {
 	createInput?: () => Writable;
 	/** Payload the fake encoder writes, so an output-ceiling fixture can oversize it. */
 	outputContent?: string;
+	/** Die unprompted after this many writes, the way a crashed ffmpeg would. */
+	crashAfterWrites?: number;
 }
 
 interface FakeEncoderHarness {
 	spawnEncoder: typeof nodeSpawn;
 	spawnedArguments: string[][];
 	children: FakeEncoderProcess[];
+	/**
+	 * The options every later spawn reads, so one store can run a success cycle
+	 * and a failing-encoder cycle in turn the way one host does.
+	 */
+	behavior: FakeEncoderOptions;
 }
 
 class FakeEncoderProcess extends EventEmitter {
@@ -59,11 +67,28 @@ class FakeEncoderProcess extends EventEmitter {
 	readonly stdout = new PassThrough();
 	readonly stderr = new PassThrough();
 	killed = false;
+	exited = false;
 
 	constructor(outputPath: string, options: FakeEncoderOptions) {
 		super();
+		let writes = 0;
 		this.stdin =
-			options.createInput?.() ?? new Writable({ write: (_chunk, _encoding, done) => done() });
+			options.createInput?.() ??
+			new Writable({
+				write: (_chunk, _encoding, done) => {
+					writes += 1;
+					done();
+					if (options.crashAfterWrites !== undefined && writes >= options.crashAfterWrites) {
+						// A real encoder that died leaves an EPIPE on its stdin socket, as
+						// both an `error` event and the next write callback's error.
+						this.stdin.destroy(new Error('EPIPE: broken pipe, write'));
+						queueMicrotask(() => this.emit('close', 1, null));
+					}
+				}
+			});
+		this.once('close', () => {
+			this.exited = true;
+		});
 		this.stdin.once('finish', () => {
 			void (async () => {
 				if ((options.exitCode ?? 0) === 0) {
@@ -88,16 +113,17 @@ class FakeEncoderProcess extends EventEmitter {
 function createFakeEncoder(options: FakeEncoderOptions = {}): FakeEncoderHarness {
 	const spawnedArguments: string[][] = [];
 	const children: FakeEncoderProcess[] = [];
+	const behavior: FakeEncoderOptions = { ...options };
 	const spawnEncoder = ((_command: string, args?: readonly string[]) => {
 		const normalized = [...(args ?? [])];
 		spawnedArguments.push(normalized);
 		const outputPath = normalized.at(-1);
 		assert.ok(outputPath);
-		const child = new FakeEncoderProcess(outputPath, options);
+		const child = new FakeEncoderProcess(outputPath, behavior);
 		children.push(child);
 		return child as unknown as ChildProcessWithoutNullStreams;
 	}) as typeof nodeSpawn;
-	return { spawnEncoder, spawnedArguments, children };
+	return { spawnEncoder, spawnedArguments, children, behavior };
 }
 
 interface TestStoreOptions {
@@ -548,6 +574,9 @@ describe('export session encoding', () => {
 		await assert.rejects(upload, /abort/i);
 		assert.equal(encoder.children[0].killed, true);
 		assert.deepEqual(await readdir(directory), []);
+		assert.equal(store.openSessionCount, 0);
+		assert.equal(store.cleanupReceipts.at(-1)?.reason, 'failed');
+		assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), []);
 	});
 
 	it('expires abandoned sessions and cleans orphaned directories', async () => {
@@ -1065,5 +1094,149 @@ describe('public export request security', () => {
 		assert.ok(!failure.message.includes(directory));
 		assert.ok(!failure.message.includes(session.sessionId));
 		assert.deepEqual(await readdir(directory), []);
+	});
+});
+
+/**
+ * ADR-0052: a public export session ends by leaving nothing behind. Every
+ * terminal path is driven repeatedly against one store, the way one host runs
+ * them, and each disposal has to account for what it released.
+ */
+describe('public export cleanup and zero retention', () => {
+	/**
+	 * A clock reading past the idle timeout for every directory that exists now.
+	 * `mtimeMs` carries sub-millisecond precision, so a directory created in this
+	 * millisecond is fractionally younger than the integer `Date.now()` it is
+	 * compared against.
+	 */
+	function afterIdleTimeout(): number {
+		return Date.now() + PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs + 1_000;
+	}
+
+	/** Drive one session all the way to a drained download. */
+	async function runDownloadedExport(store: ExportSessionStore): Promise<void> {
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
+		assert.ok(response.body);
+		await new Response(response.body).arrayBuffer();
+	}
+
+	it('leaves no session, encoder, or file behind across repeated terminal paths', async () => {
+		const cycles = 3;
+		const { store, directory, encoder } = await createStore();
+		for (let cycle = 0; cycle < cycles; cycle += 1) {
+			await runDownloadedExport(store);
+
+			const cancelled = await openSession(store, WEBM_SINGLE_FRAME);
+			await store.uploadFrame(cancelled.sessionId, 0, frameRequest(cancelled));
+			await store.cancel(cancelled.sessionId, controlRequest(cancelled, 'DELETE'));
+
+			const refused = await openSession(store, WEBM_SINGLE_FRAME);
+			await assert.rejects(
+				() =>
+					store.uploadFrame(refused.sessionId, 0, frameRequest(refused, { type: 'image/jpeg' })),
+				/Expected an image\/png/
+			);
+
+			encoder.behavior.exitCode = 1;
+			const failed = await openSession(store, WEBM_SINGLE_FRAME);
+			await store.uploadFrame(failed.sessionId, 0, frameRequest(failed));
+			await assert.rejects(
+				() => store.complete(failed.sessionId, controlRequest(failed)),
+				isLimitStatus(500, /^Export encoding failed\.$/)
+			);
+			encoder.behavior.exitCode = 0;
+
+			assert.equal(store.openSessionCount, 0);
+			assert.deepEqual(await readdir(directory), []);
+		}
+
+		assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), []);
+		assert.deepEqual(
+			store.cleanupReceipts.map((receipt) => receipt.reason),
+			Array.from({ length: cycles }, () => ['downloaded', 'cancelled', 'failed', 'failed']).flat()
+		);
+		assert.equal(
+			new Set(store.cleanupReceipts.map((receipt) => receipt.sessionId)).size,
+			cycles * 4
+		);
+		assert.ok(encoder.children.every((child) => child.exited));
+	});
+
+	it('ends a session whose encoder dies mid-export instead of carrying the crash further', async () => {
+		const { store, directory, encoder } = await createStore({ crashAfterWrites: 2 });
+		const session = await openSession(store, { ...WEBM_SINGLE_FRAME, frameCount: 2 });
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await assert.rejects(() => store.uploadFrame(session.sessionId, 1, frameRequest(session)));
+
+		assert.equal(store.openSessionCount, 0);
+		assert.deepEqual(await readdir(directory), []);
+		assert.equal(store.cleanupReceipts.at(-1)?.reason, 'failed');
+		assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), []);
+		assert.ok(encoder.children[0].exited);
+	});
+
+	it('ends a download that never drains at the hard lifetime and releases its output', async () => {
+		let now = 1_000;
+		const { store, directory } = await createStore(
+			{},
+			{ ttlMs: 10_000, maxLifetimeMs: 500, now: () => now }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await store.complete(session.sessionId, controlRequest(session));
+		const response = await store.outputResponse(session.sessionId, downloadRequest(session));
+		const body = response.body;
+		assert.ok(body);
+
+		now = 1_600;
+		assert.equal(await store.cleanupStale(), 1);
+		assert.equal(store.openSessionCount, 0);
+		assert.deepEqual(await readdir(directory), []);
+		const receipt = store.cleanupReceipts.at(-1);
+		assert.equal(receipt?.reason, 'lifetime-expired');
+		assert.equal(receipt?.downloadClosed, true);
+		// The transfer is over, not merely unlinked: an output still readable
+		// through an open descriptor would outlive the session that owned it.
+		await assert.rejects(() => body.getReader().read());
+	});
+
+	// Root would bypass the directory permission this fixture removes the entry through.
+	it.skipIf(process.getuid?.() === 0)(
+		'records a work directory it could not remove without failing the request that ended the session',
+		async () => {
+			const { store, directory } = await createStore();
+			const session = await openSession(store, WEBM_SINGLE_FRAME);
+			await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+			await store.complete(session.sessionId, controlRequest(session));
+
+			await chmod(directory, 0o500);
+			try {
+				await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+			} finally {
+				await chmod(directory, 0o700);
+			}
+			assert.equal(store.openSessionCount, 0);
+			assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), [
+				`Export session ${session.sessionId} (cancelled) left its work directory on disk.`
+			]);
+
+			// The directory keeps this build's export prefix, so the orphan sweep is
+			// what finally collects it — no live session owns it any more.
+			assert.equal(await store.sweepOrphanedDirectories(afterIdleTimeout()), 1);
+			assert.deepEqual(await readdir(directory), []);
+		}
+	);
+
+	it('keeps a live session out of the orphan sweep', async () => {
+		const { store, directory } = await createStore();
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await mkdir(join(directory, 'gfx-export-abandoned'));
+
+		assert.equal(await store.sweepOrphanedDirectories(afterIdleTimeout()), 1);
+		assert.deepEqual(await readdir(directory), [`gfx-export-${session.sessionId}`]);
+		assert.equal(store.openSessionCount, 1);
 	});
 });

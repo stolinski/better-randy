@@ -9,6 +9,13 @@ import * as Sentry from '@sentry/sveltekit';
 import { createReadableStream } from '@sveltejs/kit/node';
 
 import {
+	EXPORT_CLEANUP_RECEIPT_HISTORY,
+	exportCleanupReasonForExpiry,
+	findExportCleanupLeak,
+	type ExportCleanupReason,
+	type ExportCleanupReceipt
+} from '$lib/platform/public-export-cleanup';
+import {
 	exportSessionUploadCeilingBytes,
 	findExportConcurrencyRejection,
 	findExportControlDocumentRejection,
@@ -112,7 +119,14 @@ interface ExportSession {
 	uploadCeilingBytes: number;
 	idleTimer: ReturnType<typeof setTimeout> | null;
 	lifetimeTimer: ReturnType<typeof setTimeout> | null;
-	cleanupPromise: Promise<void> | null;
+	/**
+	 * Ends an in-flight download: releases the descriptor the response is reading
+	 * the output through and closes the body. Set for as long as a download is
+	 * streaming, so a disposal is not reduced to unlinking a file another part of
+	 * the same process is still holding open.
+	 */
+	closeDownload: (() => Promise<void>) | null;
+	cleanupPromise: Promise<ExportCleanupReceipt> | null;
 	encodeStartedAt: number | null;
 }
 
@@ -136,6 +150,13 @@ const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
  * rename cannot orphan the previous release's directories.
  */
 const EXPORT_DIRECTORY_PREFIX = 'gfx-export-' satisfies SweptExportDirectoryPrefix;
+
+/**
+ * How long a disposal waits for a killed encoder to be reaped. `SIGKILL` cannot
+ * be caught, so a child still running after this is a host-level problem the
+ * cleanup receipt has to name rather than a wait worth extending.
+ */
+const ENCODER_TERMINATION_GRACE_MS = 2_000;
 
 export class ExportSessionError extends Error {
 	constructor(
@@ -414,6 +435,7 @@ export function exportSessionEncodeTelemetry(
 
 export class ExportSessionStore {
 	readonly #sessions = new Map<string, ExportSession>();
+	readonly #cleanupReceipts: ExportCleanupReceipt[] = [];
 	readonly #temporaryDirectory: string;
 	readonly #ffmpegPath: string;
 	readonly #ttlMs: number;
@@ -435,6 +457,20 @@ export class ExportSessionStore {
 			options.maxConcurrentSessions ?? runtime.maxConcurrentExportSessions;
 		this.#now = options.now ?? Date.now;
 		this.#spawnEncoder = options.spawnEncoder ?? spawn;
+	}
+
+	/**
+	 * Sessions this process is holding open. In-process only: the export
+	 * collection endpoint accepts `POST` and nothing else, so open sessions stay
+	 * unlistable over the transport (ADR-0052).
+	 */
+	get openSessionCount(): number {
+		return this.#sessions.size;
+	}
+
+	/** The most recent disposals and what each one released. */
+	get cleanupReceipts(): readonly ExportCleanupReceipt[] {
+		return [...this.#cleanupReceipts];
 	}
 
 	/**
@@ -499,6 +535,7 @@ export class ExportSessionStore {
 			uploadCeilingBytes: exportSessionUploadCeilingBytes(parsed, this.#limits),
 			idleTimer: null,
 			lifetimeTimer: null,
+			closeDownload: null,
 			cleanupPromise: null,
 			encodeStartedAt: null
 		};
@@ -506,9 +543,11 @@ export class ExportSessionStore {
 		try {
 			await mkdir(workDir, { recursive: false });
 		} catch (cause) {
-			this.#sessions.delete(id);
-			// The failure names the private work directory, so the caller is told
-			// only that the session could not be opened.
+			// A half-created session is a terminal path like any other, so it is
+			// disposed rather than merely forgotten. The failure names the private
+			// work directory, so the caller is told only that the session could not
+			// be opened.
+			await this.#dispose(session, 'failed');
 			console.error('Export work directory could not be created.', this.#redact(session, cause));
 			throw new ExportSessionError(500, 'Export session could not be opened.');
 		}
@@ -541,16 +580,16 @@ export class ExportSessionStore {
 			throw new ExportSessionError(409, 'Export audio was already uploaded or encoding started.');
 		}
 		if (request.headers.get('content-type')?.split(';', 1)[0] !== 'audio/wav') {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(415, 'Expected audio/wav export audio.');
 		}
 		if (!request.body) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(400, 'Missing export audio body.');
 		}
 		const declaredLength = contentLength(request);
 		if (declaredLength !== null && declaredLength !== session.request.audioBytes) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(400, 'Export audio Content-Length does not match audioBytes.');
 		}
 
@@ -569,7 +608,7 @@ export class ExportSessionStore {
 			session.hasAudio = true;
 		} catch (cause) {
 			file.destroy();
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw cause;
 		} finally {
 			session.isBusy = false;
@@ -597,16 +636,16 @@ export class ExportSessionStore {
 			throw new ExportSessionError(409, 'Upload export audio before the first frame.');
 		}
 		if (request.headers.get('content-type')?.split(';', 1)[0] !== 'image/png') {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(415, 'Expected an image/png export frame.');
 		}
 		if (!request.body) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(400, 'Missing export frame body.');
 		}
 		const declaredLength = contentLength(request);
 		if (declaredLength !== null && declaredLength < PNG_SIGNATURE.byteLength) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw new ExportSessionError(
 				400,
 				'Export frame Content-Length is shorter than a PNG header.'
@@ -619,7 +658,7 @@ export class ExportSessionStore {
 				? null
 				: findExportFrameBytesRejection(declaredLength, session, this.#limits);
 		if (declaredOverflow) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw limitError(declaredOverflow);
 		}
 
@@ -642,7 +681,7 @@ export class ExportSessionStore {
 			session.nextFrame += 1;
 			session.status = 'encoding';
 		} catch (cause) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw cause;
 		} finally {
 			session.isBusy = false;
@@ -693,7 +732,7 @@ export class ExportSessionStore {
 			session.status = 'ready';
 			return { downloadUrl: `/api/export/sessions/${id}/output` };
 		} catch (cause) {
-			await this.#fail(session);
+			await this.#dispose(session, 'failed');
 			throw cause;
 		} finally {
 			session.isBusy = false;
@@ -718,35 +757,55 @@ export class ExportSessionStore {
 		const source = createReadableStream(session.outputPath);
 		const reader = source.getReader();
 		let isCleaned = false;
-		const cleanup = async (): Promise<void> => {
+		const cleanup = async (reason: ExportCleanupReason): Promise<void> => {
 			if (isCleaned) return;
 			isCleaned = true;
 			requestSignal.removeEventListener('abort', handleAbort);
-			await this.#dispose(session);
+			// The response is already ending along its own path — drained, cancelled
+			// by its consumer, or aborted with the request — so the disposal has no
+			// download left to close.
+			session.closeDownload = null;
+			await this.#dispose(session, reason);
 		};
 		const handleAbort = (): void => {
-			void Promise.all([reader.cancel(requestSignal.reason).catch(() => undefined), cleanup()]);
+			void Promise.all([
+				reader.cancel(requestSignal.reason).catch(() => undefined),
+				cleanup('cancelled')
+			]);
 		};
 		requestSignal.addEventListener('abort', handleAbort, { once: true });
+		let bodyController: ReadableStreamDefaultController<Uint8Array> | null = null;
 		const body = new ReadableStream<Uint8Array>({
+			start: (controller) => {
+				bodyController = controller;
+			},
 			pull: async (controller) => {
 				try {
 					const chunk = await reader.read();
 					if (chunk.done) {
-						await cleanup();
+						await cleanup('downloaded');
 						controller.close();
 					} else {
 						controller.enqueue(chunk.value);
 					}
 				} catch (cause) {
 					controller.error(cause);
-					await cleanup();
+					await cleanup('failed');
 				}
 			},
 			cancel: async (reason) => {
-				await Promise.all([reader.cancel(reason).catch(() => undefined), cleanup()]);
+				await Promise.all([reader.cancel(reason).catch(() => undefined), cleanup('cancelled')]);
 			}
 		});
+		// A transfer that never drains is ended by the hard lifetime rather than
+		// waiting on a consumer that stopped pulling. Releasing the descriptor is
+		// what makes the removal below a removal: on POSIX an unlinked file that is
+		// still open keeps its blocks, so an output nobody closed would outlive the
+		// session that owned it.
+		session.closeDownload = async (): Promise<void> => {
+			await reader.cancel(new DOMException('Export session ended.', 'AbortError'));
+			bodyController?.error(new DOMException('Export session ended.', 'AbortError'));
+		};
 		return new Response(body, {
 			headers: {
 				...PUBLIC_EXPORT_DOWNLOAD_HEADERS,
@@ -771,7 +830,7 @@ export class ExportSessionStore {
 			}
 			throw cause;
 		}
-		await this.#dispose(session);
+		await this.#dispose(session, 'cancelled');
 	}
 
 	/**
@@ -780,13 +839,34 @@ export class ExportSessionStore {
 	 * lifetime, which exists precisely to end a transfer that never finishes.
 	 */
 	async cleanupStale(now = this.#now()): Promise<number> {
-		const stale = [...this.#sessions.values()].filter((session) =>
-			session.status === 'downloading'
-				? now - session.createdAt >= this.#maxLifetimeMs
-				: this.#findExpiry(session, now) !== null
-		);
-		await Promise.all(stale.map((session) => this.#dispose(session)));
+		const stale: { session: ExportSession; reason: ExportCleanupReason }[] = [];
+		for (const session of this.#sessions.values()) {
+			if (session.status === 'downloading') {
+				if (now - session.createdAt >= this.#maxLifetimeMs) {
+					stale.push({ session, reason: 'lifetime-expired' });
+				}
+				continue;
+			}
+			const expiry = this.#findExpiry(session, now);
+			if (expiry) stale.push({ session, reason: exportCleanupReasonForExpiry(expiry.limit) });
+		}
+		await Promise.all(stale.map(({ session, reason }) => this.#dispose(session, reason)));
 		return stale.length;
+	}
+
+	/**
+	 * Remove work directories no live session owns. A session that is still
+	 * draining a download has not written to its directory since the encode
+	 * finished, so age alone would collect it out from under the transfer; the
+	 * live set is what keeps the sweep to genuinely abandoned directories.
+	 */
+	async sweepOrphanedDirectories(now = Date.now()): Promise<number> {
+		return cleanupOrphanedExportDirectories(
+			this.#temporaryDirectory,
+			this.#ttlMs,
+			now,
+			new Set([...this.#sessions.values()].map((session) => basename(session.workDir)))
+		);
 	}
 
 	#startEncoder(session: ExportSession): ExportEncoder {
@@ -801,6 +881,14 @@ export class ExportSessionStore {
 		};
 		child.stderr.on('data', (chunk: Buffer | string) => {
 			encoder.stderrTail = `${encoder.stderrTail}${chunk.toString()}`.slice(-2000);
+		});
+		// An encoder that died answers the next write with EPIPE on its stdin
+		// socket, as both a write-callback error and an `error` event. The callback
+		// already carries the failure into the upload that caused it and ends the
+		// session; this listener is what keeps the same error from reaching the
+		// process unhandled and taking the whole host down with one crashed encode.
+		child.stdin.on('error', (error: Error) => {
+			encoder.stderrTail = `${encoder.stderrTail}${error.message}`.slice(-2000);
 		});
 		encoder.exit = new Promise<number>((resolve) => {
 			let isSettled = false;
@@ -912,7 +1000,7 @@ export class ExportSessionStore {
 		if (!session) throw new ExportSessionError(404, 'Export session not found.');
 		const expired = this.#findExpiry(session, this.#now());
 		if (expired) {
-			await this.#dispose(session);
+			await this.#dispose(session, exportCleanupReasonForExpiry(expired.limit));
 			throw limitError(expired);
 		}
 		return session;
@@ -943,30 +1031,88 @@ export class ExportSessionStore {
 		session.idleTimer = this.#scheduleSweep(this.#ttlMs);
 	}
 
-	async #fail(session: ExportSession): Promise<void> {
-		await this.#dispose(session);
-	}
-
-	async #dispose(session: ExportSession): Promise<void> {
+	/**
+	 * Release everything one session holds, and record what was actually
+	 * released. Deliberately never throws: a disposal is triggered by whichever
+	 * request happened to end the session, and a cleanup failure is a retention
+	 * leak the origin has to see rather than a different error for that caller to
+	 * receive. Each failure is logged redacted and named in the receipt.
+	 *
+	 * The order is what makes the removal a removal: the download descriptor
+	 * first, then the encoder that is still writing, then the directory.
+	 */
+	async #dispose(
+		session: ExportSession,
+		reason: ExportCleanupReason
+	): Promise<ExportCleanupReceipt> {
 		if (session.cleanupPromise) return session.cleanupPromise;
+		const startedAt = Date.now();
 		session.cleanupPromise = (async () => {
 			this.#sessions.delete(session.id);
 			if (session.idleTimer) clearTimeout(session.idleTimer);
 			if (session.lifetimeTimer) clearTimeout(session.lifetimeTimer);
 			session.abortController.abort(new DOMException('Export session cancelled.', 'AbortError'));
-			const encoder = session.encoder;
-			if (encoder && !encoder.hasExited) {
-				encoder.child.stdin.destroy();
-				encoder.child.kill('SIGKILL');
-				const timeout = new Promise<void>((resolve) => {
-					const timer = setTimeout(resolve, 2_000);
-					timer.unref();
-				});
-				await Promise.race([encoder.exit.then(() => undefined).catch(() => undefined), timeout]);
+			const receipt: ExportCleanupReceipt = {
+				sessionId: session.id,
+				reason,
+				downloadClosed: await this.#closeDownload(session),
+				encoderTerminated: await this.#terminateEncoder(session),
+				workDirectoryRemoved: await this.#removeWorkDirectory(session),
+				elapsedMs: Date.now() - startedAt
+			};
+			this.#cleanupReceipts.push(receipt);
+			if (this.#cleanupReceipts.length > EXPORT_CLEANUP_RECEIPT_HISTORY) {
+				this.#cleanupReceipts.shift();
 			}
-			await rm(session.workDir, { recursive: true, force: true });
+			const leak = findExportCleanupLeak(receipt);
+			if (leak) console.error(leak);
+			return receipt;
 		})();
 		return session.cleanupPromise;
+	}
+
+	async #closeDownload(session: ExportSession): Promise<boolean> {
+		const close = session.closeDownload;
+		if (!close) return true;
+		session.closeDownload = null;
+		try {
+			await close();
+			return true;
+		} catch (cause) {
+			console.error('Export download could not be closed.', this.#redact(session, cause));
+			return false;
+		}
+	}
+
+	async #terminateEncoder(session: ExportSession): Promise<boolean> {
+		const encoder = session.encoder;
+		if (!encoder || encoder.hasExited) return true;
+		encoder.child.stdin.destroy();
+		encoder.child.kill('SIGKILL');
+		const graceExpired = new Promise<void>((resolve) => {
+			const timer = setTimeout(resolve, ENCODER_TERMINATION_GRACE_MS);
+			timer.unref();
+		});
+		await Promise.race([
+			encoder.exit.then(
+				() => undefined,
+				() => undefined
+			),
+			graceExpired
+		]);
+		return encoder.hasExited;
+	}
+
+	async #removeWorkDirectory(session: ExportSession): Promise<boolean> {
+		try {
+			await rm(session.workDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
+			return true;
+		} catch (cause) {
+			// The directory keeps this build's export prefix, so `sweepOrphanedDirectories`
+			// collects it once it ages past the idle timeout and no live session owns it.
+			console.error('Export work directory could not be removed.', this.#redact(session, cause));
+			return false;
+		}
 	}
 }
 
@@ -974,11 +1120,16 @@ export class ExportSessionStore {
  * Remove abandoned directories left by a terminated server process — under
  * every namespace's export prefix, so the release being replaced leaves nothing
  * behind whichever spelling it wrote (ADR-0052 retention, ADR-0053 matrix).
+ *
+ * `retainedDirectoryNames` are directories a live session still owns; the sweep
+ * decides on age alone, and a session draining a long download has not written
+ * to its directory since the encode finished.
  */
 export async function cleanupOrphanedExportDirectories(
 	temporaryDirectory = tmpdir(),
 	olderThanMs = PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
-	now = Date.now()
+	now = Date.now(),
+	retainedDirectoryNames: ReadonlySet<string> = new Set()
 ): Promise<number> {
 	let entries;
 	try {
@@ -989,6 +1140,7 @@ export async function cleanupOrphanedExportDirectories(
 	const stalePaths: string[] = [];
 	for (const entry of entries) {
 		if (!entry.isDirectory() || !isSweptExportDirectoryName(entry.name)) continue;
+		if (retainedDirectoryNames.has(entry.name)) continue;
 		const path = join(temporaryDirectory, basename(entry.name));
 		try {
 			if (now - (await stat(path)).mtimeMs >= olderThanMs) stalePaths.push(path);
@@ -1002,11 +1154,28 @@ export async function cleanupOrphanedExportDirectories(
 
 export const exportSessionStore = new ExportSessionStore();
 {
-	// Startup sweep in the configured temp location, so a restarted host inherits
-	// no output from the process it replaced (ADR-0052).
-	const runtime = parsePublicRuntimeConfig(process.env);
-	void cleanupOrphanedExportDirectories(
-		runtime.exportTemporaryDirectory ?? tmpdir(),
-		runtime.exportSessionIdleTimeoutMs
-	).catch((error) => console.error('Orphaned export directory cleanup failed.', error));
+	// A sweep at startup, so a restarted host inherits no output from the process
+	// it replaced — then on the idle-timeout cadence, because a directory that
+	// process left seconds before the restart is too young to remove at startup
+	// and nothing else would ever come back for it (ADR-0052).
+	//
+	// There is deliberately no shutdown hook: a terminated host's encoders reach
+	// EOF on the stdin pipe it took with it, and this sweep is what collects the
+	// directories they were writing to.
+	const sweep = (): void => {
+		void exportSessionStore
+			.sweepOrphanedDirectories()
+			.then((removed) => {
+				if (removed > 0) {
+					console.warn(`Removed ${removed} orphaned export work directories.`);
+				}
+			})
+			.catch((error) => console.error('Orphaned export directory cleanup failed.', error));
+	};
+	sweep();
+	const timer = setInterval(
+		sweep,
+		parsePublicRuntimeConfig(process.env).exportSessionIdleTimeoutMs
+	);
+	timer.unref();
 }
