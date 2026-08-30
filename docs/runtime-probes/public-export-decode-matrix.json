@@ -1,0 +1,2357 @@
+{
+	"schemaVersion": 1,
+	"generatedAt": "2026-08-30T20:24:29.148Z",
+	"probe": "public-export-decode-matrix",
+	"origin": "http://localhost:7263",
+	"host": {
+		"node": "v25.2.1",
+		"platform": "darwin",
+		"arch": "arm64",
+		"cpuCount": 8,
+		"totalMemoryBytes": 8589934592
+	},
+	"health": {
+		"status": 200,
+		"body": {
+			"status": "ready",
+			"release": "gfx@840151e9bf4801c6de7cea860147ed6320d7e929",
+			"checks": {
+				"ffmpeg": "ok",
+				"temporaryDisk": "ok"
+			}
+		}
+	},
+	"request": {
+		"frameCount": 6,
+		"fps": 30,
+		"ntscCadenceFps": 29.97
+	},
+	"tolerances": {
+		"webm": {
+			"rgbMeanAbsoluteError": 2.5,
+			"alphaMeanAbsoluteError": 0.25
+		},
+		"prores": {
+			"rgbMeanAbsoluteError": 0.25,
+			"alphaMeanAbsoluteError": 0.25
+		}
+	},
+	"lanes": [
+		{
+			"lane": "webm-transparent-silent-horizontal",
+			"format": "webm",
+			"outputClass": "transparent",
+			"hasAudio": false,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 1158,
+			"completeMs": 3949,
+			"outputBytes": 2012801,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 2012801,
+				"bytesReceived": 2012801,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.9807,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 1.012,
+					"nearestOtherSourceDistance": 18.0067
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 1.5442,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 1.5769,
+					"nearestOtherSourceDistance": 17.4453
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 1.3746,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 1.4065,
+					"nearestOtherSourceDistance": 17.6417
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 1.4474,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 1.4796,
+					"nearestOtherSourceDistance": 17.5827
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 1.4968,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 1.5279,
+					"nearestOtherSourceDistance": 17.4939
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 1.5435,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 1.5757,
+					"nearestOtherSourceDistance": 17.4082
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-transparent-audio-horizontal",
+			"format": "webm",
+			"outputClass": "transparent",
+			"hasAudio": true,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 540,
+			"completeMs": 3650,
+			"outputBytes": 2016354,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 2016354,
+				"bytesReceived": 2016354,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": "opus",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.208,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.9807,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 1.012,
+					"nearestOtherSourceDistance": 18.0067
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 1.5442,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 1.5769,
+					"nearestOtherSourceDistance": 17.4453
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 1.3746,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 1.4065,
+					"nearestOtherSourceDistance": 17.6417
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 1.4474,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 1.4796,
+					"nearestOtherSourceDistance": 17.5827
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 1.4968,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 1.5279,
+					"nearestOtherSourceDistance": 17.4939
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 1.5435,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 1.5757,
+					"nearestOtherSourceDistance": 17.4082
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-opaque-silent-horizontal",
+			"format": "webm",
+			"outputClass": "opaque",
+			"hasAudio": false,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 549,
+			"completeMs": 4371,
+			"outputBytes": 1696706,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 1696706,
+				"bytesReceived": 1696706,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv444p",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.3162,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.3163,
+					"nearestOtherSourceDistance": 17.1396
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.3982,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.3984,
+					"nearestOtherSourceDistance": 17.2233
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.3983,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.3984,
+					"nearestOtherSourceDistance": 17.2191
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.398,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.398,
+					"nearestOtherSourceDistance": 17.2213
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.3984,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.3986,
+					"nearestOtherSourceDistance": 17.2237
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.31,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.31,
+					"nearestOtherSourceDistance": 17.1468
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-opaque-audio-horizontal",
+			"format": "webm",
+			"outputClass": "opaque",
+			"hasAudio": true,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 814,
+			"completeMs": 35389,
+			"outputBytes": 1700259,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 1700259,
+				"bytesReceived": 1700259,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv444p",
+				"audioCodec": "opus",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.208,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.3162,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.3163,
+					"nearestOtherSourceDistance": 17.1396
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.3982,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.3984,
+					"nearestOtherSourceDistance": 17.2233
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.3983,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.3984,
+					"nearestOtherSourceDistance": 17.2191
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.398,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.398,
+					"nearestOtherSourceDistance": 17.2213
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.3984,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.3986,
+					"nearestOtherSourceDistance": 17.2237
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.31,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.31,
+					"nearestOtherSourceDistance": 17.1468
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-transparent-silent-horizontal",
+			"format": "prores",
+			"outputClass": "transparent",
+			"hasAudio": false,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 582,
+			"completeMs": 1063,
+			"outputBytes": 12643523,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 12643523,
+				"bytesReceived": 12643523,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.0396
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0398
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.0399
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0399
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.04
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-transparent-audio-horizontal",
+			"format": "prores",
+			"outputClass": "transparent",
+			"hasAudio": true,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": "01:00:00:00",
+			"uploadMs": 341,
+			"completeMs": 863,
+			"outputBytes": 12683062,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 12683062,
+				"bytesReceived": 12683062,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": "pcm_s16le",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": "01:00:00:00"
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.0396
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0398
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.0399
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0399
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0409,
+					"nearestOtherSourceDistance": 17.04
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-opaque-silent-horizontal",
+			"format": "prores",
+			"outputClass": "opaque",
+			"hasAudio": false,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 376,
+			"completeMs": 898,
+			"outputBytes": 10793312,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 10793312,
+				"bytesReceived": 10793312,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 16.9999
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0001
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0002
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0003
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0002
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-opaque-audio-horizontal",
+			"format": "prores",
+			"outputClass": "opaque",
+			"hasAudio": true,
+			"orientation": "horizontal",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": "01:00:00:00",
+			"uploadMs": 418,
+			"completeMs": 1213,
+			"outputBytes": 10832851,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 10832851,
+				"bytesReceived": 10832851,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": "pcm_s16le",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": "01:00:00:00"
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 16.9999
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0001
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0002
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0003
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0002
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-transparent-silent-vertical",
+			"format": "webm",
+			"outputClass": "transparent",
+			"hasAudio": false,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 459,
+			"completeMs": 3785,
+			"outputBytes": 1984012,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 1984012,
+				"bytesReceived": 1984012,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.981,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 1.013,
+					"nearestOtherSourceDistance": 18.0081
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 1.5429,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 1.5746,
+					"nearestOtherSourceDistance": 17.449
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 1.3714,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 1.4028,
+					"nearestOtherSourceDistance": 17.6415
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 1.4449,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 1.4767,
+					"nearestOtherSourceDistance": 17.5818
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 1.4939,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 1.5259,
+					"nearestOtherSourceDistance": 17.4959
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 1.5424,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 1.5739,
+					"nearestOtherSourceDistance": 17.4094
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-transparent-audio-vertical",
+			"format": "webm",
+			"outputClass": "transparent",
+			"hasAudio": true,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 376,
+			"completeMs": 4772,
+			"outputBytes": 1987565,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 1987565,
+				"bytesReceived": 1987565,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": "opus",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.208,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.981,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 1.013,
+					"nearestOtherSourceDistance": 18.0081
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 1.5429,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 1.5746,
+					"nearestOtherSourceDistance": 17.449
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 1.3714,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 1.4028,
+					"nearestOtherSourceDistance": 17.6415
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 1.4449,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 1.4767,
+					"nearestOtherSourceDistance": 17.5818
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 1.4939,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 1.5259,
+					"nearestOtherSourceDistance": 17.4959
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 1.5424,
+					"alphaMeanAbsoluteError": 0.0317,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 1.5739,
+					"nearestOtherSourceDistance": 17.4094
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-opaque-silent-vertical",
+			"format": "webm",
+			"outputClass": "opaque",
+			"hasAudio": false,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 399,
+			"completeMs": 4864,
+			"outputBytes": 2229433,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 2229433,
+				"bytesReceived": 2229433,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv444p",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.3161,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.3167,
+					"nearestOtherSourceDistance": 17.1404
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.3982,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.3978,
+					"nearestOtherSourceDistance": 17.2227
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.3983,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.3985,
+					"nearestOtherSourceDistance": 17.2195
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.398,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.3983,
+					"nearestOtherSourceDistance": 17.2217
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.3984,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.3981,
+					"nearestOtherSourceDistance": 17.2235
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.31,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.3105,
+					"nearestOtherSourceDistance": 17.1473
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "webm-opaque-audio-vertical",
+			"format": "webm",
+			"outputClass": "opaque",
+			"hasAudio": true,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 362,
+			"completeMs": 4806,
+			"outputBytes": 2232986,
+			"download": {
+				"status": 200,
+				"contentType": "video/webm",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 2232986,
+				"bytesReceived": 2232986,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv444p",
+				"audioCodec": "opus",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.208,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033, 0.067, 0.1, 0.133, 0.167],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.3161,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.3167,
+					"nearestOtherSourceDistance": 17.1404
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.3982,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.3978,
+					"nearestOtherSourceDistance": 17.2227
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.3983,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.3985,
+					"nearestOtherSourceDistance": 17.2195
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.398,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.3983,
+					"nearestOtherSourceDistance": 17.2217
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.3984,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.3981,
+					"nearestOtherSourceDistance": 17.2235
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.31,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.3105,
+					"nearestOtherSourceDistance": 17.1473
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-transparent-silent-vertical",
+			"format": "prores",
+			"outputClass": "transparent",
+			"hasAudio": false,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 335,
+			"completeMs": 841,
+			"outputBytes": 14572540,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 14572540,
+				"bytesReceived": 14572540,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0411,
+					"nearestOtherSourceDistance": 17.0403
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0011,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0401
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0405
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0016,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0412,
+					"nearestOtherSourceDistance": 17.0406
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-transparent-audio-vertical",
+			"format": "prores",
+			"outputClass": "transparent",
+			"hasAudio": true,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": "01:00:00:00",
+			"uploadMs": 306,
+			"completeMs": 893,
+			"outputBytes": 14612079,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 14612079,
+				"bytesReceived": 14612079,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": "pcm_s16le",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": "01:00:00:00"
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 0.864202,
+					"opaqueCoverage": 0.801667,
+					"edgeClass": "transparent",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0411,
+					"nearestOtherSourceDistance": 17.0403
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0011,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0401
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0408,
+					"nearestOtherSourceDistance": 17.0402
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0014,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.041,
+					"nearestOtherSourceDistance": 17.0405
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0016,
+					"alphaMeanAbsoluteError": 0.0397,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0412,
+					"nearestOtherSourceDistance": 17.0406
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-opaque-silent-vertical",
+			"format": "prores",
+			"outputClass": "opaque",
+			"hasAudio": false,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": null,
+			"uploadMs": 336,
+			"completeMs": 815,
+			"outputBytes": 10443604,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 10443604,
+				"bytesReceived": 10443604,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": null,
+				"audioSampleRate": null,
+				"audioChannels": null,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": null
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0012,
+					"nearestOtherSourceDistance": 17.0006
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0012,
+					"nearestOtherSourceDistance": 17.0006
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0009
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0017,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0015,
+					"nearestOtherSourceDistance": 17.0009
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		},
+		{
+			"lane": "prores-opaque-audio-vertical",
+			"format": "prores",
+			"outputClass": "opaque",
+			"hasAudio": true,
+			"orientation": "vertical",
+			"frameCount": 6,
+			"fps": 30,
+			"startTimecode": "01:00:00:00",
+			"uploadMs": 428,
+			"completeMs": 836,
+			"outputBytes": 10483143,
+			"download": {
+				"status": 200,
+				"contentType": "video/quicktime",
+				"cacheControl": "no-store",
+				"acceptRanges": "none",
+				"declaredLength": 10483143,
+				"bytesReceived": 10483143,
+				"replayStatus": 404
+			},
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"audioCodec": "pcm_s16le",
+				"audioSampleRate": 48000,
+				"audioChannels": 2,
+				"width": 2160,
+				"height": 3840,
+				"containerDurationSeconds": 0.2,
+				"startTimecode": "01:00:00:00"
+			},
+			"presentationSeconds": [0, 0.033333, 0.066667, 0.1, 0.133333, 0.166667],
+			"frames": [
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				},
+				{
+					"alphaCoverage": 1,
+					"opaqueCoverage": 1,
+					"edgeClass": "opaque",
+					"isBlank": false
+				}
+			],
+			"identity": [
+				{
+					"frameIndex": 0,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 0,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 1,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 1,
+					"sourceDistance": 0.0012,
+					"nearestOtherSourceDistance": 17.0006
+				},
+				{
+					"frameIndex": 2,
+					"rgbMeanAbsoluteError": 0.0012,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 2,
+					"sourceDistance": 0.0013,
+					"nearestOtherSourceDistance": 17.0005
+				},
+				{
+					"frameIndex": 3,
+					"rgbMeanAbsoluteError": 0.0013,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 3,
+					"sourceDistance": 0.0012,
+					"nearestOtherSourceDistance": 17.0006
+				},
+				{
+					"frameIndex": 4,
+					"rgbMeanAbsoluteError": 0.0015,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 4,
+					"sourceDistance": 0.0014,
+					"nearestOtherSourceDistance": 17.0009
+				},
+				{
+					"frameIndex": 5,
+					"rgbMeanAbsoluteError": 0.0017,
+					"alphaMeanAbsoluteError": 0,
+					"nearestSourceFrameIndex": 5,
+					"sourceDistance": 0.0015,
+					"nearestOtherSourceDistance": 17.0009
+				}
+			],
+			"retention": {
+				"exportDirectoriesAfter": 0,
+				"encoderProcessesAfter": 0,
+				"sessionGone": true
+			},
+			"faults": []
+		}
+	],
+	"ntscCadence": {
+		"lane": "prores-opaque-silent-horizontal",
+		"format": "prores",
+		"outputClass": "opaque",
+		"hasAudio": false,
+		"orientation": "horizontal",
+		"frameCount": 6,
+		"fps": 29.97,
+		"startTimecode": null,
+		"uploadMs": 357,
+		"completeMs": 937,
+		"outputBytes": 10793312,
+		"download": {
+			"status": 200,
+			"contentType": "video/quicktime",
+			"cacheControl": "no-store",
+			"acceptRanges": "none",
+			"declaredLength": 10793312,
+			"bytesReceived": 10793312,
+			"replayStatus": 404
+		},
+		"streams": {
+			"videoCodec": "prores",
+			"pixelFormat": "yuva444p12le",
+			"audioCodec": null,
+			"audioSampleRate": null,
+			"audioChannels": null,
+			"width": 3840,
+			"height": 2160,
+			"containerDurationSeconds": 0.2002,
+			"startTimecode": null
+		},
+		"presentationSeconds": [0, 0.033367, 0.066733, 0.1001, 0.133467, 0.166833],
+		"frames": [
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			},
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			},
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			},
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			},
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			},
+			{
+				"alphaCoverage": 1,
+				"opaqueCoverage": 1,
+				"edgeClass": "opaque",
+				"isBlank": false
+			}
+		],
+		"identity": [
+			{
+				"frameIndex": 0,
+				"rgbMeanAbsoluteError": 0.0013,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 0,
+				"sourceDistance": 0.0013,
+				"nearestOtherSourceDistance": 16.9999
+			},
+			{
+				"frameIndex": 1,
+				"rgbMeanAbsoluteError": 0.0014,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 1,
+				"sourceDistance": 0.0014,
+				"nearestOtherSourceDistance": 17.0001
+			},
+			{
+				"frameIndex": 2,
+				"rgbMeanAbsoluteError": 0.0013,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 2,
+				"sourceDistance": 0.0014,
+				"nearestOtherSourceDistance": 17.0002
+			},
+			{
+				"frameIndex": 3,
+				"rgbMeanAbsoluteError": 0.0013,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 3,
+				"sourceDistance": 0.0013,
+				"nearestOtherSourceDistance": 17.0003
+			},
+			{
+				"frameIndex": 4,
+				"rgbMeanAbsoluteError": 0.0015,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 4,
+				"sourceDistance": 0.0014,
+				"nearestOtherSourceDistance": 17.0005
+			},
+			{
+				"frameIndex": 5,
+				"rgbMeanAbsoluteError": 0.0013,
+				"alphaMeanAbsoluteError": 0,
+				"nearestSourceFrameIndex": 5,
+				"sourceDistance": 0.0013,
+				"nearestOtherSourceDistance": 17.0002
+			}
+		],
+		"retention": {
+			"exportDirectoriesAfter": 0,
+			"encoderProcessesAfter": 0,
+			"sessionGone": true
+		},
+		"faults": []
+	},
+	"repeatedExport": {
+		"lane": "prores-transparent-silent-horizontal",
+		"repetitions": 2,
+		"outputBytes": [12643523, 12643523],
+		"byteIdentical": true
+	},
+	"concurrency": {
+		"admittedSessions": 2,
+		"wallClockMs": 7633,
+		"saturatedStatus": 429,
+		"saturatedMessage": "The export host is already running 2 of 2 concurrent sessions. Retry once one finishes.",
+		"slotReleased": true,
+		"exportDirectoriesAfter": 0,
+		"encoderProcessesAfter": 0,
+		"faults": []
+	},
+	"cancellation": [
+		{
+			"path": "upload-abort",
+			"releasedAfterMs": 161,
+			"detail": {
+				"framesUploadedBeforeAbort": 1,
+				"headBytesDelivered": 65536,
+				"bodyStalled": true,
+				"uploadInFlight": true,
+				"uploadRejected": true
+			},
+			"exportDirectoriesAfter": 0,
+			"encoderProcessesAfter": 0,
+			"sessionGone": true,
+			"faults": []
+		},
+		{
+			"path": "session-cancel",
+			"releasedAfterMs": 29,
+			"detail": {
+				"cancelStatus": 204,
+				"repeatCancelStatus": 204
+			},
+			"exportDirectoriesAfter": 0,
+			"encoderProcessesAfter": 0,
+			"sessionGone": true,
+			"faults": []
+		},
+		{
+			"path": "download-abort",
+			"releasedAfterMs": 162,
+			"detail": {
+				"bytesBeforeAbort": 32371,
+				"retryStatus": 404
+			},
+			"exportDirectoriesAfter": 0,
+			"encoderProcessesAfter": 0,
+			"sessionGone": true,
+			"faults": []
+		}
+	],
+	"inSessionRefusals": [
+		{
+			"name": "frame-out-of-order",
+			"status": 409,
+			"message": "Expected export frame 0, received 1.",
+			"faults": [],
+			"exportDirectoriesAfterCancel": 0,
+			"encoderProcessesAfterCancel": 0,
+			"sessionGone": true
+		},
+		{
+			"name": "complete-before-every-frame",
+			"status": 409,
+			"message": "Export is missing frames: received 1 of 3.",
+			"faults": [],
+			"exportDirectoriesAfterCancel": 0,
+			"encoderProcessesAfterCancel": 0,
+			"sessionGone": true
+		}
+	],
+	"admissionRefusals": [
+		{
+			"shape": "frameRate",
+			"status": 400,
+			"message": "Export runs at 120 fps; the public limit is 60 fps.",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 400,
+			"faults": []
+		},
+		{
+			"shape": "frameCount",
+			"status": 400,
+			"message": "Export asks for 901 frames; the public limit is 900.",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 400,
+			"faults": []
+		},
+		{
+			"shape": "durationSeconds",
+			"status": 400,
+			"message": "Export spans 15.015 seconds; the public limit is 15 seconds (899 frames at 60000/1001 fps).",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 400,
+			"faults": []
+		},
+		{
+			"shape": "audioBytes",
+			"status": 413,
+			"message": "Export declares 8388609 bytes of audio; the public limit is 8388608.",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 413,
+			"faults": []
+		},
+		{
+			"shape": "controlDocumentBytes",
+			"status": 413,
+			"message": "Export session metadata declares 8277 bytes; the limit is 4096.",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 413,
+			"faults": []
+		},
+		{
+			"shape": "webm-start-timecode",
+			"status": 400,
+			"message": "A start timecode requires the ProRes format.",
+			"exportDirectoriesAfter": 0,
+			"wasAdmitted": false,
+			"expectedStatus": 400,
+			"faults": []
+		}
+	],
+	"retention": {
+		"baselineExportDirectories": 0,
+		"baselineEncoderProcesses": 0,
+		"exportDirectoriesAtEnd": 0,
+		"encoderProcessesAtEnd": 0
+	},
+	"faults": []
+}
