@@ -582,7 +582,7 @@
 					});
 					frame = 0;
 					renderLoop();
-					downloadVideoExport(video, 'dof3d.webm');
+					await downloadVideoExport(video, 'dof3d.webm');
 					return { frames: Math.round(durationSeconds * fps) };
 				}
 			};

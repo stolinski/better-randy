@@ -1286,6 +1286,12 @@
 	function handleExport(): Promise<CompositionExportOutcome> {
 		return performExport();
 	}
+
+	// The person's stop, reaching the same run an agent stops with its
+	// AbortSignal: render, upload, encode, and download all end together.
+	function cancelExport(): void {
+		compositionExportController.cancel();
+	}
 </script>
 
 <svelte:window
@@ -1366,11 +1372,13 @@
 				onchange={(checked) => (separateWav = checked)}
 			/>
 		</div>
-		<button class="export-menu__go" type="button" disabled={isExporting} onclick={handleExport}>
-			{isExporting ? `Exporting ${Math.round(progress * 100)}%…` : 'Export composition'}
-		</button>
 		{#if isExporting}
+			<button class="export-menu__go" type="button" onclick={cancelExport}>Cancel export</button>
 			<progress aria-label="Export progress" max="1" value={progress}></progress>
+		{:else}
+			<button class="export-menu__go" type="button" onclick={handleExport}>
+				Export composition
+			</button>
 		{/if}
 		{#if status}
 			<p class="export-menu__status">{status}</p>

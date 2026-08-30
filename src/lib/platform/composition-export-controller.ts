@@ -66,14 +66,16 @@ export interface CompositionExportUiState {
  * What one export invocation really did. The GUI reads this as status text; the
  * `delivery` family turns it into a receipt or a corrective refusal, which is
  * why every way an export can end has its own case rather than collapsing into
- * "finished". A `delivered` outcome means the encoded file exists and the
- * browser download for it was started — never that an encode was merely queued
+ * "finished". A `delivered` outcome means the browser received the whole encoded
+ * file — never that an encode was queued or a download was merely started
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7).
  */
 export type CompositionExportOutcome =
 	| {
 			status: 'delivered';
 			plan: CompositionExportPlan;
+			/** Bytes the browser actually received — the proof the download landed. */
+			videoByteLength: number;
 			/** The sidecar WAV filename, or null when audio stayed in the video. */
 			wavFilename: string | null;
 	  }
@@ -110,7 +112,8 @@ export interface CompositionExportControllerServices {
 	renderAudio(request: AudioMixRenderRequest): Promise<AudioBuffer | null>;
 	exportWebM(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
 	exportProRes(options: TransparentVideoExportOptions): Promise<VideoExportDownload>;
-	downloadVideo(video: VideoExportDownload, filename: string): void;
+	/** Resolves with the delivered byte count once the browser holds the file. */
+	downloadVideo(video: VideoExportDownload, filename: string, signal: AbortSignal): Promise<number>;
 	downloadBlob(blob: Blob, filename: string): void;
 	encodeWav(audio: AudioBuffer): Uint8Array;
 	reportFailure(message: string, error: unknown): void;
@@ -311,7 +314,9 @@ export class CompositionExportController {
 						});
 			});
 			signal.throwIfAborted();
-			this.#services.downloadVideo(video, plan.videoFilename);
+			// The receipt below is only reachable once this resolves, so a download
+			// the browser never completed cannot be reported as a delivered file.
+			const videoByteLength = await this.#services.downloadVideo(video, plan.videoFilename, signal);
 
 			let wavFilename: string | null = null;
 			if (dependencies.readSeparateWav() && audio) {
@@ -320,7 +325,7 @@ export class CompositionExportController {
 				this.#services.downloadBlob(new Blob([wavBytes], { type: 'audio/wav' }), plan.wavFilename);
 				wavFilename = plan.wavFilename;
 			}
-			return { status: 'delivered', plan, wavFilename };
+			return { status: 'delivered', plan, videoByteLength, wavFilename };
 		} catch (error) {
 			if (isCompositionExportCancellation(error, signal)) {
 				return { status: 'cancelled' };

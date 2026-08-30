@@ -504,6 +504,7 @@ describe('WebMCP validation and delivery', () => {
 			Promise.resolve({
 				status: 'delivered',
 				plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+				videoByteLength: 4096,
 				wavFilename: null
 			});
 		const host = new FakeModelContext();

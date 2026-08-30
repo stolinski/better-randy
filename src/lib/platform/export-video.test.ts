@@ -43,23 +43,106 @@ describe('downloadBlob', () => {
 });
 
 describe('downloadVideoExport', () => {
-	it('starts a native browser download without materializing the output', () => {
+	function stubDownloadLink(): { href: string; download: string; click: ReturnType<typeof vi.fn> } {
 		const link = { href: '', download: '', click: vi.fn() };
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:delivered');
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 		vi.stubGlobal('document', { createElement: () => link });
+		return link;
+	}
 
-		downloadVideoExport(
-			{ downloadUrl: '/api/export/sessions/session-id/output' },
+	it('answers with the byte count only once the browser has the whole file', async () => {
+		const link = stubDownloadLink();
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+			requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+			return new Response(new Blob(['encoded-output']), {
+				headers: { 'Content-Length': '14' }
+			});
+		});
+
+		const byteLength = await downloadVideoExport(
+			{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
 			'gfx-bumper.mov'
 		);
 
-		assert.equal(link.href, '/api/export/sessions/session-id/output');
+		assert.equal(byteLength, 14);
+		assert.equal(link.href, 'blob:delivered');
 		assert.equal(link.download, 'gfx-bumper.mov');
 		assert.equal(link.click.mock.calls.length, 1);
+		assert.deepEqual(requests, ['GET /api/export/sessions/session-id/output']);
+	});
+
+	it('carries a refused download out as its failure and releases the session', async () => {
+		const link = stubDownloadLink();
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+			requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+			if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+			return new Response('Export output is not ready.', { status: 409 });
+		});
+
+		await assert.rejects(
+			downloadVideoExport(
+				{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+				'gfx-bumper.mov'
+			),
+			/Export output is not ready/
+		);
+		assert.equal(link.click.mock.calls.length, 0);
+		assert.ok(requests.includes('DELETE /session'));
+	});
+
+	it('refuses a transfer that ended short of the length the origin declared', async () => {
+		const link = stubDownloadLink();
+		vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+			if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+			return new Response(new Blob(['short']), { headers: { 'Content-Length': '4096' } });
+		});
+
+		await assert.rejects(
+			downloadVideoExport(
+				{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+				'gfx-overlay.webm'
+			),
+			/ended at 5 bytes; expected 4096/
+		);
+		assert.equal(link.click.mock.calls.length, 0);
+	});
+
+	it('stops the transfer and cancels the session when the caller aborts', async () => {
+		const link = stubDownloadLink();
+		const requests: string[] = [];
+		let markDownloadStarted = (): void => undefined;
+		const downloadStarted = new Promise<void>((resolve) => {
+			markDownloadStarted = resolve;
+		});
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+			requests.push(`${init?.method ?? 'GET'} ${String(input)}`);
+			if (init?.method === 'DELETE') return new Response(null, { status: 204 });
+			markDownloadStarted();
+			return new Promise<Response>((_resolve, reject) => {
+				init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+			});
+		});
+		const abortController = new AbortController();
+
+		const pending = downloadVideoExport(
+			{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+			'gfx-overlay.webm',
+			abortController.signal
+		);
+		await downloadStarted;
+		abortController.abort();
+
+		await assert.rejects(pending, /abort/i);
+		assert.equal(link.click.mock.calls.length, 0);
+		assert.ok(requests.includes('DELETE /session'));
 	});
 });
 
 describe('export session client', () => {
-	it('renders and uploads one frame at a time before publishing the disk download', async () => {
+	it('renders and uploads one frame at a time before naming the disk download', async () => {
 		const calls: { url: string; init: RequestInit | undefined }[] = [];
 		class FakeOffscreenCanvas {
 			width = 3840;
@@ -105,7 +188,7 @@ describe('export session client', () => {
 		});
 
 		assert.deepEqual(rendered, [0, 1]);
-		assert.deepEqual(video, { downloadUrl: '/session/output' });
+		assert.deepEqual(video, { downloadUrl: '/session/output', cancelUrl: '/session' });
 		assert.deepEqual(
 			calls.map((call) => call.url),
 			[

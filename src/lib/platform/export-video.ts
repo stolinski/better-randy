@@ -46,6 +46,13 @@ export interface SyncExportRequest {
 
 export interface VideoExportDownload {
 	downloadUrl: string;
+	/**
+	 * The session's own cancel URL. Carried out of the encode so a download that
+	 * never lands releases the encoded file now rather than at the session's idle
+	 * timeout — the origin holds no visitor output it is not actively delivering
+	 * ([ADR-0052](../../../docs/adr/0052-public-runtime-and-retention-architecture.md)).
+	 */
+	cancelUrl: string;
 }
 
 interface ExportSessionControl {
@@ -148,8 +155,8 @@ async function createExportSession(options: {
 	};
 }
 
-async function cancelExportSession(session: ExportSessionControl): Promise<void> {
-	await fetch(session.cancelUrl, { method: 'DELETE', keepalive: true }).catch(() => undefined);
+async function cancelExportSession(cancelUrl: string): Promise<void> {
+	await fetch(cancelUrl, { method: 'DELETE', keepalive: true }).catch(() => undefined);
 }
 
 async function exportCanvasVideo(
@@ -235,9 +242,9 @@ async function exportCanvasVideo(
 		}
 		signal?.throwIfAborted();
 		isComplete = true;
-		return { downloadUrl: value.downloadUrl };
+		return { downloadUrl: value.downloadUrl, cancelUrl: activeSession.cancelUrl };
 	} finally {
-		if (session && !isComplete) await cancelExportSession(session);
+		if (session && !isComplete) await cancelExportSession(session.cancelUrl);
 	}
 }
 
@@ -326,11 +333,48 @@ export async function exportTransparentProRes({
 	);
 }
 
-export function downloadVideoExport(exportedVideo: VideoExportDownload, filename: string): void {
-	const link = document.createElement('a');
-	link.href = exportedVideo.downloadUrl;
-	link.download = filename;
-	link.click();
+/**
+ * Hand the encoded output to the browser, and answer only once the browser
+ * really has it. Returns the number of bytes it received.
+ *
+ * The output is fetched rather than linked. An `<a download>` pointed at the
+ * session URL starts a transfer the page cannot observe: it has no status, no
+ * byte count, and no way to be stopped, so an export would report a delivered
+ * file while the download was still running — or had already been refused —
+ * which is the receipt [ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §7
+ * forbids. Fetching gives the transfer all three, including the caller's
+ * `AbortSignal`, and the server's own refusal text becomes the export's failure
+ * message instead of a silent non-download.
+ *
+ * `Response.blob()` is what keeps this affordable: the bytes live in the
+ * browser's blob storage, which spills to disk, rather than in the page's heap.
+ * A full-length public export runs to `PUBLIC_EXPORT_RUNTIME_LIMITS.maxOutputBytes`,
+ * far past what an in-page buffer should hold.
+ */
+export async function downloadVideoExport(
+	exportedVideo: VideoExportDownload,
+	filename: string,
+	signal?: AbortSignal
+): Promise<number> {
+	let isDelivered = false;
+	try {
+		signal?.throwIfAborted();
+		const response = await fetch(exportedVideo.downloadUrl, { signal });
+		if (!response.ok) throw await responseFailure(response, 'Export download failed');
+		const declaredLength = response.headers.get('content-length');
+		const file = await response.blob();
+		// The output response declares its exact size, so a transfer that ended
+		// early is a torn file — never a delivered one.
+		if (declaredLength !== null && file.size !== Number(declaredLength)) {
+			throw new Error(`Export download ended at ${file.size} bytes; expected ${declaredLength}.`);
+		}
+		signal?.throwIfAborted();
+		downloadBlob(file, filename);
+		isDelivered = true;
+		return file.size;
+	} finally {
+		if (!isDelivered) await cancelExportSession(exportedVideo.cancelUrl);
+	}
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {

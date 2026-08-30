@@ -6,7 +6,7 @@
  * One call, one `AbortSignal`, one receipt. There is deliberately no progress
  * tool: a second way to ask about work already started invites a busy loop, and
  * the export either finishes or it does not. The receipt is issued only after
- * the encoded file exists and its download has been handed to the browser — a
+ * the encoded file exists and the browser has received every byte of it — a
  * cancelled or failed run returns `cancelled` or `export_failed`, never a
  * success receipt naming a file nobody has.
  *
@@ -50,6 +50,8 @@ export interface CompositionDeliveryReceipt {
 	frameCount: number;
 	durationSeconds: number;
 	videoFilename: string;
+	/** Bytes of that file the browser received. Only a completed download reports one. */
+	videoByteLength: number;
 	/** The sidecar WAV the browser also received, or null when audio stayed in the video. */
 	wavFilename: string | null;
 }
@@ -121,6 +123,7 @@ export async function runExportCompositionVideoOperation(
 				frameCount: outcome.plan.frameCount,
 				durationSeconds: outcome.plan.durationSeconds,
 				videoFilename: outcome.plan.videoFilename,
+				videoByteLength: outcome.videoByteLength,
 				wavFilename: outcome.wavFilename
 			};
 		case 'cancelled':

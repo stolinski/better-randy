@@ -30,6 +30,7 @@ function deliveredOutcome(wavFilename: string | null = null): CompositionExportO
 	return {
 		status: 'delivered',
 		plan: buildCompositionExportPlan({ state: engineState, transition: null }),
+		videoByteLength: 4096,
 		wavFilename
 	};
 }
@@ -79,6 +80,7 @@ describe('composition delivery', () => {
 			fps: 30,
 			frameCount: 180,
 			videoFilename: 'gfx-overlay.webm',
+			videoByteLength: 4096,
 			wavFilename: null
 		});
 	});

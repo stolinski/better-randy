@@ -173,6 +173,7 @@ interface ExportControllerHarness {
 	dependencies: CompositionExportControllerDependencies;
 	uiStates: CompositionExportUiState[];
 	downloads: string[];
+	downloadSignals: AbortSignal[];
 	preparedFrames: Array<{ frame: number; timestamp: number }>;
 	renderedTimestamps: number[];
 	animationProgresses: number[];
@@ -189,10 +190,16 @@ function createHarness(options?: {
 	separateWav?: boolean;
 	renderAudio?: (request: AudioMixRenderRequest) => Promise<AudioBuffer | null>;
 	exportWebM?: (options: TransparentVideoExportOptions) => Promise<VideoExportDownload>;
+	downloadVideo?: (
+		video: VideoExportDownload,
+		filename: string,
+		signal: AbortSignal
+	) => Promise<number>;
 }): ExportControllerHarness {
 	const state = options?.state ?? makeState({ durationSeconds: 2, fps: 2 });
 	const uiStates: CompositionExportUiState[] = [];
 	const downloads: string[] = [];
+	const downloadSignals: AbortSignal[] = [];
 	const preparedFrames: Array<{ frame: number; timestamp: number }> = [];
 	const renderedTimestamps: number[] = [];
 	const animationProgresses: number[] = [];
@@ -212,7 +219,10 @@ function createHarness(options?: {
 			await exportOptions.renderFrame(frame, timestamp);
 			exportOptions.onProgress?.((frame + 1) / frameCount);
 		}
-		return { downloadUrl: '/api/export/sessions/test/output' };
+		return {
+			downloadUrl: '/api/export/sessions/test/output',
+			cancelUrl: '/api/export/sessions/test'
+		};
 	};
 
 	const services: CompositionExportControllerServices = {
@@ -229,7 +239,12 @@ function createHarness(options?: {
 		},
 		exportWebM: options?.exportWebM ?? defaultExport,
 		exportProRes: defaultExport,
-		downloadVideo: (_video, filename) => downloads.push(filename),
+		downloadVideo: async (video, filename, signal) => {
+			downloadSignals.push(signal);
+			if (options?.downloadVideo) return options.downloadVideo(video, filename, signal);
+			downloads.push(filename);
+			return 4096;
+		},
 		downloadBlob: (_blob, filename) => downloads.push(filename),
 		encodeWav: (audio) => {
 			wavAudio.push(audio);
@@ -267,6 +282,7 @@ function createHarness(options?: {
 		dependencies,
 		uiStates,
 		downloads,
+		downloadSignals,
 		preparedFrames,
 		renderedTimestamps,
 		animationProgresses,
@@ -459,7 +475,58 @@ describe('composition export outcome', () => {
 		assert.equal(outcome.status, 'delivered');
 		if (outcome.status !== 'delivered') return;
 		assert.equal(outcome.plan.videoFilename, 'gfx-overlay.webm');
+		assert.equal(outcome.videoByteLength, 4096);
 		assert.equal(outcome.wavFilename, 'gfx-overlay.wav');
+	});
+
+	it('hands the running export cancellation down into the download', async () => {
+		const harness = createHarness();
+
+		await harness.controller.export(harness.dependencies);
+
+		assert.equal(harness.downloadSignals.length, 1);
+		assert.equal(harness.downloadSignals[0].aborted, false);
+	});
+
+	it('reports a refused download as failed rather than a delivered file', async () => {
+		const harness = createHarness({
+			audio: {} as AudioBuffer,
+			separateWav: true,
+			downloadVideo: async () => {
+				throw new Error('Export output is not ready.');
+			}
+		});
+
+		const outcome = await harness.controller.export(harness.dependencies);
+
+		assert.equal(outcome.status, 'failed');
+		assert.equal(outcome.status === 'failed' && outcome.message, 'Export output is not ready.');
+		// The sidecar rides the same run, so a video nobody received ships no WAV.
+		assert.deepEqual(harness.downloads, []);
+	});
+
+	it('reports a download the caller stopped as cancelled, with no receipt', async () => {
+		let markDownloadStarted = (): void => undefined;
+		const downloadStarted = new Promise<void>((resolve) => {
+			markDownloadStarted = resolve;
+		});
+		const harness = createHarness({
+			downloadVideo: async (_video, _filename, signal) => {
+				markDownloadStarted();
+				return new Promise<number>((_resolve, reject) => {
+					signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+				});
+			}
+		});
+		const caller = new AbortController();
+
+		const pending = harness.controller.export(harness.dependencies, undefined, caller.signal);
+		await downloadStarted;
+		caller.abort();
+
+		assert.equal((await pending).status, 'cancelled');
+		assert.deepEqual(harness.downloads, []);
+		assert.equal(harness.getFailureCount(), 0);
 	});
 
 	it('reports no sidecar when the audio stayed inside the video', async () => {
@@ -539,7 +606,10 @@ describe('composition export outcome', () => {
 				await new Promise<void>((resolve) => {
 					releaseExport = resolve;
 				});
-				return { downloadUrl: '/api/export/sessions/test/output' };
+				return {
+					downloadUrl: '/api/export/sessions/test/output',
+					cancelUrl: '/api/export/sessions/test'
+				};
 			}
 		});
 
