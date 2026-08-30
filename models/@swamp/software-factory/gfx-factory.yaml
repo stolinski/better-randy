@@ -52,9 +52,19 @@ globalArguments:
               6. Print exactly one JSON object (no fence commentary) with keys:
                  summary (string), branch (string), worktreePath (string, absolute),
                  headSha (string, full 40-char), visualChange (boolean),
-                 filesChanged (array of repo-relative paths).
+                 filesChanged (array of repo-relative paths), and reviewGuide
+                 (object with routes, presets, checkpoints — all arrays of strings).
                  visualChange is true when the change affects rendered Preset/Pack
                  output or visible UI; false for pure logic, tooling, or docs.
+                 When visualChange is true, reviewGuide is the human reviewer's
+                 exact recipe — you know what you changed, so spell it out:
+                 routes = app paths to open (e.g. "/p/chapter-card"), presets =
+                 affected Preset slugs, checkpoints = 3-6 specific things to
+                 look at, each naming what changed, where, and what could have
+                 regressed (e.g. "outro now GPU-fades — scrub ~2.4s in vertical
+                 and check for a double-fade"). Vague entries like "check it
+                 looks right" are worthless. All three arrays empty when
+                 visualChange is false.
 
               If the previous attempt was rejected, fix exactly what it reports:
               Schema rejection (null when none): ${{ data.latest(self.name, "validation-change-summary") }}
@@ -68,7 +78,7 @@ globalArguments:
         - name: change-summary
           schema:
             type: object
-            required: [summary, branch, worktreePath, headSha, visualChange, filesChanged]
+            required: [summary, branch, worktreePath, headSha, visualChange, filesChanged, reviewGuide]
             properties:
               summary: { type: string, minLength: 1 }
               branch: { type: string, minLength: 1 }
@@ -76,6 +86,13 @@ globalArguments:
               headSha: { type: string, minLength: 40 }
               visualChange: { type: boolean }
               filesChanged: { type: array, items: { type: string } }
+              reviewGuide:
+                type: object
+                required: [routes, presets, checkpoints]
+                properties:
+                  routes: { type: array, items: { type: string } }
+                  presets: { type: array, items: { type: string } }
+                  checkpoints: { type: array, items: { type: string } }
       transitions:
         - name: submit
           to: verify
@@ -119,19 +136,42 @@ globalArguments:
             - { type: evidence-recorded, config: { name: verify-run, requireField: { status: failed } } }
 
     - id: aesthetic-review
-      description: Human aesthetic approval for visual/preset work.
+      description: Human aesthetic approval for visual/preset work, from a concrete review packet.
       work:
         mode: interactive
         systemPrompt: |
-          Present the work item's visual result to the human: render the affected
-          Presets from the worktree (dev server or the CDP harness on 9223 with
-          the CanvasDrawElement flag) in both orientations and at least two Packs,
-          show the captures, and ask for approval. Record their verbatim reason on
-          rejection.
+          Build a concrete review packet BEFORE asking the human anything —
+          never ask them to "test the build". Start from the change-summary's
+          reviewGuide (fall back to reading the diff when it is thin): render
+          every listed preset/route from the worktree (serve the worktree
+          itself — `pnpm build && pnpm preview` on 4173, or the CDP harness on
+          9223 with the CanvasDrawElement flag) in both orientations and at
+          least two Packs where the change is Pack-dependent, and save the
+          captures. Record the review-packet artifact with those capture
+          paths, the numbered checkpoints (specific: what changed, where to
+          look, what might have regressed), and previewUrl + routes when live
+          interaction helps. Then present to the human, in this shape: one
+          sentence of what changed; the numbered checkpoints; the captures;
+          the preview URL with exact paths for anything interactive. The human
+          should be able to judge in two minutes without working out what to
+          test. Record their verbatim reason on rejection.
+      artifacts:
+        - name: review-packet
+          reviews: change-summary
+          schema:
+            type: object
+            required: [captures, checkpoints]
+            properties:
+              captures: { type: array, minItems: 1, items: { type: string } }
+              checkpoints: { type: array, minItems: 1, items: { type: string } }
+              previewUrl: { type: string }
+              routes: { type: array, items: { type: string } }
+              notes: { type: string }
       transitions:
         - name: approve
           to: integrate
           gates:
+            - { type: artifact-fresh, config: { artifact: review-packet, recordedThisCycle: true } }
             - { type: human-approval, config: { id: aesthetic-approval } }
         - name: rework
           to: implement

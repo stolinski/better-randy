@@ -35,13 +35,19 @@ gfx-factory describe` for the Mermaid when in doubt.
   none; `--all` never runs unless explicitly requested). Red routes back to
   implement with the stored failure bound into the retry prompt.
 - **aesthetic-review** — only reached when the change-summary says
-  `visualChange: true`. Present real renders (both orientations, ≥2 Packs)
-  fetched fresh from the worktree; the human approves via the
-  `aesthetic-approval` gate. Non-visual work ships with no human gate.
-  To review UI/app changes, serve the worktree itself: `pnpm build && pnpm
-  preview` inside the worktree (port 4173) and capture via the CDP harness.
-  The "never start a dev server" rule protects the long-running `:7263`
-  primary instance — a throwaway worktree preview is fine and expected.
+  `visualChange: true`. Never ask the human to "test the build": the approve
+  gate requires a fresh `review-packet` artifact, so build it first from the
+  change-summary's `reviewGuide` — captures of every affected preset/route
+  (both orientations, ≥2 Packs where Pack-dependent), numbered checkpoints
+  (what changed, where to look, what might have regressed), and a preview URL
+  with exact paths for anything interactive. Present exactly that packet: one
+  sentence of what changed, the checkpoints, the captures, the URL. The human
+  judges in two minutes; they approve via the `aesthetic-approval` gate, and
+  a rejection records their verbatim reason. Non-visual work ships with no
+  human gate. To serve the worktree: `pnpm build && pnpm preview` inside it
+  (port 4173) and capture via the CDP harness — the "never start a dev
+  server" rule protects the long-running `:7263` primary instance, not a
+  throwaway worktree preview.
 - **integrate** — `gfx-integration-git.cherry_pick` of the work item's
   commit onto `main` in the primary checkout. A real content conflict routes
   back to implement (the agent rebases and recommits). Unrelated dirty files
