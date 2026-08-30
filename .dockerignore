@@ -1,0 +1,40 @@
+# The production image builds from source and needs the app, not the workshop.
+# Everything excluded here is either regenerated inside the build, development
+# surface the public artifact must not carry, or bulk that only slows the
+# context transfer (ADR-0052).
+
+.git
+.github
+node_modules
+build
+.svelte-kit
+.output
+
+# Development-only surfaces and evidence. None of it is served publicly.
+.claude
+.dex
+.prime
+.swamp
+.vscode
+docs
+docs-site
+extensions
+models
+workflows
+fixtures
+user-compositions
+user-assets
+.posters
+.tmp-baselines
+.tmp-critique
+.test-snapshots
+static/backdrops
+
+# Local configuration and secrets never enter the build context. The image reads
+# its inputs from the environment it is run with, never from a file it carries.
+.env
+.env.*
+
+.DS_Store
+Thumbs.db
+*.log

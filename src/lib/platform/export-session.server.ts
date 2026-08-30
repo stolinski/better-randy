@@ -855,6 +855,22 @@ export class ExportSessionStore {
 	}
 
 	/**
+	 * Release every open session because the host is going away. An encode in
+	 * flight when a container is signalled has no visitor left to hand output to,
+	 * and its ffmpeg child would otherwise keep the process alive past the
+	 * orchestrator's grace period and turn a graceful stop into a kill.
+	 *
+	 * The orphan sweep remains the guarantee, not this: a host that is killed
+	 * outright never runs it, and its directories are collected by whichever
+	 * process comes next.
+	 */
+	async disposeOpenSessions(): Promise<readonly ExportCleanupReceipt[]> {
+		return Promise.all(
+			[...this.#sessions.values()].map((session) => this.#dispose(session, 'shutdown'))
+		);
+	}
+
+	/**
 	 * Remove work directories no live session owns. A session that is still
 	 * draining a download has not written to its directory since the encode
 	 * finished, so age alone would collect it out from under the transfer; the
@@ -1153,15 +1169,25 @@ export async function cleanupOrphanedExportDirectories(
 }
 
 export const exportSessionStore = new ExportSessionStore();
-{
-	// A sweep at startup, so a restarted host inherits no output from the process
-	// it replaced — then on the idle-timeout cadence, because a directory that
-	// process left seconds before the restart is too young to remove at startup
-	// and nothing else would ever come back for it (ADR-0052).
-	//
-	// There is deliberately no shutdown hook: a terminated host's encoders reach
-	// EOF on the stdin pipe it took with it, and this sweep is what collects the
-	// directories they were writing to.
+
+let exportDirectoryMaintenanceTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Sweep abandoned export directories now, then on the idle-timeout cadence
+ * (ADR-0052).
+ *
+ * The server `init` hook calls this, not module scope: SvelteKit imports a route
+ * module the first time a request matches it, so a side effect here would run at
+ * the first export request rather than at startup — and a host that never gets
+ * one would inherit the previous process's directories forever. Idempotent, so
+ * an `init` that runs more than once leaves one timer.
+ *
+ * The startup pass is why the cadence exists too: a directory the replaced
+ * process left seconds before the restart is too young for the startup sweep,
+ * and nothing else would ever come back for it.
+ */
+export function startExportDirectoryMaintenance(): void {
+	if (exportDirectoryMaintenanceTimer) return;
 	const sweep = (): void => {
 		void exportSessionStore
 			.sweepOrphanedDirectories()
@@ -1173,9 +1199,16 @@ export const exportSessionStore = new ExportSessionStore();
 			.catch((error) => console.error('Orphaned export directory cleanup failed.', error));
 	};
 	sweep();
-	const timer = setInterval(
+	exportDirectoryMaintenanceTimer = setInterval(
 		sweep,
 		parsePublicRuntimeConfig(process.env).exportSessionIdleTimeoutMs
 	);
-	timer.unref();
+	exportDirectoryMaintenanceTimer.unref();
+}
+
+/** Stop the sweep cadence so a signalled host has nothing left holding it open. */
+export function stopExportDirectoryMaintenance(): void {
+	if (!exportDirectoryMaintenanceTimer) return;
+	clearInterval(exportDirectoryMaintenanceTimer);
+	exportDirectoryMaintenanceTimer = null;
 }

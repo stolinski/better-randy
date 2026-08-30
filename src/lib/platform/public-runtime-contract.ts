@@ -39,6 +39,14 @@ export const DEFAULT_COMPOSITION_SESSION_STORAGE_IDENTITY = 'gfx-composition-ses
  */
 export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentInput[] = [
 	{
+		name: 'GFX_RUNTIME_PROFILE',
+		owner: 'gfx',
+		required: false,
+		defaultValue: 'development',
+		purpose:
+			'What this host is being asked to be: "public" holds every input below to the deployment the gfx.computer demo needs and refuses to start otherwise, "development" adds no requirements. See public-runtime-deployment.ts.'
+	},
+	{
 		name: 'FFMPEG_PATH',
 		owner: 'gfx',
 		required: false,

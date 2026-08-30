@@ -1239,4 +1239,33 @@ describe('public export cleanup and zero retention', () => {
 		assert.deepEqual(await readdir(directory), [`gfx-export-${session.sessionId}`]);
 		assert.equal(store.openSessionCount, 1);
 	});
+
+	// A signalled host has to exit inside its orchestrator's grace period, and an
+	// encoder still writing would hold the process open past it (ADR-0052).
+	it('releases every open session when the host is signalled', async () => {
+		const { store, directory } = await createStore();
+		const encoding = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(encoding.sessionId, 0, frameRequest(encoding));
+		const opened = await openSession(store, WEBM_SINGLE_FRAME);
+		assert.equal(store.openSessionCount, 2);
+
+		const receipts = await store.disposeOpenSessions();
+
+		assert.deepEqual(
+			receipts.map((receipt) => receipt.reason),
+			['shutdown', 'shutdown']
+		);
+		assert.deepEqual(
+			[...receipts.map((receipt) => receipt.sessionId)].sort(),
+			[encoding.sessionId, opened.sessionId].sort()
+		);
+		assert.deepEqual(findExportCleanupLeaks(receipts), []);
+		assert.equal(store.openSessionCount, 0);
+		assert.deepEqual(await readdir(directory), []);
+	});
+
+	it('has nothing to release on a host that was signalled while idle', async () => {
+		const { store } = await createStore();
+		assert.deepEqual(await store.disposeOpenSessions(), []);
+	});
 });

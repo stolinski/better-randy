@@ -20,9 +20,14 @@
 
 import type { PublicExportLimitName } from '$lib/platform/public-export-limits';
 
-/** Why a session was disposed. Every way an export can end has its own case. */
+/**
+ * Why a session was disposed. Every way an export can end has its own case,
+ * including `shutdown` — the host was signalled, and an encode nobody will come
+ * back for is released now rather than left for the orphan sweep of whichever
+ * process replaces it.
+ */
 export type ExportCleanupReason =
-	'downloaded' | 'cancelled' | 'failed' | 'idle-expired' | 'lifetime-expired';
+	'downloaded' | 'cancelled' | 'failed' | 'idle-expired' | 'lifetime-expired' | 'shutdown';
 
 export interface ExportCleanupReceipt {
 	/** The public session identity — the one private value a receipt may name. */

@@ -1,11 +1,13 @@
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 
 import * as Sentry from '@sentry/sveltekit';
 import { sequence } from '@sveltejs/kit/hooks';
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 
 import { resolveGitRelease } from '$lib/platform/git-version.server';
+import { startPublicRuntime } from '$lib/platform/public-runtime-lifecycle.server';
 
 // Server-side Sentry (errors, request tracing, logs). The DSN comes from
 // SENTRY_DSN in .env — absent, the SDK stays disabled and every capture below
@@ -28,6 +30,14 @@ Sentry.addEventProcessor((event) => {
 	const release = resolveGitRelease();
 	return release === undefined ? event : { ...event, release };
 });
+
+// The Node adapter awaits this before it listens, so a host whose deployment
+// inputs cannot serve its declared profile exits non-zero here rather than
+// accepting a request it could not finish (ADR-0052). Both dynamic env modules
+// are read because the inputs span private and PUBLIC_-prefixed names.
+export const init: ServerInit = async () => {
+	await startPublicRuntime({ ...env, ...publicEnv });
+};
 
 // Log every error response server-side. Intentional error(...) HttpErrors from
 // endpoints never reach handleError — without this hook they leave no trace in
