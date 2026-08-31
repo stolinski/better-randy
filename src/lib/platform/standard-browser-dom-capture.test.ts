@@ -14,7 +14,6 @@ function capabilities(
 	return {
 		hasCopyElementImageToTexture: false,
 		hasCanvasRequestPaint: false,
-		hasDomRasterization: false,
 		...overrides
 	};
 }
@@ -60,31 +59,30 @@ describe('selectDomFrameCaptureMode', () => {
 			selectDomFrameCaptureMode(
 				capabilities({
 					hasCopyElementImageToTexture: true,
-					hasCanvasRequestPaint: true,
-					hasDomRasterization: true
+					hasCanvasRequestPaint: true
 				})
 			),
 			'canvas-draw-element'
 		);
 	});
 
-	it('falls to the rasterization lane when the canvas capture API is half-present', () => {
-		assert.equal(
-			selectDomFrameCaptureMode(
-				capabilities({ hasCopyElementImageToTexture: true, hasDomRasterization: true })
-			),
-			'dom-rasterization'
-		);
-		assert.equal(
-			selectDomFrameCaptureMode(
-				capabilities({ hasCanvasRequestPaint: true, hasDomRasterization: true })
-			),
-			'dom-rasterization'
-		);
+	it('gates a half-present canvas capture API rather than falling back (qju2qity)', () => {
+		for (const halfPresent of [
+			capabilities({ hasCopyElementImageToTexture: true }),
+			capabilities({ hasCanvasRequestPaint: true })
+		]) {
+			assert.throws(
+				() => selectDomFrameCaptureMode(halfPresent),
+				/CanvasDrawElement.*CDP_BROWSER_MODE=agent scripts\/launch-cdp-chrome\.sh/
+			);
+		}
 	});
 
-	it('fails loudly rather than selecting a lane that cannot produce pixels', () => {
-		assert.throws(() => selectDomFrameCaptureMode(capabilities()), /No DOM frame capture lane/);
+	it('names the required flag and the exact launch command when it gates', () => {
+		assert.throws(
+			() => selectDomFrameCaptureMode(capabilities()),
+			/--enable-blink-features=CanvasDrawElement,WebMCP/
+		);
 	});
 });
 

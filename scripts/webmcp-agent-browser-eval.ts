@@ -7,8 +7,9 @@
 //
 // This is a deterministic script on the sanctioned CDP harness — one invocation,
 // no interactive tooling. It needs a server already answering for this build and
-// starts (or reuses) Chrome in `standard-webmcp` mode, which is the only mode
-// that exposes `document.modelContext`:
+// starts (or reuses) Chrome in the combined `agent` mode (CanvasDrawElement +
+// WebMCP, the default local agent mode since qju2qity): tools register only
+// where the real renderer runs, so this is the one harness that offers them:
 //
 //   pnpm eval:webmcp                                   # the dev server on :7263
 //   GFX_EVAL_ORIGIN=http://localhost:7266 pnpm eval:webmcp   # any other build
@@ -39,7 +40,7 @@ import type { WebmcpOperationRow } from '../src/lib/platform/webmcp-operation-in
 import { hashWebmcpToolSchemaSurface } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
 import type { WebmcpRegisteredToolDescriptor } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
 
-const STANDARD_WEBMCP_PORT = 9225;
+const COMBINED_AGENT_PORT = 9229;
 const PAGE_ORIGIN = process.env.GFX_EVAL_ORIGIN ?? 'http://localhost:7263';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const evidencePath = resolve(
@@ -275,10 +276,10 @@ async function callTool(
 	})()`);
 }
 
-/** Whether this CDP session is the standard-WebMCP one the eval is written for. */
+/** Whether this CDP session is the combined-flag agent one the eval is written for. */
 async function readHarnessCapabilities(page: CdpPage): Promise<Record<string, unknown>> {
 	const version = (await (
-		await fetch(`http://localhost:${STANDARD_WEBMCP_PORT}/json/version`)
+		await fetch(`http://localhost:${COMBINED_AGENT_PORT}/json/version`)
 	).json()) as Record<string, string>;
 	const capabilities = await page.evaluate<Record<string, unknown>>(`({
 		modelContext: typeof document.modelContext === 'object',
@@ -340,19 +341,19 @@ async function readFramedRegistration(page: CdpPage): Promise<Record<string, unk
 }
 
 runCommand('scripts/launch-cdp-chrome.sh', [], {
-	CDP_PORT: String(STANDARD_WEBMCP_PORT),
-	CDP_BROWSER_MODE: 'standard-webmcp'
+	CDP_PORT: String(COMBINED_AGENT_PORT),
+	CDP_BROWSER_MODE: 'agent'
 });
 
-const page = await openCdpPage(STANDARD_WEBMCP_PORT);
+const page = await openCdpPage(COMBINED_AGENT_PORT);
 await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
 const coldPageTools = await awaitRegistration(page, ALWAYS_REGISTERED_TOOL_NAMES);
 
 const harness = await readHarnessCapabilities(page);
 check(harness.modelContext === true, 'the CDP session does not expose document.modelContext');
 check(
-	harness.canvasDrawElement === false,
-	'the CDP session enables CanvasDrawElement, so it is not the standard-webmcp harness'
+	harness.canvasDrawElement === true,
+	'the CDP session does not enable CanvasDrawElement, so it is not the combined agent harness'
 );
 
 // The cold page: a short menu of real rows, and nothing that needs a composition.

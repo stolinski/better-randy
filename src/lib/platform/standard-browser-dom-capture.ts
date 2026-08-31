@@ -1,33 +1,50 @@
-// Which DOM-capture lane this browser runs, and the standard-browser lane's
+// The CanvasDrawElement capability gate, and the mothballed standard-browser
 // paint tick.
 //
-// GFX prefers the WICG HTML-in-Canvas lane (`GPUQueue.copyElementImageToTexture`
-// + `HTMLCanvasElement.requestPaint`), where the browser itself rasterizes the
-// canvas layout subtree. A supported standard browser exposes neither, so the
-// composition is rasterized here instead (ADR-0052's public demo runs on stock
-// Chrome). Selection is explicit capability detection, resolved once per session
-// and published on `window.__gfxDomFrameCaptureMode` — there is no silent
-// downgrade, and a browser with neither lane fails loudly.
+// GFX renders through the WICG HTML-in-Canvas lane
+// (`GPUQueue.copyElementImageToTexture` + `HTMLCanvasElement.requestPaint`),
+// where the browser itself rasterizes the canvas layout subtree. Selection is
+// explicit capability detection, resolved once per session and published on
+// `window.__gfxDomFrameCaptureMode` — and it is a HARD GATE (Dex qju2qity): a
+// browser without CanvasDrawElement gets no approximate composition, ever. The
+// root layout reads `isCanvasDrawElementCaptureAvailable` and replaces the whole
+// app with a full-screen notice carrying `CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND`,
+// so `window.__gfxDomFrameCaptureMode` stays truthful: `canvas-draw-element`, or
+// absent because the app is gated.
 //
-// The standard lane reproduces the paint contract the renderer already depends
-// on rather than inventing a second one: a paint request rasterizes every direct
-// canvas child at native size, commits those rasters as one set, and then
-// dispatches the same paint event the WICG lane would. Preview and export
-// therefore keep driving the one shared frame renderer through
-// `CanvasPaintGenerationTracker`, and the GPU upload still happens inside the
-// frame's own render pass, after the capture and before the draw.
+// The DOM-rasterization lane below silently served degraded renders and made the
+// same URL look different across browsers, so it is mothballed: unreachable from
+// lane selection, kept in-tree only for a possible future public demo. It
+// reproduces the paint contract the renderer already depends on — a paint
+// request rasterizes every direct canvas child at native size, commits those
+// rasters as one set, and then dispatches the same paint event the WICG lane
+// would — so a demo build that re-enables it keeps driving the one shared frame
+// renderer through `CanvasPaintGenerationTracker`.
 import {
 	rasterizeCompositionDomElement,
 	type CompositionDomRasterRequest
 } from './composition-dom-rasterizer';
 import type { CanvasPaintHandler, HtmlInCanvasPaintEvent } from './html-in-canvas';
 
+/** `'dom-rasterization'` is the mothballed public-demo lane (Dex qju2qity):
+ *  lane selection never returns it, and only an explicit injection — a test, or
+ *  a future public-demo build — can name it. */
 export type DomFrameCaptureMode = 'canvas-draw-element' | 'dom-rasterization';
+
+/** The Blink feature the capability gate requires, as the notice names it. */
+export const CANVAS_DRAW_ELEMENT_FLAG_NAME = 'CanvasDrawElement';
+
+/** The exact flag argument a manual Chrome launch needs. */
+export const CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT =
+	'--enable-blink-features=CanvasDrawElement,WebMCP';
+
+/** The sanctioned launch for the combined-flag local agent browser (CDP 9229). */
+export const CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND =
+	'CDP_BROWSER_MODE=agent scripts/launch-cdp-chrome.sh';
 
 export interface DomFrameCaptureCapabilities {
 	hasCopyElementImageToTexture: boolean;
 	hasCanvasRequestPaint: boolean;
-	hasDomRasterization: boolean;
 }
 
 export function readDomFrameCaptureCapabilities(): DomFrameCaptureCapabilities {
@@ -41,22 +58,34 @@ export function readDomFrameCaptureCapabilities(): DomFrameCaptureCapabilities {
 	return {
 		hasCopyElementImageToTexture:
 			typeof gpuQueueConstructor?.prototype?.copyElementImageToTexture === 'function',
-		hasCanvasRequestPaint: typeof canvasPrototype?.requestPaint === 'function',
-		hasDomRasterization: typeof document !== 'undefined' && canvasPrototype !== null
+		hasCanvasRequestPaint: typeof canvasPrototype?.requestPaint === 'function'
 	};
 }
 
+/**
+ * Whether this browser can render GFX at all. The root layout reads this before
+ * mounting anything, so an unflagged browser shows the capability-gate notice
+ * instead of an approximate composition.
+ */
+export function isCanvasDrawElementCaptureAvailable(
+	capabilities: DomFrameCaptureCapabilities = readDomFrameCaptureCapabilities()
+): boolean {
+	return capabilities.hasCopyElementImageToTexture && capabilities.hasCanvasRequestPaint;
+}
+
+/**
+ * The one lane selector. It gates rather than falls back (Dex qju2qity): a
+ * browser without both HTML-in-Canvas APIs gets the error below — never the
+ * mothballed DOM-rasterization lane, and never a blank frame.
+ */
 export function selectDomFrameCaptureMode(
 	capabilities: DomFrameCaptureCapabilities
 ): DomFrameCaptureMode {
-	if (capabilities.hasCopyElementImageToTexture && capabilities.hasCanvasRequestPaint) {
+	if (isCanvasDrawElementCaptureAvailable(capabilities)) {
 		return 'canvas-draw-element';
 	}
-	if (capabilities.hasDomRasterization) {
-		return 'dom-rasterization';
-	}
 	throw new Error(
-		'No DOM frame capture lane is available: this browser exposes neither HTML-in-Canvas (copyElementImageToTexture with requestPaint) nor a document to rasterize.'
+		`GFX rendering requires the ${CANVAS_DRAW_ELEMENT_FLAG_NAME} browser flag (${CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT}). Launch the combined agent browser with \`${CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND}\`; the DOM-rasterization fallback is mothballed and never selected.`
 	);
 }
 
@@ -112,6 +141,12 @@ function createSyntheticPaintEvent(changedElements: readonly Element[]): HtmlInC
  * lane gives it. Concurrent requests collapse onto a single follow-up pass, and a
  * failed or cancelled pass publishes nothing and rejects, so a caller can never
  * mistake a stale frame for a fresh one.
+ *
+ * @deprecated The DOM-rasterization lane is mothballed (Dex qju2qity): the app
+ * hard-gates on CanvasDrawElement and `selectDomFrameCaptureMode` never selects
+ * this lane, so no app code path reaches this scheduler. Kept in-tree for a
+ * possible future public demo; the supported path is the `canvas-draw-element`
+ * lane behind `CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND`.
  */
 export class StandardBrowserDomCaptureScheduler {
 	readonly #rasterize: CompositionDomRasterizer;
@@ -257,12 +292,19 @@ export class StandardBrowserDomCaptureScheduler {
 	}
 }
 
+/**
+ * @deprecated Mothballed with its scheduler (Dex qju2qity) — see
+ * `StandardBrowserDomCaptureScheduler`. Still handed to the lane-neutral seam as
+ * its default so the seam stays testable and re-enableable, but no session ever
+ * resolves the lane that would drive it.
+ */
 export const standardBrowserDomCapture = new StandardBrowserDomCaptureScheduler();
 
 declare global {
 	interface Window {
-		/** Which DOM-capture lane this session resolved (ADR-0052 public demo runs
-		 *  the `dom-rasterization` lane). Read by browser render verification. */
+		/** Which DOM-capture lane this session resolved. Truthful under the
+		 *  capability gate (Dex qju2qity): `canvas-draw-element`, or absent because
+		 *  the app is gated. Read by browser render verification. */
 		__gfxDomFrameCaptureMode?: DomFrameCaptureMode;
 		/** Native-resolution rasters the standard lane is holding, with the lane that
 		 *  produced the reading. Read by browser render verification to prove the

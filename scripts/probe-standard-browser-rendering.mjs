@@ -1,6 +1,13 @@
 // Probe Chrome's standard WebMCP runtime and the smallest native-resolution
 // GFX fallback without letting the fallback use CanvasDrawElement.
 //
+// PUBLIC-DEMO-ONLY OPT-IN (Dex qju2qity): the DOM-rasterization fallback this
+// probe measures is mothballed — the app hard-gates on CanvasDrawElement, so a
+// standard WebMCP browser only ever sees the capability-gate notice. The probe
+// refuses to run unless GFX_PUBLIC_DEMO_LANE=1 is set, and is meaningful only
+// against a future public-demo build that re-enables the lane. The recorded
+// selection evidence lives in docs/standard-browser-rendering-probe.md.
+//
 // The dev server must already be running at http://localhost:7263. This script
 // uses only the sanctioned CDP launch helper and writes exact JSON + PNG evidence.
 import { createHash } from 'node:crypto';
@@ -10,6 +17,13 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { PNG } from 'pngjs';
 import { format, resolveConfig } from 'prettier';
+
+if (process.env.GFX_PUBLIC_DEMO_LANE !== '1') {
+	console.error(
+		'probe-standard-browser-rendering.mjs is public-demo-only (qju2qity): the DOM-rasterization fallback is mothballed and the gated app never renders on the standard WebMCP browser. Set GFX_PUBLIC_DEMO_LANE=1 to run it against a demo build that re-enables the lane.'
+	);
+	process.exit(1);
+}
 
 const CANVAS_PORT = 9223;
 const STANDARD_WEBMCP_PORT = 9225;

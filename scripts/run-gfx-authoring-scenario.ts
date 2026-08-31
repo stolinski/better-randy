@@ -15,11 +15,12 @@
 // downloaded — so nothing can pass by reaching around the transport into engine
 // state.
 //
-// The scenario runs on the `standard-webmcp` harness (port 9225), which is the
-// browser shape this demo actually ships to: WebMCP present, CanvasDrawElement
-// absent. There the composition paints as DOM inside the canvas element rather
-// than into its drawing buffer, so "did this render" is answered by a screenshot
-// of the visible canvas, never by reading the canvas back.
+// The scenario runs on the combined `agent` harness (port 9229) — WebMCP AND
+// CanvasDrawElement together, the default local agent mode since qju2qity: the
+// tools drive the REAL renderer, and a browser without the canvas flag is
+// hard-gated by the app rather than served an approximation. "Did this render"
+// is answered by a screenshot of the visible canvas, never by reading the
+// canvas back, so the same capture works wherever the composition paints.
 //
 // Writes docs/browser-probes/gfx-authoring-scenario.json — every receipt, every
 // refusal, and every pixel and decode measurement the run took — and fails,
@@ -56,9 +57,9 @@ const EVIDENCE_PATH = resolve(
 		join(repoRoot, 'docs/browser-probes/gfx-authoring-scenario.json')
 );
 
-/** WebMCP without CanvasDrawElement: the browser shape the public demo ships to. */
-const STANDARD_WEBMCP_PORT = 9225;
-/** Neither experimental feature: the browser that proves the demo needs no agent. */
+/** WebMCP with CanvasDrawElement: the combined-flag default local agent mode. */
+const COMBINED_AGENT_PORT = 9229;
+/** Neither experimental feature: the browser that proves the capability gate. */
 const STANDARD_PORT = 9227;
 
 const WIDE_VIEWPORT = { width: 1440, height: 900 } as const;
@@ -880,7 +881,7 @@ async function awaitNewDownload(
 
 // --- preconditions ----------------------------------------------------------
 
-function launchSanctionedChrome(port: number, mode: 'standard-webmcp' | 'standard'): void {
+function launchSanctionedChrome(port: number, mode: 'agent' | 'standard'): void {
 	const launched = spawnSync('scripts/launch-cdp-chrome.sh', [], {
 		cwd: repoRoot,
 		encoding: 'utf8',
@@ -915,7 +916,7 @@ async function readAnsweringOriginRelease(): Promise<string> {
 // --- the run ----------------------------------------------------------------
 
 const release = await readAnsweringOriginRelease();
-launchSanctionedChrome(STANDARD_WEBMCP_PORT, 'standard-webmcp');
+launchSanctionedChrome(COMBINED_AGENT_PORT, 'agent');
 
 const downloadDirectory = await mkdtemp(join(tmpdir(), 'gfx-authoring-scenario-'));
 const evidence: Record<string, unknown> = {
@@ -927,7 +928,7 @@ const evidence: Record<string, unknown> = {
 };
 const negatives: Record<string, unknown> = {};
 
-const page = await openScenarioPage(STANDARD_WEBMCP_PORT);
+const page = await openScenarioPage(COMBINED_AGENT_PORT);
 await page.send('Browser.setDownloadBehavior', {
 	behavior: 'allow',
 	downloadPath: downloadDirectory,
@@ -952,13 +953,13 @@ try {
 	// Which Chrome drew these pixels and encoded these files. The captures and
 	// exports below are only comparable against a run on the same browser build.
 	const version = (await (
-		await fetch(`http://localhost:${STANDARD_WEBMCP_PORT}/json/version`)
+		await fetch(`http://localhost:${COMBINED_AGENT_PORT}/json/version`)
 	).json()) as Record<string, string>;
 	const harness = { browser: version.Browser, ...capabilities };
 	evidence.harness = harness;
 	expect(
-		'the-scenario-runs-in-a-supported-webmcp-browser-without-the-canvas-flag',
-		harness.modelContext && harness.secureContext && !harness.canvasDrawElement,
+		'the-scenario-runs-in-the-combined-flag-agent-browser',
+		harness.modelContext && harness.secureContext && harness.canvasDrawElement,
 		JSON.stringify(harness)
 	);
 
@@ -1569,17 +1570,32 @@ try {
 		`the browser received ${JSON.stringify(cancelledDownload)}`
 	);
 
-	// --- the demo an agent never attaches to ---------------------------------
-	startPhase('progressive-enhancement');
+	// --- the capability gate an unflagged browser meets ----------------------
+	// Since qju2qity there is no degraded lane: a browser without
+	// CanvasDrawElement gets a full-screen notice naming the flag and the exact
+	// launch command — no canvas, no approximation, and nothing to author.
+	startPhase('capability-gate');
 	launchSanctionedChrome(STANDARD_PORT, 'standard');
 	const plainPage = await openScenarioPage(STANDARD_PORT);
 	try {
 		await plainPage.navigate(`${ORIGIN}/p/lower-third?source=builtin`);
-		await waitInPage<boolean>(
+		interface CapabilityGateReading {
+			ready: boolean;
+			noticeText: string;
+			canvasCount: number;
+		}
+		const gate = await waitInPage<CapabilityGateReading>(
 			plainPage,
-			WORKSPACE_READY,
-			(ready) => ready,
-			'the Workspace in a browser with no WebMCP'
+			`(() => {
+				const notice = document.querySelector('.capability-gate');
+				return {
+					ready: document.readyState === 'complete' && notice !== null,
+					noticeText: notice?.textContent ?? '',
+					canvasCount: document.querySelectorAll('canvas').length
+				};
+			})()`,
+			(reading) => reading.ready,
+			'the capability-gate notice in an unflagged browser'
 		);
 		const plainCapabilities = await plainPage.evaluate<{
 			modelContext: boolean;
@@ -1589,23 +1605,22 @@ try {
 			canvasDrawElement:
 				typeof GPUQueue === 'function' && 'copyElementImageToTexture' in GPUQueue.prototype
 		})`);
-		const plainFrame = await captureSettledWorkspaceFrame(plainPage);
-		evidence.progressiveEnhancement = {
+		evidence.capabilityGate = {
 			capabilities: plainCapabilities,
-			frame: plainFrame,
+			gate,
 			runtimeFaults: [...plainPage.runtimeFaults],
 			networkFaults: [...plainPage.networkFaults]
 		};
 		expect(
-			'a-browser-with-no-webmcp-still-gets-the-whole-composition',
-			!plainCapabilities.modelContext &&
-				!plainCapabilities.canvasDrawElement &&
-				plainFrame.nonUniformRatio > MINIMUM_NON_UNIFORM_RATIO &&
-				plainFrame.distinctColours > MINIMUM_DISTINCT_COLOURS,
-			JSON.stringify({ plainCapabilities, plainFrame })
+			'an-unflagged-browser-is-gated-with-the-flag-and-launch-command-not-an-approximation',
+			!plainCapabilities.canvasDrawElement &&
+				gate.canvasCount === 0 &&
+				gate.noticeText.includes('CanvasDrawElement') &&
+				gate.noticeText.includes('CDP_BROWSER_MODE=agent scripts/launch-cdp-chrome.sh'),
+			JSON.stringify({ plainCapabilities, gate })
 		);
 		expect(
-			'the-demo-without-an-agent-runs-without-an-unexplained-runtime-failure',
+			'the-capability-gate-shows-without-an-unexplained-runtime-failure',
 			plainPage.runtimeFaults.length === 0,
 			plainPage.runtimeFaults.map((fault) => fault.detail).join(' | ')
 		);

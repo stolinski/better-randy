@@ -7,6 +7,7 @@ import {
 	BROWSER_RENDER_GEOMETRY_TOLERANCE_PIXELS,
 	BROWSER_RENDER_MATRIX_COORDINATES,
 	BROWSER_RENDER_PERFORMANCE_BUDGET,
+	COMPARED_AGENT_RENDER_LANE,
 	ESTABLISHED_RENDER_LANE,
 	SELECTED_PUBLIC_RENDER_LANE,
 	evaluateBrowserRenderCoordinate,
@@ -14,6 +15,7 @@ import {
 	maximumGeometryDeltaPixels,
 	selectBrowserRenderSampleFrameIndex,
 	summarizeBrowserRenderVerification,
+	type BrowserRenderLane,
 	type BrowserRenderLaneEvidence,
 	type BrowserRenderMatrixCoordinate
 } from './browser-render-verification.ts';
@@ -28,7 +30,7 @@ const COORDINATE: BrowserRenderMatrixCoordinate = {
 };
 
 function laneEvidence(
-	lane: typeof ESTABLISHED_RENDER_LANE | typeof SELECTED_PUBLIC_RENDER_LANE,
+	lane: BrowserRenderLane,
 	overrides: Partial<BrowserRenderLaneEvidence> = {}
 ): BrowserRenderLaneEvidence {
 	return {
@@ -49,7 +51,9 @@ function laneEvidence(
 		replayFrameSha256: `${lane}-frame`,
 		replayChangedPixelRatio: 0,
 		geometry: { 'composition-root': { x: 0, y: 0, width: 3840, height: 2160 } },
-		retainedRasterCount: lane === SELECTED_PUBLIC_RENDER_LANE ? 1 : 0,
+		// Only the mothballed dom-rasterization lane legitimately holds a raster
+		// per direct canvas child; the canvas-draw-element lane holds none.
+		retainedRasterCount: lane === 'dom-rasterization' ? 1 : 0,
 		directCanvasChildCount: 1,
 		frameMilliseconds: 180,
 		...overrides
@@ -151,11 +155,11 @@ test('a coordinate naming a Preset or Pack the registry does not have is a gap',
 	]);
 });
 
-test('both lanes agreeing on a settled frame passes every check', () => {
+test('both browsers agreeing on a settled frame passes every check', () => {
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE)
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE)
 	});
 	assert.equal(verdict.outcome, 'pass');
 	assert.deepEqual(
@@ -164,9 +168,9 @@ test('both lanes agreeing on a settled frame passes every check', () => {
 	);
 });
 
-test('missing evidence from either lane fails closed as unavailable', () => {
+test('missing evidence from either browser fails closed as unavailable', () => {
 	for (const [established, selected] of [
-		[null, laneEvidence(SELECTED_PUBLIC_RENDER_LANE)],
+		[null, laneEvidence(COMPARED_AGENT_RENDER_LANE)],
 		[laneEvidence(ESTABLISHED_RENDER_LANE), null]
 	] as const) {
 		const verdict = evaluateBrowserRenderCoordinate({ coordinate: COORDINATE, established, selected });
@@ -176,12 +180,12 @@ test('missing evidence from either lane fails closed as unavailable', () => {
 	}
 });
 
-test('a blank standard-lane frame fails even though the flagged lane rendered', () => {
+test('a blank agent-browser frame fails even though the established harness rendered', () => {
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
-			frame: { ...laneEvidence(SELECTED_PUBLIC_RENDER_LANE).frame, nonUniformPixelCount: 0 }
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
+			frame: { ...laneEvidence(COMPARED_AGENT_RENDER_LANE).frame, nonUniformPixelCount: 0 }
 		})
 	});
 	assert.equal(verdict.outcome, 'fail');
@@ -199,9 +203,9 @@ test('output class is a lane comparison: only the public path diverging is a fai
 			...opaqueDeclaration,
 			frame: { ...laneEvidence(ESTABLISHED_RENDER_LANE).frame, outputClass: 'transparent' }
 		}),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
 			...opaqueDeclaration,
-			frame: { ...laneEvidence(SELECTED_PUBLIC_RENDER_LANE).frame, outputClass: 'transparent' }
+			frame: { ...laneEvidence(COMPARED_AGENT_RENDER_LANE).frame, outputClass: 'transparent' }
 		})
 	});
 	assert.equal(
@@ -214,16 +218,16 @@ test('output class is a lane comparison: only the public path diverging is a fai
 		[preexisting.establishedLaneDeclarationMismatch]
 	);
 
-	// The public path alone losing the background fill is exactly this gate's job.
+	// The compared browser alone losing the background fill is exactly this gate's job.
 	const laneDivergence = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE, {
 			...opaqueDeclaration,
 			frame: { ...laneEvidence(ESTABLISHED_RENDER_LANE).frame, outputClass: 'opaque' }
 		}),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
 			...opaqueDeclaration,
-			frame: { ...laneEvidence(SELECTED_PUBLIC_RENDER_LANE).frame, outputClass: 'transparent' }
+			frame: { ...laneEvidence(COMPARED_AGENT_RENDER_LANE).frame, outputClass: 'transparent' }
 		})
 	});
 	assert.equal(laneDivergence.outcome, 'fail');
@@ -234,22 +238,36 @@ test('output class is a lane comparison: only the public path diverging is a fai
 	);
 });
 
-test('a session serving the wrong lane cannot pass as evidence', () => {
+test('an agent browser gated onto the wrong lane cannot pass as evidence', () => {
+	// The default comparison expects the combined-flag agent browser on the
+	// canvas-draw-element lane; a session that resolved the mothballed
+	// dom-rasterization lane is the wrong browser, not a different flavour.
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
-			reportedCaptureMode: ESTABLISHED_RENDER_LANE
-		})
+		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE)
 	});
 	assert.equal(verdict.checks.find((check) => check.checkId === 'lane-identity')?.outcome, 'fail');
 });
 
-test('a retained raster for a child the composition dropped fails cleanup', () => {
+test('the opt-in public-demo comparison still verifies the mothballed lane by name', () => {
+	// GFX_PUBLIC_DEMO_LANE=1 (public-demo-only): the compared browser must
+	// report dom-rasterization and retain exactly one raster per direct child.
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE),
+		expectedSelectedCaptureMode: SELECTED_PUBLIC_RENDER_LANE
+	});
+	assert.equal(verdict.outcome, 'pass');
+});
+
+test('a retained raster in the agent browser fails cleanup', () => {
+	// The canvas-draw-element lane keeps no rasters; retaining any is a leak.
+	const verdict = evaluateBrowserRenderCoordinate({
+		coordinate: COORDINATE,
+		established: laneEvidence(ESTABLISHED_RENDER_LANE),
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
 			retainedRasterCount: 2,
 			directCanvasChildCount: 1
 		})
@@ -257,13 +275,26 @@ test('a retained raster for a child the composition dropped fails cleanup', () =
 	assert.equal(verdict.checks.find((check) => check.checkId === 'raster-cleanup')?.outcome, 'fail');
 });
 
-test('the selected public lane is the only one the performance budget gates', () => {
+test('a retained raster for a child the composition dropped fails opt-in cleanup', () => {
+	const verdict = evaluateBrowserRenderCoordinate({
+		coordinate: COORDINATE,
+		established: laneEvidence(ESTABLISHED_RENDER_LANE),
+		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+			retainedRasterCount: 2,
+			directCanvasChildCount: 1
+		}),
+		expectedSelectedCaptureMode: SELECTED_PUBLIC_RENDER_LANE
+	});
+	assert.equal(verdict.checks.find((check) => check.checkId === 'raster-cleanup')?.outcome, 'fail');
+});
+
+test('the compared browser is the only one the performance budget gates', () => {
 	const overBudget = BROWSER_RENDER_PERFORMANCE_BUDGET.standardLaneFrameMilliseconds + 1;
 	assert.equal(
 		evaluateBrowserRenderCoordinate({
 			coordinate: COORDINATE,
 			established: laneEvidence(ESTABLISHED_RENDER_LANE, { frameMilliseconds: overBudget }),
-			selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE)
+			selected: laneEvidence(COMPARED_AGENT_RENDER_LANE)
 		}).outcome,
 		'pass'
 	);
@@ -271,7 +302,7 @@ test('the selected public lane is the only one the performance budget gates', ()
 		evaluateBrowserRenderCoordinate({
 			coordinate: COORDINATE,
 			established: laneEvidence(ESTABLISHED_RENDER_LANE),
-			selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, { frameMilliseconds: overBudget })
+			selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, { frameMilliseconds: overBudget })
 		}).checks.find((check) => check.checkId === 'frame-capture-performance')?.outcome,
 		'fail'
 	);
@@ -281,7 +312,7 @@ test('a frame that differs when the same address is reached again fails determin
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
 			replayFrameSha256: 'drifted',
 			replayChangedPixelRatio: 0.061
 		})
@@ -304,7 +335,7 @@ test('geometry parity measures the largest edge delta and is unavailable with no
 	const drifted = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, {
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, {
 			geometry: {
 				'composition-root': {
 					x: 0,
@@ -319,7 +350,7 @@ test('geometry parity measures the largest edge delta and is unavailable with no
 	const unmeasured = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE, { geometry: {} })
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE, { geometry: {} })
 	});
 	assert.equal(unmeasured.outcome, 'unavailable');
 });
@@ -328,7 +359,7 @@ test('the matrix summary fails closed on coverage gaps and on unavailable coordi
 	const passing = evaluateBrowserRenderCoordinate({
 		coordinate: COORDINATE,
 		established: laneEvidence(ESTABLISHED_RENDER_LANE),
-		selected: laneEvidence(SELECTED_PUBLIC_RENDER_LANE)
+		selected: laneEvidence(COMPARED_AGENT_RENDER_LANE)
 	});
 	assert.equal(summarizeBrowserRenderVerification([passing], []).outcome, 'pass');
 	assert.equal(summarizeBrowserRenderVerification([passing], ['a gap']).outcome, 'fail');

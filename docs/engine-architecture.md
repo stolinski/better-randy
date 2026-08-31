@@ -64,8 +64,8 @@ src/lib/
     timeline.svelte.ts           # Timeline (the only clock)
     gpu-host.ts                  # TypeGPU init; INTERMEDIATE_FORMAT = 'rgba16float'
     html-in-canvas.ts            # WICG copyElementImageToTexture wrappers + the lane-neutral capture queue
-    standard-browser-dom-capture.ts # capture-lane detection + the standard browser's paint tick
-    composition-dom-rasterizer.ts # native-resolution DOM clone raster for the standard lane
+    standard-browser-dom-capture.ts # the CanvasDrawElement capability gate + the mothballed standard-browser paint tick (qju2qity)
+    composition-dom-rasterizer.ts # lane-neutral geometry measuring + the mothballed DOM clone raster
     animation-manager.ts         # GSAP timeline driver (scrubbed by progress)
     engine-schema.ts             # Zod schema, types, defaults
     engine-state.svelte.ts       # runtime state + mutation helpers; boot Pack gate

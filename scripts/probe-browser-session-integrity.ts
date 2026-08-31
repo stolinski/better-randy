@@ -53,10 +53,13 @@ import {
 /**
  * This probe drives its browser through storage clears and a storage-denial
  * override, so it runs on a port of its own with a profile of its own rather
- * than on the shared standard-webmcp harness (9225). A run that inherited the
- * shared profile inherited whatever the dev origin had left in it.
+ * than on a shared harness port. A run that inherited a shared profile
+ * inherited whatever the dev origin had left in it. The browser launches in
+ * the combined agent mode (CanvasDrawElement + WebMCP): the app hard-gates
+ * without the canvas flag, so that is the one mode where the session surface
+ * and its tools exist to be probed.
  */
-const STANDARD_WEBMCP_PORT = Number(process.env.GFX_SESSION_PROBE_CDP_PORT ?? 9245);
+const SESSION_PROBE_CDP_PORT = Number(process.env.GFX_SESSION_PROBE_CDP_PORT ?? 9245);
 
 /** A namespace of its own, so a probe run never reads or writes a real session. */
 const PROBE_STORAGE_IDENTITY = 'gfx-session-probe';
@@ -243,10 +246,10 @@ interface CdpPage {
 
 async function openCdpPage(): Promise<CdpPage> {
 	const response = await fetch(
-		`http://localhost:${STANDARD_WEBMCP_PORT}/json/new?${encodeURIComponent('about:blank')}`,
+		`http://localhost:${SESSION_PROBE_CDP_PORT}/json/new?${encodeURIComponent('about:blank')}`,
 		{ method: 'PUT' }
 	);
-	if (!response.ok) throw new Error(`CDP ${STANDARD_WEBMCP_PORT} would not open a target`);
+	if (!response.ok) throw new Error(`CDP ${SESSION_PROBE_CDP_PORT} would not open a target`);
 	const target = (await response.json()) as { webSocketDebuggerUrl: string };
 	const socket = new WebSocket(target.webSocketDebuggerUrl);
 	await new Promise<void>((settle, fail) => {
@@ -507,8 +510,8 @@ const harness = spawnSync('scripts/launch-cdp-chrome.sh', [], {
 	stdio: 'inherit',
 	env: {
 		...process.env,
-		CDP_PORT: String(STANDARD_WEBMCP_PORT),
-		CDP_BROWSER_MODE: 'standard-webmcp',
+		CDP_PORT: String(SESSION_PROBE_CDP_PORT),
+		CDP_BROWSER_MODE: 'agent',
 		CDP_PROFILE_DIR: jail.chromeProfileDirectory
 	}
 });

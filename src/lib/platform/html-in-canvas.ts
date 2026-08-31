@@ -1,11 +1,12 @@
-// The DOM-to-GPU capture seam, in both browser lanes.
+// The DOM-to-GPU capture seam.
 //
 // `getHtmlInCanvasQueue` and the `requestPaint` helpers below are the WICG
 // HTML-in-Canvas lane. `getDomFrameCaptureQueue` and the paint helpers are the
-// lane-neutral seam every render path uses: on a supported standard browser they
-// route to the DOM-rasterization lane in `./standard-browser-dom-capture`
-// instead. Which lane runs is explicit capability detection, never a silent
-// downgrade.
+// lane-neutral seam every render path uses. Lane selection is a hard capability
+// gate (Dex qju2qity): a session either resolves `canvas-draw-element` or the
+// app never mounts, so the `dom-rasterization` branches below are reachable
+// only through an explicitly injected mode — the mothballed scheduler in
+// `./standard-browser-dom-capture` kept for a possible future public demo.
 //
 // The WICG HTML-in-Canvas capture API (`GPUQueue.copyElementImageToTexture`)
 // is experimental and its signature has DRIFTED across Chrome builds:

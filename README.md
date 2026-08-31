@@ -28,8 +28,13 @@ pnpm dev        # http://localhost:7263
 ```
 
 Chrome needs `--enable-blink-features=CanvasDrawElement` to render the canvas.
-An unflagged browser captures a blank frame. `scripts/launch-cdp-chrome.sh`
-starts a browser that carries the flag.
+An unflagged browser is gated: the app shows a full-screen notice with the
+launch command instead of rendering anything approximate. Start the combined
+CanvasDrawElement+WebMCP agent browser — the default for local agent use — with:
+
+```sh
+CDP_BROWSER_MODE=agent scripts/launch-cdp-chrome.sh   # CDP port 9229
+```
 
 ## Checks
 

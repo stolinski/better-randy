@@ -220,16 +220,11 @@ This is the cleanest way to keep existing 2D-canvas drawing code working while m
 - `opacity: 0` — keeps paint records but `drawElementImage` produces zero-alpha pixels.
 - The right answer for the canonical WebGPU pattern is **don't hide it** — it IS the visible canvas. If a multi-canvas setup is ever required, use offscreen positioning (`transform: translate(200%)`) — that preserves paint records and the bitmap.
 
-## Standard browsers without HTML-in-Canvas
+## Standard browsers without HTML-in-Canvas: the hard capability gate
 
-The public gfx.computer demo ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md)) runs on stock Chrome, where `copyElementImageToTexture` and `requestPaint` are both absent and the `layoutsubtree` children are never laid out or painted — the canvas comes out uniformly blank. The live probe that measured this and selected the fallback is [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md).
+Since qju2qity, a browser without CanvasDrawElement renders **nothing approximate**. `selectDomFrameCaptureMode` (`src/lib/platform/standard-browser-dom-capture.ts`) is a hard gate: it resolves `canvas-draw-element` when **both** `GPUQueue.copyElementImageToTexture` and `HTMLCanvasElement.requestPaint` are present, and otherwise throws naming the flag and the launch command — it never falls back. The root layout reads `isCanvasDrawElementCaptureAvailable` before mounting anything and replaces the whole app with a full-screen notice (`.capability-gate`) carrying `CDP_BROWSER_MODE=agent scripts/launch-cdp-chrome.sh`, so `window.__gfxDomFrameCaptureMode` stays truthful: `canvas-draw-element`, or absent because the app is gated. The default local agent browser is the combined-flag `agent` mode (CanvasDrawElement + WebMCP, CDP 9229).
 
-Two capture lanes therefore exist, chosen by explicit capability detection in `selectDomFrameCaptureMode` (`src/lib/platform/standard-browser-dom-capture.ts`) and resolved once per session:
-
-- `canvas-draw-element` — the WICG lane described above. Requires **both** `GPUQueue.copyElementImageToTexture` and `HTMLCanvasElement.requestPaint`; half-support takes the other lane.
-- `dom-rasterization` — native-resolution DOM clone rasterization with `html2canvas` (`rasterizeCompositionDomElement` in `src/lib/platform/composition-dom-rasterizer.ts`).
-
-A browser with neither lane throws instead of rendering blank. The resolved lane is published on `window.__gfxDomFrameCaptureMode` for browser verification.
+The `dom-rasterization` lane — native-resolution DOM clone rasterization with `html2canvas` (`rasterizeCompositionDomElement` in `src/lib/platform/composition-dom-rasterizer.ts`), selected for the since-descoped public demo by the live probe in [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md) — is **mothballed**: unreachable from app code, kept in-tree (`@deprecated`, Dex qju2qity) for a possible future public demo. Everything below about that lane describes the mothballed implementation as it stands.
 
 What the rasterization lane keeps identical to the WICG lane:
 
@@ -270,13 +265,15 @@ Canvas fallback content is not rendered in a browser without HTML-in-Canvas, so 
 
 `measureCompositionDomRoot` (`composition-dom-rasterizer.ts`) is the lane-neutral answer: it measures the in-canvas root directly when that root is laid out, and otherwise mounts the same native-size clone the raster is taken from, measures synchronously inside it, and removes it. Geometry then describes exactly the DOM the frame was rasterized from, in either lane. `window.__captureGfxDeterministicFrameGeometry` goes through it.
 
-The wider readable/layout audit surface in `runtime-audit.ts` still measures live document rects and remains a **flagged-lane authority**: `pnpm verify:layout-contract` and the deliverable render matrix run on CDP port 9223. What the public path renders is verified instead by the two-lane gate below.
+The wider readable/layout audit surface in `runtime-audit.ts` still measures live document rects and remains a **flagged-lane authority**: `pnpm verify:layout-contract` and the deliverable render matrix run on CDP port 9223. What the combined-flag agent browser renders is verified by the two-browser gate below.
 
-### Verifying both lanes against each other
+### Verifying the two sanctioned browsers against each other
 
-`pnpm verify:browser-render` (`scripts/verify-browser-render-matrix.mjs`) renders one bounded coordinate per composition branch in **both** browsers — the flagged lane on CDP port 9223 and a standard WebMCP Chrome on 9225 — and compares lane identity, native resolution, blankness, output class, font readiness, frame determinism, geometry, alpha coverage, retained rasters, and per-frame cost. The branch list, the coordinates, the tolerances, and the performance budget live in `scripts/browser-render-verification.ts`; the recorded run is [`browser-probes/browser-render-verification.json`](browser-probes/browser-render-verification.json) and the reading is in [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md#two-lane-render-verification). A branch with no coordinate, or a coordinate whose evidence is missing, fails the gate rather than going unmeasured.
+`pnpm verify:browser-render` (`scripts/verify-browser-render-matrix.mjs`) renders one bounded coordinate per composition branch in **both** sanctioned browsers — the established canvas harness on CDP port 9223 and, since qju2qity, the combined-flag agent Chrome on 9229 (the default local agent mode) — and compares lane identity, native resolution, blankness, output class, font readiness, frame determinism, geometry, alpha coverage, retained rasters, and per-frame cost. The branch list, the coordinates, the tolerances, and the performance budget live in `scripts/browser-render-verification.ts`; the recorded run is [`browser-probes/browser-render-verification.json`](browser-probes/browser-render-verification.json). A branch with no coordinate, or a coordinate whose evidence is missing, fails the gate rather than going unmeasured.
 
-The property it decides is lane parity. A defect the established lane already has is reported by name and left to `output-class-mismatch` in the deliverable render matrix, so this gate never charges a pre-existing composition or Pack defect to the public path.
+The property it decides is browser parity: WebMCP-driven authoring must render on exactly the pixels the canvas harness verifies. A defect the established lane already has is reported by name and left to `output-class-mismatch` in the deliverable render matrix, so this gate never charges a pre-existing composition or Pack defect to the compared browser.
+
+The retired standard-lane comparison — the mothballed `dom-rasterization` lane on the standard WebMCP Chrome (CDP 9225), read in [`standard-browser-rendering-probe.md`](standard-browser-rendering-probe.md#two-lane-render-verification) — is reachable only behind `GFX_PUBLIC_DEMO_LANE=1` and is **public-demo-only**: the gated app never mounts in that browser, so the opt-in is meaningful solely against a future demo build that re-enables the lane.
 
 ### What a settled frame has to mean here
 

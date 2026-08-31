@@ -2,6 +2,14 @@
 // `docs/standard-browser-rendering-probe.md`: native-resolution DOM clone
 // rasterization with html2canvas.
 //
+// MOTHBALLED as a capture lane (Dex qju2qity): the app hard-gates on
+// CanvasDrawElement, `selectDomFrameCaptureMode` never selects the
+// DOM-rasterization lane, and `rasterizeCompositionDomElement` is unreachable
+// from app code. The module stays in-tree for a possible future public demo.
+// `measureCompositionDomRoot` remains current — it is the lane-neutral geometry
+// seam the Workspace measures through, and in a gated flagged browser it always
+// takes its in-place branch.
+//
 // A browser without the WICG HTML-in-Canvas feature never lays out or paints the
 // `layoutsubtree` canvas children, so `.composition` cannot be measured or
 // rasterized where it sits. This module mounts a CLONE of that element in the
@@ -259,6 +267,11 @@ export function measureCompositionDomRoot<Measurement>(
  * The caller owns the timestamp: this reads whatever the animation has already
  * written to the DOM and never advances it. Fonts are awaited before the raster
  * so a standard-browser frame can never contain OS-fallback glyphs.
+ *
+ * @deprecated The DOM-rasterization capture lane is mothballed (Dex qju2qity):
+ * the app hard-gates on CanvasDrawElement and no app code path reaches this
+ * rasterizer. Kept in-tree for a possible future public demo; the supported
+ * capture path is the `canvas-draw-element` lane.
  */
 export async function rasterizeCompositionDomElement({
 	element,

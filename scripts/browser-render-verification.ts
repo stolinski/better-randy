@@ -1,20 +1,32 @@
 // The bounded browser-render matrix, its branch coverage, and the closed verdicts
-// `verify-browser-render-matrix.mjs` derives from live two-lane evidence.
+// `verify-browser-render-matrix.mjs` derives from live two-browser evidence.
 //
-// GFX renders through two DOM-capture lanes (`docs/html-in-canvas-typegpu.md`):
-// the flagged WICG lane every existing capture harness drives, and the
-// `dom-rasterization` lane the public gfx.computer demo actually runs on
-// (ADR-0052). A branch that works in flagged Chrome and is blank, stale, or
-// unmeasurable in a standard browser passes every existing gate, so this module
-// declares one coordinate per render branch and compares the SELECTED PUBLIC PATH
-// against the established one at each.
+// Since qju2qity the compared browser is the combined-flag agent Chrome
+// (CanvasDrawElement + WebMCP, CDP 9229) — the default local agent mode. Both
+// browsers render the `canvas-draw-element` lane, and the matrix proves the
+// agent browser renders every composition branch exactly as the established
+// canvas harness does: a branch that renders in one and is blank, stale, or
+// unmeasurable in the other passes every other gate, so this module declares
+// one coordinate per render branch and compares the two at each.
+//
+// The old comparison subject — the mothballed `dom-rasterization` public-demo
+// lane — survives as an explicit opt-in only (`GFX_PUBLIC_DEMO_LANE=1`),
+// documented public-demo-only: it is meaningful solely against a future demo
+// build that re-enables that lane, and fails by design against the gated app.
 //
 // Everything here is pure so the contract is testable without a browser; the
 // driver owns Chrome, CDP, and the pixels.
 
 export type BrowserRenderLane = 'canvas-draw-element' | 'dom-rasterization';
 
-/** The lane the public demo runs — the one the performance budget gates. */
+/** The lane the compared combined-flag agent browser must report (qju2qity). */
+export const COMPARED_AGENT_RENDER_LANE: BrowserRenderLane = 'canvas-draw-element';
+
+/**
+ * @deprecated The dom-rasterization public-demo lane is mothballed (Dex
+ * qju2qity). This constant names the compared lane only for the explicit
+ * `GFX_PUBLIC_DEMO_LANE=1` opt-in, which is public-demo-only.
+ */
 export const SELECTED_PUBLIC_RENDER_LANE: BrowserRenderLane = 'dom-rasterization';
 
 /** The established path every existing render harness measures against. */
@@ -184,15 +196,15 @@ export const BROWSER_RENDER_MATRIX_COORDINATES: readonly BrowserRenderMatrixCoor
 ] as const;
 
 /**
- * The documented budget the selected public path must meet.
+ * The documented budget the compared browser must meet for one settled native
+ * frame: seek, capture, upload, render, and present at 3840×2160 or 2160×3840.
  *
- * `standardLaneFrameMilliseconds` is wall time for one settled native frame in
- * the `dom-rasterization` lane: seek, rasterize every direct canvas child at
- * 3840×2160 or 2160×3840, upload, render, and present. It is a correctness-first export
- * and low-rate preview budget, not an interactive playback one — the lane's cost
- * was ~200 ms per frame when the probe selected it
- * (`docs/standard-browser-rendering-probe.md`), and the ceiling here holds that
- * order of magnitude across every branch rather than only the flat case.
+ * The field keeps its historical name — it was sized for the mothballed
+ * `dom-rasterization` lane, whose cost was ~200 ms per frame when the probe
+ * selected it (`docs/standard-browser-rendering-probe.md`) — and now serves as
+ * a generous ceiling for the combined-flag agent browser, which renders on the
+ * same `canvas-draw-element` lane as the established harness and comes in far
+ * under it. The opt-in public-demo comparison still gates against it directly.
  */
 export const BROWSER_RENDER_PERFORMANCE_BUDGET = {
 	standardLaneFrameMilliseconds: 4_000
@@ -417,23 +429,29 @@ export function maximumGeometryDeltaPixels(
 }
 
 /**
- * Derive one coordinate's closed verdict from both lanes' evidence.
+ * Derive one coordinate's closed verdict from both browsers' evidence.
  *
- * Missing evidence for either lane is `unavailable` for every check, never a
- * quiet pass: a coordinate the harness could not render is exactly the failure
- * this matrix exists to catch.
+ * `expectedSelectedCaptureMode` names the lane the compared browser must be on:
+ * the combined-flag agent browser reports `canvas-draw-element` (the default),
+ * and the opt-in public-demo comparison expects `dom-rasterization`. Missing
+ * evidence for either browser is `unavailable` for every check, never a quiet
+ * pass: a coordinate the harness could not render is exactly the failure this
+ * matrix exists to catch.
  */
 export function evaluateBrowserRenderCoordinate(input: {
 	coordinate: BrowserRenderMatrixCoordinate;
 	established: BrowserRenderLaneEvidence | null;
 	selected: BrowserRenderLaneEvidence | null;
+	expectedSelectedCaptureMode?: BrowserRenderLane;
 	unavailableReason?: string;
 }): BrowserRenderCoordinateVerdict {
 	const { coordinate, established, selected } = input;
+	const expectedSelectedCaptureMode =
+		input.expectedSelectedCaptureMode ?? COMPARED_AGENT_RENDER_LANE;
 	if (!established || !selected) {
 		const detail =
 			input.unavailableReason ??
-			`No evidence from ${!established ? ESTABLISHED_RENDER_LANE : SELECTED_PUBLIC_RENDER_LANE}`;
+			`No evidence from the ${!established ? 'established' : 'compared'} browser`;
 		return {
 			coordinateId: coordinate.coordinateId,
 			outcome: 'unavailable',
@@ -451,8 +469,8 @@ export function evaluateBrowserRenderCoordinate(input: {
 		check(
 			'lane-identity',
 			established.reportedCaptureMode === ESTABLISHED_RENDER_LANE &&
-				selected.reportedCaptureMode === SELECTED_PUBLIC_RENDER_LANE,
-			`established=${established.reportedCaptureMode} selected=${selected.reportedCaptureMode}`
+				selected.reportedCaptureMode === expectedSelectedCaptureMode,
+			`established=${established.reportedCaptureMode} selected=${selected.reportedCaptureMode} (expected ${expectedSelectedCaptureMode})`
 		),
 		check(
 			'native-target-resolution',
@@ -509,10 +527,15 @@ export function evaluateBrowserRenderCoordinate(input: {
 				BROWSER_RENDER_ALPHA_COVERAGE_TOLERANCE,
 			`established=${established.frame.alphaCoverage.toFixed(4)} selected=${selected.frame.alphaCoverage.toFixed(4)} tolerance ${BROWSER_RENDER_ALPHA_COVERAGE_TOLERANCE}`
 		),
+		// The WICG lane keeps no rasters of its own; only the mothballed
+		// dom-rasterization lane legitimately retains one per direct canvas child.
 		check(
 			'raster-cleanup',
 			established.retainedRasterCount === 0 &&
-				selected.retainedRasterCount === selected.directCanvasChildCount,
+				selected.retainedRasterCount ===
+					(expectedSelectedCaptureMode === 'dom-rasterization'
+						? selected.directCanvasChildCount
+						: 0),
 			`established retains ${established.retainedRasterCount}; selected retains ${selected.retainedRasterCount} for ${selected.directCanvasChildCount} direct canvas children`
 		),
 		check(

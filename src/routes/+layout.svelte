@@ -21,24 +21,38 @@
 		GFX_SOCIAL_CARD_PATH
 	} from '$lib/identity/gfx-brand';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
+	import {
+		CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT,
+		CANVAS_DRAW_ELEMENT_FLAG_NAME,
+		CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND,
+		isCanvasDrawElementCaptureAvailable
+	} from '$lib/platform/standard-browser-dom-capture';
 	import { readWebmcpCompositionPreconditions } from '$lib/platform/webmcp-tool-preconditions';
 	import { startWebmcpToolController } from '$lib/platform/webmcp-tool-controller';
 	import { listWebmcpToolDefinitions } from '$lib/platform/webmcp-tool-definitions';
 
 	let { children } = $props();
 
+	// The hard capability gate (Dex qju2qity): without CanvasDrawElement the app
+	// renders nothing approximate — the notice below replaces every route, so
+	// `window.__gfxDomFrameCaptureMode` stays truthfully absent.
+	const isCompositionCaptureAvailable = browser ? isCanvasDrawElementCaptureAvailable() : true;
+
 	// WebMCP is progressive enhancement in one direction only (ADR-0054 §4):
 	// without `document.modelContext`, or inside a frame, an insecure context, or
 	// an opaque origin, this resolves to null and the app behaves exactly as it
-	// does with no agent attached. Nothing below the layout may depend on it.
+	// does with no agent attached. Nothing below the layout may depend on it. A
+	// capability-gated page registers no tools either — every tool authors against
+	// a renderer this browser does not have.
 	const webmcpLifetime = new AbortController();
-	const webmcpToolController = browser
-		? startWebmcpToolController({
-				view: window,
-				definitions: listWebmcpToolDefinitions(),
-				lifetime: webmcpLifetime.signal
-			})
-		: null;
+	const webmcpToolController =
+		browser && isCompositionCaptureAvailable
+			? startWebmcpToolController({
+					view: window,
+					definitions: listWebmcpToolDefinitions(),
+					lifetime: webmcpLifetime.signal
+				})
+			: null;
 
 	onDestroy(() => webmcpLifetime.abort());
 
@@ -86,9 +100,43 @@
 	/>
 </svelte:head>
 
-{@render children()}
+{#if isCompositionCaptureAvailable}
+	{@render children()}
+{:else}
+	<main class="capability-gate">
+		<h1>{CANVAS_DRAW_ELEMENT_FLAG_NAME} required</h1>
+		<p>
+			GFX renders with
+			<a href="https://github.com/WICG/html-in-canvas">HTML-in-Canvas</a>, which
+			this browser has behind a flag. Enable it at
+			<!-- chrome:// URLs refuse navigation from web content, so this is copy text. -->
+			<code>chrome://flags/#canvas-draw-element</code> and relaunch, or launch
+			with the flag:
+		</p>
+		<p><code>{CANVAS_DRAW_ELEMENT_FLAG_ARGUMENT}</code></p>
+		<pre><code>{CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND}</code></pre>
+	</main>
+{/if}
 
 <style>
+	.capability-gate {
+		display: grid;
+		place-content: center;
+		gap: var(--pad-s);
+		min-block-size: 100dvh;
+		text-align: center;
+	}
+
+	.capability-gate h1,
+	.capability-gate p {
+		margin: 0;
+	}
+
+	.capability-gate pre {
+		margin: 0;
+		user-select: all;
+	}
+
 	/* Paper Mono (paper.design, OFL) is the tool-chrome mono — the variable cut
 	   covers every weight the chrome uses. Pack/content fonts register in their
 	   own Pack folders and are unaffected. License: static/fonts/PaperMono-OFL.txt */

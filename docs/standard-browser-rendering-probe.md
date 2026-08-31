@@ -1,12 +1,14 @@
 # Standard-browser rendering and WebMCP probe
 
+> **Status (Dex qju2qity): the lane this probe selected is mothballed.** The DOM-rasterization fallback existed for the since-descoped public demo; locally the app now hard-gates on CanvasDrawElement and a standard browser only ever sees the capability-gate notice. This document remains the recorded selection evidence, and the probe and the two-lane comparison it fed are **public-demo-only**: both run only behind `GFX_PUBLIC_DEMO_LANE=1`, against a future demo build that re-enables the lane. The default local agent browser is the combined-flag `agent` mode (`CDP_BROWSER_MODE=agent scripts/launch-cdp-chrome.sh`, CDP 9229).
+
 This probe answers the first runtime question for the public WebMCP demo: what works in a WebMCP-enabled Chrome when GFX cannot use the experimental `CanvasDrawElement` API?
 
 The exact machine-readable result is [`browser-probes/standard-browser-rendering.json`](browser-probes/standard-browser-rendering.json). Reproduce it with:
 
 ```bash
 # The dev server is already running at http://localhost:7263.
-pnpm run probe:standard-browser
+GFX_PUBLIC_DEMO_LANE=1 pnpm run probe:standard-browser
 ```
 
 The probe uses `scripts/launch-cdp-chrome.sh` in two isolated browser profiles:

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Start (or confirm) the sanctioned Chrome used by canvas/browser probes.
 # Default mode enables WICG CanvasDrawElement for canonical GFX rendering.
-# `CDP_BROWSER_MODE=standard-webmcp` enables WebMCP without CanvasDrawElement so
-# standard-browser fallback probes cannot accidentally use the flagged capture path.
+# `CDP_BROWSER_MODE=agent` enables CanvasDrawElement AND WebMCP together — the
+# default local agent mode: WebMCP tools drive the real renderer (qju2qity).
+# `CDP_BROWSER_MODE=standard-webmcp` enables WebMCP without CanvasDrawElement;
+# since qju2qity the app hard-gates there, so this mode only ever sees the
+# capability-gate notice (kept for the mothballed public-demo lane probes).
 # `CDP_BROWSER_MODE=standard` enables neither experimental feature.
 #
 # Always use a distinct CDP port per mode. The script is idempotent: if Chrome
@@ -21,6 +24,11 @@ case "${MODE}" in
 		MODE_FLAGS+=(--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu)
 		MODE_LABEL="CanvasDrawElement"
 		;;
+	agent)
+		DEFAULT_PORT="9229"
+		MODE_FLAGS+=(--enable-blink-features=CanvasDrawElement,WebMCP --enable-unsafe-webgpu)
+		MODE_LABEL="combined CanvasDrawElement+WebMCP agent"
+		;;
 	standard-webmcp)
 		DEFAULT_PORT="9225"
 		MODE_FLAGS+=(--enable-blink-features=WebMCP)
@@ -31,7 +39,7 @@ case "${MODE}" in
 		MODE_LABEL="standard"
 		;;
 	*)
-		echo "Unknown CDP_BROWSER_MODE '${MODE}'; expected canvas, standard-webmcp, or standard." >&2
+		echo "Unknown CDP_BROWSER_MODE '${MODE}'; expected canvas, agent, standard-webmcp, or standard." >&2
 		exit 1
 		;;
 esac

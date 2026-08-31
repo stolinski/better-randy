@@ -1,12 +1,13 @@
 // Every engine render branch must reach the DOM through the lane-neutral capture
 // seam, never through the WICG-only API directly.
 //
-// A standard browser exposes neither `GPUQueue.copyElementImageToTexture` nor
-// `HTMLCanvasElement.requestPaint` (ADR-0052's public demo runs stock Chrome), so
-// a branch that calls either one renders blank there — or throws — while every
-// other branch keeps working. That failure is invisible in review because the
-// flagged browser passes. This check makes it a build failure instead: only the
-// two modules that OWN lane selection may name the flag-only API.
+// The seam is also where the CanvasDrawElement capability gate lives (Dex
+// qju2qity): lane selection either resolves `canvas-draw-element` or throws with
+// the launch command — it never falls back to the mothballed DOM-rasterization
+// lane. Keeping every branch on the seam is what makes that gate total: a branch
+// that called the flag-only API directly would bypass both the gate and the
+// mothball. This check makes such a branch a build failure: only the two modules
+// that OWN lane selection may name the flag-only API.
 //
 // `src/routes/poc/` is deliberately outside the scan. Those pages are WICG
 // capability probes, not composition render branches, and they fail loudly with
@@ -90,7 +91,7 @@ assert.deepEqual(
 );
 assert.ok(scanned > 0, 'the capture-lane scan must actually read engine modules');
 
-// The seam itself must keep both lanes reachable and refuse to guess.
+// The seam itself must keep every render path on the lane-neutral helpers.
 const laneSwitch = readFileSync(
 	new URL('platform/html-in-canvas.ts', ENGINE_ROOT),
 	'utf8'
@@ -104,14 +105,31 @@ for (const helper of [
 	assert.ok(laneSwitch.includes(helper), `html-in-canvas.ts must expose ${helper}`);
 }
 
+// Lane selection must GATE, not fall back (qju2qity): an unflagged browser gets
+// the launch command, never the mothballed DOM-rasterization lane and never a
+// blank frame.
 const laneSelection = readFileSync(
 	new URL('platform/standard-browser-dom-capture.ts', ENGINE_ROOT),
 	'utf8'
 );
 assert.match(
 	laneSelection,
-	/throw new Error\(\s*'No DOM frame capture lane is available/,
-	'a browser with neither capture lane must fail loudly rather than render blank'
+	/GFX rendering requires the \$\{CANVAS_DRAW_ELEMENT_FLAG_NAME\} browser flag/,
+	'an unflagged browser must be gated with the required flag named, not fall back'
+);
+assert.match(
+	laneSelection,
+	/CANVAS_DRAW_ELEMENT_LAUNCH_COMMAND =\s*\n?\s*'CDP_BROWSER_MODE=agent scripts\/launch-cdp-chrome\.sh'/,
+	'the gate must carry the exact combined-flag launch command'
+);
+const laneSelectorBody = laneSelection.match(
+	/export function selectDomFrameCaptureMode[\s\S]*?\n\}/
+);
+assert.ok(laneSelectorBody, 'standard-browser-dom-capture.ts must declare selectDomFrameCaptureMode');
+assert.doesNotMatch(
+	laneSelectorBody[0],
+	/return 'dom-rasterization'/,
+	'selectDomFrameCaptureMode must never fall back to the mothballed dom-rasterization lane'
 );
 
 // Every registered Surface Pipeline — the plain card, the paper substrates, the

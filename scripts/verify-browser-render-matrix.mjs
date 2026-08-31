@@ -1,12 +1,19 @@
-// Render the bounded browser-render matrix in BOTH DOM-capture lanes and compare
-// the selected public path against the established one.
+// Render the bounded browser-render matrix in BOTH sanctioned browsers and
+// compare the combined-flag agent browser against the established harness.
 //
 // The flagged WICG lane (CDP port 9223) is what every existing render harness
-// measures. The public gfx.computer demo runs the `dom-rasterization` lane
-// (ADR-0052), reproduced here on a standard WebMCP Chrome (CDP port 9225) that
-// deliberately exposes neither `copyElementImageToTexture` nor `requestPaint`. A
-// branch that renders in the first and is blank, stale, or unmeasurable in the
-// second passes every other gate, so this one compares them at every branch.
+// measures. Since qju2qity the compared browser is the combined
+// CanvasDrawElement+WebMCP agent Chrome (CDP port 9229) — the default local
+// agent mode — which must render every composition branch exactly as the
+// harness does, on the same `canvas-draw-element` lane. A branch that renders
+// in one and is blank, stale, or unmeasurable in the other passes every other
+// gate, so this one compares them at every branch.
+//
+// The retired standard-lane comparison — the mothballed `dom-rasterization`
+// public-demo lane on the standard WebMCP Chrome (CDP port 9225) — is reachable
+// only behind the explicit `GFX_PUBLIC_DEMO_LANE=1` opt-in. It is
+// public-demo-only: the gated app never mounts in that browser, so the opt-in
+// is meaningful solely against a future demo build that re-enables the lane.
 //
 // The dev server must already be running. Evidence is written to
 // docs/browser-probes/browser-render-verification.json; any coordinate whose
@@ -27,6 +34,7 @@ import {
 	BROWSER_RENDER_BRANCHES,
 	BROWSER_RENDER_MATRIX_COORDINATES,
 	BROWSER_RENDER_PERFORMANCE_BUDGET,
+	COMPARED_AGENT_RENDER_LANE,
 	ESTABLISHED_RENDER_LANE,
 	SELECTED_PUBLIC_RENDER_LANE,
 	evaluateBrowserRenderCoordinate,
@@ -50,9 +58,34 @@ const EVIDENCE_PATH = resolve(
 // under `docs/`, so the identity a run asserts is the identity the next run
 // asserts, and re-running the gate is not a way to change its own answer.
 const RENDER_SOURCE_SCOPE_PATHS = ['src', 'scripts', 'package.json'];
-const LANES = [
-	{ lane: ESTABLISHED_RENDER_LANE, port: 9223, browserMode: 'canvas' },
-	{ lane: SELECTED_PUBLIC_RENDER_LANE, port: 9225, browserMode: 'standard-webmcp' }
+// The retired standard-lane comparison is opt-in and public-demo-only
+// (qju2qity): without the flag, the compared browser is the combined-flag
+// agent Chrome rendering the same canvas-draw-element lane as the harness.
+const isPublicDemoLaneOptIn =
+	readGfxEnvironmentValue(process.env, 'GFX_PUBLIC_DEMO_LANE') === '1';
+const BROWSERS = [
+	{
+		role: 'established',
+		expectedCaptureMode: ESTABLISHED_RENDER_LANE,
+		port: 9223,
+		browserMode: 'canvas',
+		expectFlagged: true
+	},
+	isPublicDemoLaneOptIn
+		? {
+				role: 'selected',
+				expectedCaptureMode: SELECTED_PUBLIC_RENDER_LANE,
+				port: 9225,
+				browserMode: 'standard-webmcp',
+				expectFlagged: false
+			}
+		: {
+				role: 'selected',
+				expectedCaptureMode: COMPARED_AGENT_RENDER_LANE,
+				port: 9229,
+				browserMode: 'agent',
+				expectFlagged: true
+			}
 ];
 // A 480×270 sample answers alpha coverage and blankness without reading 8.3M
 // pixels per frame; the PNG hash below is taken over the full native frame.
@@ -176,7 +209,7 @@ async function openPage(port, { url, readyExpression }) {
 }
 
 /** Reject a stale or swapped session before any of its pixels become evidence. */
-async function assertLaneCapabilities(port, expectedLane) {
+async function assertBrowserCapabilities({ port, role, expectedCaptureMode, expectFlagged }) {
 	// Read the capability on the served origin, not `about:blank`: the WICG
 	// capture API is a renderer feature, and a blank target answers for a
 	// renderer no composition will ever run in.
@@ -190,10 +223,9 @@ async function assertLaneCapabilities(port, expectedLane) {
 			requestPaint: typeof HTMLCanvasElement.prototype.requestPaint === 'function'
 		}))()`);
 		const flagged = capabilities.copyElementImageToTexture && capabilities.requestPaint;
-		const expectFlagged = expectedLane === ESTABLISHED_RENDER_LANE;
 		if (flagged !== expectFlagged) {
 			throw new Error(
-				`CDP port ${port} should host the ${expectedLane} lane, but ${flagged ? 'exposes' : 'does not expose'} the WICG capture API`
+				`CDP port ${port} should host the ${role} browser (${expectedCaptureMode} lane), but ${flagged ? 'exposes' : 'does not expose'} the WICG capture API`
 			);
 		}
 		return capabilities;
@@ -303,13 +335,13 @@ async function settleFrame(page, frameIndex, frameRate) {
 }
 
 /**
- * One coordinate's evidence from one lane.
+ * One coordinate's evidence from one browser.
  *
  * The replay frame is reached by seeking AWAY from the sample address and back,
  * so frame determinism is a real property of the address rather than an artifact
  * of capturing the same settled canvas twice.
  */
-async function captureLaneEvidence(lane, port, coordinate, sampleFrameIndex) {
+async function captureBrowserEvidence(lane, port, coordinate, sampleFrameIndex) {
 	const page = await openPage(port, {
 		url: `${BASE_URL}/p/${encodeURIComponent(coordinate.presetSlug)}?source=builtin`,
 		readyExpression: `document.readyState === 'complete' && typeof window.__configureGfxDeterministicRenderCell === 'function' && typeof window.__settleGfxDeterministicCompositionFrame === 'function'`
@@ -399,10 +431,19 @@ const coverageGaps = findBrowserRenderCoverageGaps({
 	packIds: registry.packs.map((pack) => pack.id)
 });
 
-for (const lane of LANES) launchBrowser(lane);
-const laneCapabilities = {};
-for (const lane of LANES) {
-	laneCapabilities[lane.lane] = await assertLaneCapabilities(lane.port, lane.lane);
+if (isPublicDemoLaneOptIn) {
+	console.warn(
+		'GFX_PUBLIC_DEMO_LANE=1 — comparing the mothballed dom-rasterization public-demo lane. This is public-demo-only: the gated app never mounts on the standard WebMCP browser, so expect failure against anything but a demo build that re-enables the lane.'
+	);
+}
+for (const compared of BROWSERS) launchBrowser(compared);
+const browserCapabilities = {};
+for (const compared of BROWSERS) {
+	browserCapabilities[compared.role] = {
+		expectedCaptureMode: compared.expectedCaptureMode,
+		port: compared.port,
+		...(await assertBrowserCapabilities(compared))
+	};
 }
 
 const coordinates = [];
@@ -419,24 +460,25 @@ for (const coordinate of BROWSER_RENDER_MATRIX_COORDINATES) {
 	}
 	const evidence = {};
 	let unavailableReason;
-	for (const lane of LANES) {
+	for (const compared of BROWSERS) {
 		try {
-			evidence[lane.lane] = await captureLaneEvidence(
-				lane.lane,
-				lane.port,
+			evidence[compared.role] = await captureBrowserEvidence(
+				compared.expectedCaptureMode,
+				compared.port,
 				coordinate,
 				sampleFrameIndex
 			);
 		} catch (error) {
-			evidence[lane.lane] = null;
-			unavailableReason = `${lane.lane}: ${error instanceof Error ? error.message : String(error)}`;
+			evidence[compared.role] = null;
+			unavailableReason = `${compared.role} (${compared.expectedCaptureMode}): ${error instanceof Error ? error.message : String(error)}`;
 			console.error(`✗ ${coordinate.coordinateId} — ${unavailableReason}`);
 		}
 	}
 	const verdict = evaluateBrowserRenderCoordinate({
 		coordinate,
-		established: evidence[ESTABLISHED_RENDER_LANE],
-		selected: evidence[SELECTED_PUBLIC_RENDER_LANE],
+		established: evidence.established,
+		selected: evidence.selected,
+		expectedSelectedCaptureMode: BROWSERS[1].expectedCaptureMode,
 		unavailableReason
 	});
 	const failedChecks = verdict.checks.filter((entry) => entry.outcome !== 'pass');
@@ -448,7 +490,7 @@ for (const coordinate of BROWSER_RENDER_MATRIX_COORDINATES) {
 	if (verdict.establishedLaneDeclarationMismatch) {
 		console.log(`    established-lane defect: ${verdict.establishedLaneDeclarationMismatch}`);
 	}
-	coordinates.push({ coordinate, lanes: evidence, verdict });
+	coordinates.push({ coordinate, browsers: evidence, verdict });
 }
 
 await assertServedSourceIdentity(sourceIdentity);
@@ -458,7 +500,7 @@ const summary = summarizeBrowserRenderVerification(
 	coverageGaps
 );
 const evidenceDocument = {
-	schemaVersion: 1,
+	schemaVersion: 2,
 	generatedAt: new Date().toISOString(),
 	verification: 'browser-render-fidelity-coverage-and-performance',
 	baseUrl: BASE_URL,
@@ -466,9 +508,12 @@ const evidenceDocument = {
 	sourceScopePaths: RENDER_SOURCE_SCOPE_PATHS,
 	sourceScopeFingerprint: sourceIdentity.treeFingerprint,
 	establishedLane: ESTABLISHED_RENDER_LANE,
-	selectedPublicLane: SELECTED_PUBLIC_RENDER_LANE,
+	comparedBrowser: isPublicDemoLaneOptIn
+		? 'public-demo-dom-rasterization (GFX_PUBLIC_DEMO_LANE=1, public-demo-only)'
+		: 'combined-agent',
+	selectedLane: BROWSERS[1].expectedCaptureMode,
 	performanceBudget: BROWSER_RENDER_PERFORMANCE_BUDGET,
-	laneCapabilities,
+	browserCapabilities,
 	branches: BROWSER_RENDER_BRANCHES,
 	coordinates,
 	summary
