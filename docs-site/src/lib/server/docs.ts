@@ -19,6 +19,7 @@ const LINK_ALIASES: Record<string, string> = {
 
 const TITLE_OVERRIDES: Record<string, string> = {
 	'README.md': 'Overview',
+	'getting-started.md': 'Getting started',
 	'CONTEXT.md': 'Glossary',
 	'roadmap.md': 'Roadmap',
 	'adr/README.md': 'ADR index',
@@ -99,7 +100,7 @@ function buildNav(): NavSection[] {
 		.flatMap((dir) => listDir(dir));
 
 	const plan: Array<{ label: string; files: string[] }> = [
-		{ label: 'Start', files: ['README.md', 'CONTEXT.md', 'roadmap.md'] },
+		{ label: 'Start', files: ['README.md', 'getting-started.md', 'CONTEXT.md', 'roadmap.md'] },
 		{ label: 'Engine', files: ['engine-architecture.md', 'html-in-canvas-typegpu.md'] },
 		{ label: 'Authoring', files: ['preset-format.md', 'briefs/README.md', ...briefs] },
 		{ label: 'Quality', files: ['quality-rubric.md', 'animation-rubric.md', 'critic.md'] },

@@ -6,6 +6,13 @@
 	// code still lands in the worker bundle, so the runtime needs Node compat.
 	// nodejs_compat supersets nodejs_als at this compatibility_date.
 	"compatibility_flags": ["nodejs_compat"],
+	// `wrangler types` only declares Cloudflare.GlobalProps.mainModule when this
+	// build output already exists, so its result — and the hash `wrangler types
+	// --check` compares against — depends on whether anyone has built yet. The
+	// committed worker-configuration.d.ts is the artifact-absent form, and both
+	// `gen` and `build` run `clean:worker` first so they always produce it. The
+	// artifact-present form would also pull this bundle into `svelte-check`,
+	// which reports hundreds of errors against generated code.
 	"main": ".svelte-kit/cloudflare/_worker.js",
 	"assets": {
 		"binding": "ASSETS",
