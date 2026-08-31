@@ -37,9 +37,17 @@ case "${MODE}" in
 esac
 
 PORT="${CDP_PORT:-${DEFAULT_PORT}}"
-PROFILE="/tmp/gfx-chrome-${PORT}"
+# A harness run passes CDP_PROFILE_DIR so its browser starts with no tabs,
+# cookies, or local storage from any earlier run. The shared /tmp profile below
+# stays the default for interactive use; it is what let a probe reach the dev
+# origin's state on 2026-08-29.
+PROFILE="${CDP_PROFILE_DIR:-/tmp/gfx-chrome-${PORT}}"
 
 if curl -fsS --max-time 2 "http://localhost:${PORT}/json/version" >/dev/null 2>&1; then
+	if [[ -n "${CDP_PROFILE_DIR:-}" ]]; then
+		echo "Chrome already answers on CDP port ${PORT}, so the isolated profile ${PROFILE} cannot be used. Pick an unused CDP_PORT for this run." >&2
+		exit 1
+	fi
 	echo "Chrome already running on CDP port ${PORT} — using the existing process (${MODE_LABEL} mode requested; callers must verify capabilities)."
 	exit 0
 fi

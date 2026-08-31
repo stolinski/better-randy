@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { format, resolveConfig } from 'prettier';
 
@@ -34,6 +35,8 @@ import {
 	summarizeBrowserRenderVerification
 } from './browser-render-verification.ts';
 
+// The browser launcher runs from the repository, never from the caller's cwd.
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const WAIT_MS = Number(
 	readGfxEnvironmentValue(process.env, 'GFX_BROWSER_RENDER_WAIT_MS') ?? 120_000
@@ -58,11 +61,14 @@ const ALPHA_SAMPLE_HEIGHT = 270;
 
 function launchBrowser({ port, browserMode }) {
 	const launch = spawnSync('bash', ['scripts/launch-cdp-chrome.sh'], {
+		cwd: repositoryRoot,
 		encoding: 'utf8',
 		env: { ...process.env, CDP_PORT: String(port), CDP_BROWSER_MODE: browserMode }
 	});
 	if (launch.status !== 0) {
-		throw new Error(`Sanctioned Chrome unavailable on port ${port}: ${launch.stderr || launch.stdout}`);
+		throw new Error(
+			`Sanctioned Chrome unavailable on port ${port}: ${launch.stderr || launch.stdout}`
+		);
 	}
 }
 
@@ -348,7 +354,8 @@ async function captureLaneEvidence(lane, port, coordinate, sampleFrameIndex) {
 				retained
 			};
 		})()`);
-		if (!runtime.retained) throw new Error(`${coordinate.coordinateId}: raster accounting unavailable`);
+		if (!runtime.retained)
+			throw new Error(`${coordinate.coordinateId}: raster accounting unavailable`);
 
 		await settleFrame(page, awayFrameIndex, frameRate);
 		const replaySettle = await settleFrame(page, sampleFrameIndex, frameRate);
@@ -406,7 +413,9 @@ for (const coordinate of BROWSER_RENDER_MATRIX_COORDINATES) {
 	const preset = registry.presets.find((entry) => entry.slug === coordinate.presetSlug);
 	const sampleFrameIndex = selectBrowserRenderSampleFrameIndex(preset?.samples ?? []);
 	if (sampleFrameIndex === null) {
-		throw new Error(`${coordinate.coordinateId}: no deterministic checkpoint past the opening frame`);
+		throw new Error(
+			`${coordinate.coordinateId}: no deterministic checkpoint past the opening frame`
+		);
 	}
 	const evidence = {};
 	let unavailableReason;
@@ -434,7 +443,8 @@ for (const coordinate of BROWSER_RENDER_MATRIX_COORDINATES) {
 	console.log(
 		`${verdict.outcome === 'pass' ? '✓' : '✗'} ${coordinate.coordinateId} (${coordinate.presetSlug} × ${coordinate.packId} × ${coordinate.orientation}) — ${verdict.outcome}`
 	);
-	for (const entry of failedChecks) console.log(`    ${entry.outcome} ${entry.checkId}: ${entry.detail}`);
+	for (const entry of failedChecks)
+		console.log(`    ${entry.outcome} ${entry.checkId}: ${entry.detail}`);
 	if (verdict.establishedLaneDeclarationMismatch) {
 		console.log(`    established-lane defect: ${verdict.establishedLaneDeclarationMismatch}`);
 	}

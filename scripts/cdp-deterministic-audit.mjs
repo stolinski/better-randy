@@ -1,11 +1,15 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 
 import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
 import { classifyProbeOutputClass } from './_probe-output-class.ts';
 
+// Child probes run from the repository, never from whatever directory invoked
+// this audit — an inherited cwd is what pointed a probe at the real store.
+const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const WAIT_MS = Number(process.env.CDP_DETERMINISTIC_WAIT_MS ?? 30000);
@@ -71,7 +75,7 @@ function decodeDataUrl(value) {
 }
 
 function runProbe(command, args, expectSuccess = true) {
-	const result = spawnSync(command, args, { encoding: 'utf8' });
+	const result = spawnSync(command, args, { cwd: repositoryRoot, encoding: 'utf8' });
 	const passed = result.status === 0;
 	if (passed !== expectSuccess) {
 		throw new Error(

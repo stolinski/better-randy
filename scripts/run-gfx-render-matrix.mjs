@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 
 import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
@@ -19,6 +20,8 @@ import {
 	verifyGfxRenderEvidenceIndex
 } from './gfx-render-matrix-runner.ts';
 
+// Every child runs from the repository, never from the caller's directory.
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CDP_PORT = Number(process.env.CDP_PORT ?? 9223);
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const WAIT_MS = Number(readGfxEnvironmentValue(process.env, 'GFX_RENDER_MATRIX_WAIT_MS') ?? 60_000);
@@ -191,6 +194,7 @@ function unavailableChecks(evidence, reason = 'capture-failed') {
 
 function runJsonProbe(script, args) {
 	const result = spawnSync('node', ['--experimental-strip-types', script, ...args], {
+		cwd: repositoryRoot,
 		encoding: 'utf8'
 	});
 	if (result.status !== 0 && result.status !== 1)
@@ -268,7 +272,10 @@ async function main() {
 		throw new TypeError('changed paths must be a string array');
 	}
 	const sourceIdentityPaths = manifest.scope === 'affected' ? changedPaths : [];
-	const launch = spawnSync('bash', ['scripts/launch-cdp-chrome.sh'], { encoding: 'utf8' });
+	const launch = spawnSync('bash', ['scripts/launch-cdp-chrome.sh'], {
+		cwd: repositoryRoot,
+		encoding: 'utf8'
+	});
 	if (launch.status !== 0)
 		throw new Error(`Sanctioned CDP Chrome unavailable: ${launch.stderr || launch.stdout}`);
 	const servedBefore = await sourceIdentity(

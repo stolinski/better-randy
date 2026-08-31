@@ -44,9 +44,19 @@ import { format, resolveConfig } from 'prettier';
 
 import { PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS } from '../src/lib/platform/public-runtime-contract.ts';
 import { WEBMCP_OPERATION_INVENTORY } from '../src/lib/platform/webmcp-operation-inventory.ts';
+import {
+	assertVerificationOriginAllowed,
+	createVerificationServerJail,
+	type VerificationServerJail
+} from './verification-server-jail.ts';
 
-/** The harness mode that exposes `document.modelContext` without CanvasDrawElement. */
-const STANDARD_WEBMCP_PORT = 9225;
+/**
+ * This probe drives its browser through storage clears and a storage-denial
+ * override, so it runs on a port of its own with a profile of its own rather
+ * than on the shared standard-webmcp harness (9225). A run that inherited the
+ * shared profile inherited whatever the dev origin had left in it.
+ */
+const STANDARD_WEBMCP_PORT = Number(process.env.GFX_SESSION_PROBE_CDP_PORT ?? 9245);
 
 /** A namespace of its own, so a probe run never reads or writes a real session. */
 const PROBE_STORAGE_IDENTITY = 'gfx-session-probe';
@@ -169,15 +179,22 @@ interface ProbeServer {
 	stop(): Promise<void>;
 }
 
-async function startBrowserStoreServer(sentryDsn: string): Promise<ProbeServer> {
+async function startBrowserStoreServer(
+	sentryDsn: string,
+	jail: VerificationServerJail
+): Promise<ProbeServer> {
 	if (!existsSync(serverEntryPath)) {
 		throw new Error(`No Node artifact at ${serverEntryPath}. Run \`pnpm build\` first.`);
 	}
+	// The jail is what makes this probe safe to run from any checkout: its storage
+	// clear and denial tests below can only ever reach directories this run made.
+	assertVerificationOriginAllowed(PROBE_ORIGIN);
 	const child = spawn(process.execPath, [serverEntryPath], {
 		cwd: repoRoot,
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: {
 			...process.env,
+			...jail.environment,
 			PORT: String(SERVER_PORT),
 			ORIGIN: PROBE_ORIGIN,
 			PUBLIC_GFX_COMPOSITION_STORE: 'browser',
@@ -483,19 +500,22 @@ function compositionNamingUnresolvableMedia(): Record<string, unknown> {
 // ---- The run ----------------------------------------------------------------
 
 const sink = await startTelemetrySink();
-const server = await startBrowserStoreServer(sink.dsn);
+const jail = await createVerificationServerJail('browser-session');
+const server = await startBrowserStoreServer(sink.dsn, jail);
 const harness = spawnSync('scripts/launch-cdp-chrome.sh', [], {
 	cwd: repoRoot,
 	stdio: 'inherit',
 	env: {
 		...process.env,
 		CDP_PORT: String(STANDARD_WEBMCP_PORT),
-		CDP_BROWSER_MODE: 'standard-webmcp'
+		CDP_BROWSER_MODE: 'standard-webmcp',
+		CDP_PROFILE_DIR: jail.chromeProfileDirectory
 	}
 });
 if (harness.status !== 0) {
 	await server.stop();
 	await sink.close();
+	await jail.dispose();
 	throw new Error(`The sanctioned CDP harness would not start (status ${harness.status}).`);
 }
 
@@ -784,6 +804,7 @@ try {
 	await firstTab.close().catch(() => undefined);
 	await server.stop();
 	await sink.close();
+	await jail.dispose();
 }
 
 const evidence = {

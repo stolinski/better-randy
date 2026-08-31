@@ -1,4 +1,4 @@
-import { readFile, unlink } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { json, error, type RequestHandler } from '@sveltejs/kit';
@@ -19,8 +19,12 @@ import {
 	assertUserCompositionMediaReady,
 	inspectUserCompositionMedia
 } from '$lib/platform/user-composition-media.server';
-
-const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
+import { snapshotUserCompositionStore } from '$lib/platform/user-composition-store-backup.server';
+import {
+	assertUserCompositionDeleteAuthorized,
+	requireUserCompositionStoreLocation
+} from '$lib/platform/user-composition-store-location.server';
+import { moveUserCompositionToTrash } from '$lib/platform/user-composition-trash.server';
 
 /**
  * Disk format wrapping the serialized preset so metadata stays out of the
@@ -50,19 +54,22 @@ function isStoredUserComposition(value: unknown): value is StoredUserComposition
 	);
 }
 
-function userCompositionPathForSlug(slug: string): string {
-	return join(USER_COMPOSITION_STORE_DIR, `${slug}.json`);
+function userCompositionPathForSlug(storeDirectory: string, slug: string): string {
+	return join(storeDirectory, `${slug}.json`);
 }
 
 const pendingUserCompositionReads = new Map<string, Promise<unknown>>();
 
-async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
+async function readUserCompositionWirePreset(
+	storeDirectory: string,
+	slug: string
+): Promise<unknown> {
 	// "No fork of this slug" is a normal answer, not an error — return null so
 	// clients can tell absence apart from a real failure. Only ENOENT means
 	// absent; any other read failure must surface as a 500.
 	let raw: string;
 	try {
-		raw = await readFile(userCompositionPathForSlug(slug), 'utf-8');
+		raw = await readFile(userCompositionPathForSlug(storeDirectory, slug), 'utf-8');
 	} catch (cause) {
 		if (cause instanceof Error && (cause as NodeJS.ErrnoException).code === 'ENOENT') return null;
 		error(500, `Failed to read user composition "${slug}"`);
@@ -100,30 +107,38 @@ async function readUserCompositionWirePreset(slug: string): Promise<unknown> {
 	return presetToWireFormat(result.data);
 }
 
-async function loadUserCompositionWirePreset(slug: string): Promise<unknown> {
-	const existingRead = pendingUserCompositionReads.get(slug);
+async function loadUserCompositionWirePreset(
+	storeDirectory: string,
+	slug: string
+): Promise<unknown> {
+	// Coalesce by path, not slug: one process can serve a jailed store and the
+	// real one across restarts, and the same slug means a different file in each.
+	const readKey = userCompositionPathForSlug(storeDirectory, slug);
+	const existingRead = pendingUserCompositionReads.get(readKey);
 	if (existingRead) return existingRead;
 
-	const pendingRead = readUserCompositionWirePreset(slug);
-	pendingUserCompositionReads.set(slug, pendingRead);
+	const pendingRead = readUserCompositionWirePreset(storeDirectory, slug);
+	pendingUserCompositionReads.set(readKey, pendingRead);
 	try {
 		return await pendingRead;
 	} finally {
-		if (pendingUserCompositionReads.get(slug) === pendingRead) {
-			pendingUserCompositionReads.delete(slug);
+		if (pendingUserCompositionReads.get(readKey) === pendingRead) {
+			pendingUserCompositionReads.delete(readKey);
 		}
 	}
 }
 
 export const GET: RequestHandler = async ({ params }) => {
 	assertOriginCompositionStoreServed();
+	const { storeDirectory } = requireUserCompositionStoreLocation();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
-	return json(await loadUserCompositionWirePreset(slug));
+	return json(await loadUserCompositionWirePreset(storeDirectory, slug));
 };
 
 export const PUT: RequestHandler = async ({ params, request }) => {
 	assertOriginCompositionStoreServed();
+	const { storeDirectory } = requireUserCompositionStoreLocation();
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 
@@ -152,7 +167,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		savedAt: new Date().toISOString()
 	};
 	try {
-		const raw = await readFile(userCompositionPathForSlug(slug), 'utf-8');
+		const raw = await readFile(userCompositionPathForSlug(storeDirectory, slug), 'utf-8');
 		const storedUserComposition: unknown = JSON.parse(raw);
 		if (isStoredUserComposition(storedUserComposition)) {
 			existingMeta = { ...storedUserComposition.meta };
@@ -169,7 +184,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	};
 
 	await writeUserCompositionFileAtomically(
-		userCompositionPathForSlug(slug),
+		userCompositionPathForSlug(storeDirectory, slug),
 		JSON.stringify(storedUserComposition, null, '\t')
 	);
 	await addUserCompositionFileToIndex(slug);
@@ -178,12 +193,17 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 export const DELETE: RequestHandler = async ({ params }) => {
 	assertOriginCompositionStoreServed();
+	const location = requireUserCompositionStoreLocation();
+	// Refuse before snapshotting or moving anything: automation never deletes an
+	// author's work, so a verification run must not reach the filesystem at all.
+	assertUserCompositionDeleteAuthorized(location);
 	const { slug } = params;
 	if (!slug) error(400, 'Missing slug');
 
-	try {
-		await unlink(userCompositionPathForSlug(slug));
-	} catch {
+	// The snapshot is the recoverable copy of every OTHER composition too — the
+	// 2026-08-29 loss was a sweep of deletes, not one mistaken click.
+	await snapshotUserCompositionStore(location, 'before-delete');
+	if (!(await moveUserCompositionToTrash(location, slug))) {
 		error(404, `User composition "${slug}" not found`);
 	}
 	await removeUserCompositionFileFromIndex(slug);

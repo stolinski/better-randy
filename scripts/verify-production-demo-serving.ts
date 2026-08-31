@@ -113,7 +113,7 @@ interface CommandResult {
 
 async function runCommand(command: string, args: readonly string[]): Promise<CommandResult> {
 	return new Promise((settle, fail) => {
-		const child = spawn(command, [...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+		const child = spawn(command, [...args], { cwd: repoRoot, stdio: ['ignore', 'pipe', 'pipe'] });
 		let stdout = '';
 		let stderr = '';
 		child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));

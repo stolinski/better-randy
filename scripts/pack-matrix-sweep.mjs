@@ -109,9 +109,7 @@ for (const [index, { slug }] of deliverables.entries()) {
 	for (const pack of CATALOG_PACKS) {
 		const outDir = resolve(outRoot, slug, pack);
 		const label = `${slug} × ${pack}`;
-		process.stdout.write(
-			`[${index + 1}/${deliverables.length}] ${label.padEnd(56)}`
-		);
+		process.stdout.write(`[${index + 1}/${deliverables.length}] ${label.padEnd(56)}`);
 		const existingNative = resolve(outDir, 'p0.50.png');
 		const cellPath = resolve(cellsDir, `${slug}--${pack}.png`);
 		if (process.env.RESWEEP !== '1' && existsSync(existingNative)) {
@@ -121,6 +119,7 @@ for (const [index, { slug }] of deliverables.entries()) {
 			continue;
 		}
 		const capture = spawnSync('node', [resolve(here, 'cdp-capture.mjs'), slug], {
+			cwd: repoRoot,
 			env: {
 				...process.env,
 				CDP_PACK: pack,

@@ -37,9 +37,15 @@ function flagValue(argv: readonly string[], name: string): string | undefined {
 	return i >= 0 ? argv[i + 1] : undefined;
 }
 
+// Every child runs from the repository. ffmpeg and ffprobe are given absolute
+// input and output paths, so their cwd only ever decides what a relative path
+// would have meant — and inheriting the caller's is how a probe reaches files
+// it was never pointed at.
+const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
+
 function runFfmpeg(bin: string, ffmpegArgs: readonly string[]): Promise<void> {
 	return new Promise((resolvePromise, reject) => {
-		const child = spawn(bin, ffmpegArgs);
+		const child = spawn(bin, ffmpegArgs, { cwd: repositoryRoot });
 		const stderrChunks: Buffer[] = [];
 		child.stderr.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
 		child.once('error', reject);
@@ -59,18 +65,22 @@ function runFfmpeg(bin: string, ffmpegArgs: readonly string[]): Promise<void> {
 // the caller can fall back to an all-frames decode.
 async function countFrames(bin: string, input: string): Promise<number | null> {
 	const out = await new Promise<string>((resolvePromise, reject) => {
-		const child = spawn(bin, [
-			'-v',
-			'error',
-			'-select_streams',
-			'v:0',
-			'-count_frames',
-			'-show_entries',
-			'stream=nb_read_frames',
-			'-of',
-			'default=nokey=1:noprint_wrappers=1',
-			input
-		]);
+		const child = spawn(
+			bin,
+			[
+				'-v',
+				'error',
+				'-select_streams',
+				'v:0',
+				'-count_frames',
+				'-show_entries',
+				'stream=nb_read_frames',
+				'-of',
+				'default=nokey=1:noprint_wrappers=1',
+				input
+			],
+			{ cwd: repositoryRoot }
+		);
 		const chunks: Buffer[] = [];
 		child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
 		child.once('error', reject);
@@ -175,7 +185,7 @@ async function main(): Promise<void> {
 				...(opaque ? ['--opaque'] : []),
 				...(!opaque && isWebm ? ['--vp9-alpha'] : [])
 			],
-			{ stdio: ['ignore', 'pipe', 'inherit'] }
+			{ cwd: repositoryRoot, stdio: ['ignore', 'pipe', 'inherit'] }
 		);
 		const stdoutChunks: Buffer[] = [];
 		probe.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));

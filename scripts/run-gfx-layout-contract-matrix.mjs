@@ -2,7 +2,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { evaluateLayoutContractFrame } from '../src/lib/platform/layout-contract.ts';
 import {
@@ -13,6 +14,8 @@ import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatib
 import { deriveGfxRenderMatrixManifest } from './derive-gfx-render-matrix-manifest.ts';
 import { groupGfxRenderMatrixCoordinates } from './gfx-render-matrix-runner.ts';
 
+// Children run from the repository, never from the directory that invoked this.
+const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const CHROME =
 	readGfxEnvironmentValue(process.env, 'GFX_LAYOUT_CONTRACT_CHROME') ??
@@ -72,7 +75,10 @@ function hash(value) {
 }
 
 function gitHead() {
-	const result = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], { encoding: 'utf8' });
+	const result = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], {
+		cwd: repositoryRoot,
+		encoding: 'utf8'
+	});
 	if (result.status !== 0) throw new Error('Unable to read repository HEAD');
 	return result.stdout.trim();
 }
@@ -116,7 +122,7 @@ async function launchHeadlessLayoutChrome() {
 			`--user-data-dir=${profile}`,
 			'about:blank'
 		],
-		{ stdio: 'ignore' }
+		{ cwd: repositoryRoot, stdio: 'ignore' }
 	);
 	const activePort = await waitForFile(join(profile, 'DevToolsActivePort'), Date.now() + WAIT_MS);
 	const [portText] = activePort.trim().split('\n');

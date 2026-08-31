@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ffmpeg and ffprobe run from the repository, never from the caller's directory.
+const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
 interface FixtureFrame {
 	identity: number;
@@ -126,7 +130,7 @@ function runBinary(
 	args: readonly string[]
 ): Promise<{ stdout: Buffer; stderr: string }> {
 	return new Promise((resolvePromise, reject) => {
-		const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+		const child = spawn(command, args, { cwd: repositoryRoot, stdio: ['ignore', 'pipe', 'pipe'] });
 		const stdout: Buffer[] = [];
 		const stderr: Buffer[] = [];
 		child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk));

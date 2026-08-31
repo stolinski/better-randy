@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { isHttpError } from '@sveltejs/kit';
-import { beforeAll, beforeEach, describe, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, it, vi } from 'vitest';
 
 import validPreset from '$lib/presets/blank.json';
 import type { Preset } from '$lib/platform/engine-schema';
@@ -19,6 +19,8 @@ const fsMocks = vi.hoisted(() => ({
 	readFile: vi.fn<(path: string, encoding: 'utf-8') => Promise<string>>(),
 	rename: vi.fn<(oldPath: string, newPath: string) => Promise<void>>(),
 	writeFile: vi.fn<(path: string, data: string, encoding: 'utf-8') => Promise<void>>(),
+	copyFile: vi.fn<(source: string, destination: string) => Promise<void>>(),
+	rm: vi.fn<(path: string, options: { recursive: true; force: true }) => Promise<void>>(),
 	unlink: vi.fn<(path: string) => Promise<void>>()
 }));
 const mediaMocks = vi.hoisted(() => ({
@@ -62,6 +64,8 @@ beforeEach(() => {
 	fsMocks.readdir.mockResolvedValue([]);
 	fsMocks.rename.mockResolvedValue(undefined);
 	fsMocks.writeFile.mockResolvedValue(undefined);
+	fsMocks.copyFile.mockResolvedValue(undefined);
+	fsMocks.rm.mockResolvedValue(undefined);
 	fsMocks.unlink.mockResolvedValue(undefined);
 	mediaMocks.inspectUserCompositionMedia.mockResolvedValue({ status: 'ready', issues: [] });
 });
@@ -206,9 +210,9 @@ describe('user composition handlers', () => {
 			meta: { forkedFrom: string | null; savedAt: string };
 			preset: { state: { surface: { content: { body: unknown } } } };
 		};
-		assert.match(path, /user-compositions\/\.[a-f0-9-]+\.tmp$/);
+		assert.match(path, /GFX\/compositions\/\.[a-f0-9-]+\.tmp$/);
 		assert.equal(fsMocks.rename.mock.calls[0]?.[0], path);
-		assert.match(fsMocks.rename.mock.calls[0]?.[1] ?? '', /user-compositions\/blank-copy\.json$/);
+		assert.match(fsMocks.rename.mock.calls[0]?.[1] ?? '', /GFX\/compositions\/blank-copy\.json$/);
 		assert.equal(encoding, 'utf-8');
 		assert.equal(stored.meta.forkedFrom, 'blank');
 		assert.equal(Number.isNaN(Date.parse(stored.meta.savedAt)), false);
@@ -673,5 +677,106 @@ describe('user composition handlers', () => {
 				collectionHandlers.POST(postEvent({ slug: 'missing-media', preset, forkedFrom: 'blank' })),
 			expectHttpError(422, 'Referenced media asset')
 		);
+	});
+});
+
+// The 2026-08-29 incident, as route behavior: a probe server inherited the
+// primary checkout's cwd and its storage tests cleared the author's real store.
+// Deleting now moves files aside, and a verification run is refused outright.
+describe('user composition store safety', () => {
+	function deleteEvent(slug: string): Parameters<(typeof slugHandlers)['DELETE']>[0] {
+		return { params: { slug } } as Parameters<(typeof slugHandlers)['DELETE']>[0];
+	}
+
+	it('moves a deleted composition to trash instead of unlinking it', async () => {
+		fsMocks.readdir.mockResolvedValue(['chapter-card.json']);
+
+		const response = await slugHandlers.DELETE(deleteEvent('chapter-card'));
+
+		assert.equal(response.status, 204);
+		assert.equal(
+			fsMocks.unlink.mock.calls.length,
+			0,
+			'unlink must not be a code path over user artifacts'
+		);
+		const trashMove = fsMocks.rename.mock.calls.at(-1);
+		assert.match(trashMove?.[0] ?? '', /GFX\/compositions\/chapter-card\.json$/);
+		assert.match(trashMove?.[1] ?? '', /GFX\/trash\/.+-chapter-card\.json$/);
+		// Everything else in the store was copied aside first.
+		assert.match(
+			fsMocks.copyFile.mock.calls[0]?.[1] ?? '',
+			/GFX\/backups\/.+-before-delete\/chapter-card\.json$/
+		);
+	});
+
+	it('answers 404 for an absent slug without leaving a trash entry', async () => {
+		fsMocks.rename.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+		await assert.rejects(
+			async () => slugHandlers.DELETE(deleteEvent('never-existed')),
+			expectHttpError(404, 'not found')
+		);
+	});
+
+	describe('under a verification run with no jailed store', () => {
+		beforeEach(() => {
+			vi.stubEnv('GFX_VERIFICATION_RUN', '1');
+			vi.stubEnv('GFX_USER_COMPOSITION_STORE_DIRECTORY', '');
+		});
+		afterEach(() => {
+			vi.unstubAllEnvs();
+		});
+
+		it('cannot list the real store', async () => {
+			await assert.rejects(
+				async () => collectionHandlers.GET({} as Parameters<(typeof collectionHandlers)['GET']>[0]),
+				expectHttpError(403, 'GFX_USER_COMPOSITION_STORE_DIRECTORY')
+			);
+			assert.equal(fsMocks.readdir.mock.calls.length, 0);
+		});
+
+		it('cannot modify the real store', async () => {
+			await assert.rejects(
+				async () =>
+					collectionHandlers.POST(postEvent({ slug: 'probe-write', preset: validPreset })),
+				expectHttpError(403, 'may never be served the real composition store')
+			);
+			await assert.rejects(
+				async () =>
+					slugHandlers.PUT({
+						params: { slug: 'probe-write' },
+						request: new Request('http://localhost/api/user-compositions/probe-write', {
+							method: 'PUT',
+							headers: { 'content-type': 'application/json' },
+							body: JSON.stringify(validPreset)
+						})
+					} as Parameters<(typeof slugHandlers)['PUT']>[0]),
+				expectHttpError(403, 'may never be served the real composition store')
+			);
+			assert.equal(fsMocks.writeFile.mock.calls.length, 0);
+			assert.equal(fsMocks.rename.mock.calls.length, 0);
+		});
+
+		it('cannot clear the real store', async () => {
+			await assert.rejects(
+				async () => slugHandlers.DELETE(deleteEvent('chapter-card')),
+				expectHttpError(403, 'GFX_USER_COMPOSITION_STORE_DIRECTORY')
+			);
+			assert.equal(fsMocks.rename.mock.calls.length, 0);
+			assert.equal(fsMocks.unlink.mock.calls.length, 0);
+		});
+	});
+
+	it('refuses to delete even inside its own jail', async () => {
+		vi.stubEnv('GFX_VERIFICATION_RUN', '1');
+		vi.stubEnv('GFX_USER_COMPOSITION_STORE_DIRECTORY', '/tmp/gfx-jail-7311/compositions');
+		try {
+			await assert.rejects(
+				async () => slugHandlers.DELETE(deleteEvent('probe-piece')),
+				expectHttpError(403, 'no delete authority')
+			);
+			assert.equal(fsMocks.rename.mock.calls.length, 0);
+		} finally {
+			vi.unstubAllEnvs();
+		}
 	});
 });

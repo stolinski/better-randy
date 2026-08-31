@@ -22,6 +22,7 @@ import {
 	type PublicRuntimeProfile
 } from '$lib/platform/public-runtime-deployment';
 import { inspectPublicRuntimeReadiness } from '$lib/platform/public-runtime-readiness.server';
+import { startUserCompositionStore } from '$lib/platform/user-composition-store-boot.server';
 
 /**
  * How long after the last connection closes the process may still be held open
@@ -77,6 +78,10 @@ export async function startPublicRuntime(
 ): Promise<PublicRuntimeProfile> {
 	const profile = assertPublicRuntimeDeployment(env);
 	startExportDirectoryMaintenance();
+	// Boot is the one moment the store is guaranteed quiet, so it is where the
+	// day's first snapshot is taken and where anything still sitting in the old
+	// in-repo folder is moved out of the checkout for good.
+	await startUserCompositionStore(env);
 
 	if (!shutdownRegistered) {
 		shutdownRegistered = true;

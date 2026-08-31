@@ -17,14 +17,9 @@ import {
 	assertUserCompositionMediaReady,
 	inspectUserCompositionMedia
 } from '$lib/platform/user-composition-media.server';
+import { requireUserCompositionStoreLocation } from '$lib/platform/user-composition-store-location.server';
 import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 import { COMPOSITION_SESSION_SLUG_PATTERN } from '$lib/utils/composition-session-slug';
-
-const USER_COMPOSITION_STORE_DIR = join(process.cwd(), 'user-compositions');
-
-async function ensureUserCompositionStoreDirectory(): Promise<void> {
-	await mkdir(USER_COMPOSITION_STORE_DIR, { recursive: true });
-}
 
 /** Disk format wrapping the Preset so metadata stays out of the Preset JSON. */
 interface StoredUserComposition {
@@ -50,23 +45,18 @@ function isStoredUserComposition(value: unknown): value is StoredUserComposition
 
 type UserCompositionCardMetadata = Pick<
 	UserCompositionMeta,
-	| 'slug'
-	| 'name'
-	| 'forkedFrom'
-	| 'savedAt'
-	| 'posterKey'
-	| 'durationSeconds'
-	| 'surfaceType'
+	'slug' | 'name' | 'forkedFrom' | 'savedAt' | 'posterKey' | 'durationSeconds' | 'surfaceType'
 >;
 
 export const GET: RequestHandler = async (event) => {
 	assertOriginCompositionStoreServed();
-	await ensureUserCompositionStoreDirectory();
+	const { storeDirectory } = requireUserCompositionStoreLocation();
+	await mkdir(storeDirectory, { recursive: true });
 	const cardView = event.url?.searchParams.get('view') === 'cards';
 
 	let entries: string[];
 	try {
-		entries = await readdir(USER_COMPOSITION_STORE_DIR);
+		entries = await readdir(storeDirectory);
 	} catch {
 		entries = [];
 	}
@@ -83,7 +73,7 @@ export const GET: RequestHandler = async (event) => {
 		// down rather than dropping one unreachable entry.
 		if (!COMPOSITION_SESSION_SLUG_PATTERN.test(userCompositionSlug)) continue;
 		try {
-			const raw = await readFile(join(USER_COMPOSITION_STORE_DIR, entry), 'utf-8');
+			const raw = await readFile(join(storeDirectory, entry), 'utf-8');
 			const storedUserComposition: unknown = JSON.parse(raw);
 			if (!isStoredUserComposition(storedUserComposition)) continue;
 			const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
@@ -120,7 +110,8 @@ export const GET: RequestHandler = async (event) => {
 
 export const POST: RequestHandler = async ({ request }) => {
 	assertOriginCompositionStoreServed();
-	await ensureUserCompositionStoreDirectory();
+	const { storeDirectory } = requireUserCompositionStoreLocation();
+	await mkdir(storeDirectory, { recursive: true });
 
 	let body: unknown;
 	try {
@@ -168,7 +159,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	};
 
 	await writeUserCompositionFileAtomically(
-		join(USER_COMPOSITION_STORE_DIR, `${slug}.json`),
+		join(storeDirectory, `${slug}.json`),
 		JSON.stringify(storedUserComposition, null, '\t')
 	);
 	await addUserCompositionFileToIndex(slug);
