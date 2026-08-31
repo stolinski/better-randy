@@ -213,7 +213,12 @@ export const LEGACY_NAME_DISPOSITION_CONFIG = Object.freeze({
 				'workflows/*.yaml',
 				'docs/sentry-dev-flow.md',
 				'docs/project-control-plane.md',
-				'.claude/skills/gfx-factory/SKILL.md'
+				'.claude/skills/gfx-factory/SKILL.md',
+				// A guard written against a reported incident cites the short id that
+				// reported it, which the ADR row already scopes to "every issue ever
+				// cited by short id".
+				'src/lib/platform/export-session.server.ts',
+				'src/routes/api/export/export.test.ts'
 			],
 			pattern: /projects\/supers\b|--project supers\b|\bSUPERS-|\bSupers Dev\b/g
 		},

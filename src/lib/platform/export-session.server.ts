@@ -178,6 +178,43 @@ function securityError(refusal: PublicExportSecurityRefusal): ExportSessionError
 	return new ExportSessionError(refusal.status, refusal.message);
 }
 
+/**
+ * What a caller is told when the session it was uploading to ended underneath
+ * it — the same answer `#get` gives a caller naming a session that is already
+ * gone, because by the time this is thrown the session is being disposed.
+ */
+const EXPORT_SESSION_CANCELLED_MESSAGE = 'Export session was cancelled.';
+
+/**
+ * Decide what an interrupted upload or encode owes its caller, read *before* the
+ * session is disposed.
+ *
+ * A session cancelled mid-upload — by its owner, by a clock, by shutdown — and a
+ * caller that hung up both surface as whichever error the aborted stream
+ * happened to reject with: the `AbortError` this store's own controller carries,
+ * or Node's bare `aborted` when the socket died mid-body. Neither is a fault of
+ * this origin, so both answer 410 rather than escaping the route as an
+ * unhandled 500 the way they did through SUPERS-28 and SUPERS-27, and the three
+ * 500s those two produced (SUPERS-26, SUPERS-29, SUPERS-2A).
+ *
+ * Order is the whole point of reading the signals here: disposal aborts the
+ * session's own controller, so classifying after it would relabel every
+ * deliberate refusal a cancellation. An `ExportSessionError` is already a
+ * considered answer and is kept exactly as it is, and anything else that is not
+ * an abort stays raw — a genuine server fault still has to be reported as one.
+ */
+function classifyExportSessionFailure(
+	session: ExportSession,
+	request: Request,
+	cause: unknown
+): unknown {
+	if (cause instanceof ExportSessionError) return cause;
+	if (session.abortController.signal.aborted || request.signal.aborted) {
+		return new ExportSessionError(410, EXPORT_SESSION_CANCELLED_MESSAGE);
+	}
+	return cause;
+}
+
 function readFiniteNumber(record: Record<string, unknown>, key: string): number {
 	const value = record[key];
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -607,9 +644,10 @@ export class ExportSessionStore {
 			await finishWritable(file, signal);
 			session.hasAudio = true;
 		} catch (cause) {
+			const failure = classifyExportSessionFailure(session, request, cause);
 			file.destroy();
 			await this.#dispose(session, 'failed');
-			throw cause;
+			throw failure;
 		} finally {
 			session.isBusy = false;
 		}
@@ -681,8 +719,9 @@ export class ExportSessionStore {
 			session.nextFrame += 1;
 			session.status = 'encoding';
 		} catch (cause) {
+			const failure = classifyExportSessionFailure(session, request, cause);
 			await this.#dispose(session, 'failed');
-			throw cause;
+			throw failure;
 		} finally {
 			session.isBusy = false;
 		}
@@ -732,8 +771,9 @@ export class ExportSessionStore {
 			session.status = 'ready';
 			return { downloadUrl: `/api/export/sessions/${id}/output` };
 		} catch (cause) {
+			const failure = classifyExportSessionFailure(session, request, cause);
 			await this.#dispose(session, 'failed');
-			throw cause;
+			throw failure;
 		} finally {
 			session.isBusy = false;
 		}

@@ -571,11 +571,39 @@ describe('export session encoding', () => {
 		);
 		await writeStarted;
 		abortController.abort();
-		await assert.rejects(upload, /abort/i);
+		// A caller that hung up is answered 410, not reported as a server fault:
+		// a raw abort escaping here reached SvelteKit as an unhandled 500
+		// (SUPERS-26/27/2A).
+		await assert.rejects(upload, isLimitStatus(410, /cancelled/));
 		assert.equal(encoder.children[0].killed, true);
 		assert.deepEqual(await readdir(directory), []);
 		assert.equal(store.openSessionCount, 0);
 		assert.equal(store.cleanupReceipts.at(-1)?.reason, 'failed');
+		assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), []);
+	});
+
+	// SUPERS-28: cancelling a session while a frame is still streaming aborted the
+	// upload's signal with a bare `AbortError`, which both export routes rethrew
+	// and SvelteKit reported as a 500 on an outcome the caller had just asked for.
+	it('answers an upload interrupted by a concurrent cancel without a server fault', async () => {
+		let markWriteStarted = (): void => undefined;
+		const writeStarted = new Promise<void>((resolve) => {
+			markWriteStarted = resolve;
+		});
+		const { store, directory } = await createStore({
+			createInput: () =>
+				new Writable({
+					write: () => markWriteStarted()
+				})
+		});
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		const upload = store.uploadFrame(session.sessionId, 0, frameRequest(session));
+		await writeStarted;
+		await store.cancel(session.sessionId, controlRequest(session, 'DELETE'));
+
+		await assert.rejects(upload, isLimitStatus(410, /cancelled/));
+		assert.deepEqual(await readdir(directory), []);
+		assert.equal(store.openSessionCount, 0);
 		assert.deepEqual(findExportCleanupLeaks(store.cleanupReceipts), []);
 	});
 
@@ -1169,7 +1197,12 @@ describe('public export cleanup and zero retention', () => {
 		const { store, directory, encoder } = await createStore({ crashAfterWrites: 2 });
 		const session = await openSession(store, { ...WEBM_SINGLE_FRAME, frameCount: 2 });
 		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
-		await assert.rejects(() => store.uploadFrame(session.sessionId, 1, frameRequest(session)));
+		// A crashed encoder is this origin's own fault, so it must keep reaching the
+		// route raw — classifying cancellations must not relabel it a 410.
+		await assert.rejects(
+			() => store.uploadFrame(session.sessionId, 1, frameRequest(session)),
+			(error: unknown) => !(error instanceof ExportSessionError && error.status === 410)
+		);
 
 		assert.equal(store.openSessionCount, 0);
 		assert.deepEqual(await readdir(directory), []);
