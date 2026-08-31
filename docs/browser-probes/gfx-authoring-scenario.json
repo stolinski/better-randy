@@ -1,0 +1,3430 @@
+{
+	"schemaVersion": 1,
+	"measuredAt": "2026-08-31T17:44:30.177Z",
+	"probe": "gfx-authoring-scenario",
+	"origin": "http://localhost:7363",
+	"harness": { "modelContext": true, "secureContext": true, "canvasDrawElement": false },
+	"capability": {
+		"vocabulary": {
+			"surface-type": [
+				"paper",
+				"plain",
+				"newspaper",
+				"pullquote-on-photo",
+				"chapter-card",
+				"brand-mark",
+				"title-sequence",
+				"type-hero",
+				"web-document",
+				"website-screenshot",
+				"imessage",
+				"checklist"
+			],
+			"overlay-type": [
+				"lower-third",
+				"washi-tape",
+				"watermark",
+				"shader-fill",
+				"cursor-trail",
+				"counter",
+				"instance-stack",
+				"text-3d",
+				"tweet-stack",
+				"youtube-subscribe",
+				"instagram-follow",
+				"achievement",
+				"source-url"
+			],
+			"pack-slug": ["syntax", "editorial-mono", "crt-terminal", "clean-light"],
+			"sound-asset": [
+				"foley-tick",
+				"foley-hover",
+				"foley-glide",
+				"foley-pop",
+				"foley-press",
+				"foley-release",
+				"foley-tap",
+				"foley-thock",
+				"foley-on",
+				"foley-off",
+				"foley-switch",
+				"foley-latch",
+				"foley-success",
+				"foley-error",
+				"foley-warning",
+				"foley-denied",
+				"foley-chime",
+				"foley-ping",
+				"foley-bell",
+				"foley-bubble",
+				"foley-swoosh",
+				"foley-whoosh",
+				"foley-drop",
+				"foley-rise",
+				"foley-loading",
+				"foley-ready",
+				"foley-complete",
+				"foley-sparkle",
+				"bed-ambient-texture"
+			],
+			"operation-error-code": [
+				"stale_revision",
+				"no_composition_open",
+				"composition_read_only",
+				"precondition_unmet",
+				"invalid_argument",
+				"unknown_target",
+				"unsupported_variant",
+				"schema_invalid",
+				"semantic_invalid",
+				"consent_required",
+				"storage_unavailable",
+				"quota_exceeded",
+				"limit_exceeded",
+				"cancelled",
+				"render_failed",
+				"export_failed"
+			]
+		},
+		"limits": {
+			"status": "inspected",
+			"operationId": "capability.inspect-limits",
+			"transport": {
+				"maxDurationSeconds": 15,
+				"maxFrameRate": 60,
+				"maxFrameCount": 900,
+				"rates": [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
+			},
+			"output": {
+				"maxOutputBytes": 2147483648,
+				"maxFrameBytes": 67108864,
+				"maxAudioBytes": 8388608
+			},
+			"exportSession": { "maxConcurrent": 2, "idleTimeoutMs": 900000, "maxLifetimeMs": 1800000 },
+			"sessionStorage": { "maxStorageBytes": 4194304, "maxCompositionBytes": 1048576 },
+			"result": { "characterBudget": 4000, "wholeDocumentCharacterBudget": 262144 }
+		}
+	},
+	"workspaceRegistration": {
+		"slug": "untitled",
+		"registered": [
+			"gfx_appearance_set_backdrop_visibility",
+			"gfx_appearance_set_mark_defaults",
+			"gfx_appearance_set_pack",
+			"gfx_appearance_set_stage",
+			"gfx_appearance_set_typography",
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_export_json",
+			"gfx_composition_import_json",
+			"gfx_composition_inspect",
+			"gfx_composition_open",
+			"gfx_composition_set_identity",
+			"gfx_content_set_captions",
+			"gfx_content_set_surface_content",
+			"gfx_delivery_export_video",
+			"gfx_layer_add_annotation_mark",
+			"gfx_layer_add_chart_block",
+			"gfx_layer_add_diagram_primitive",
+			"gfx_layer_add_effect",
+			"gfx_layer_add_overlay",
+			"gfx_layer_add_text_animation",
+			"gfx_layer_set_surface",
+			"gfx_media_inspect_library",
+			"gfx_motion_set_cascade_anchor",
+			"gfx_motion_set_composition_transition",
+			"gfx_motion_set_keyframe_channel",
+			"gfx_motion_set_surface_timing",
+			"gfx_playhead_inspect",
+			"gfx_playhead_seek_frame",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect",
+			"gfx_sound_set_cue",
+			"gfx_sound_set_motion_override",
+			"gfx_transport_set_background",
+			"gfx_transport_set_format",
+			"gfx_transport_set_orientation",
+			"gfx_transport_set_timing",
+			"gfx_validation_inspect_findings"
+		]
+	},
+	"authoring": {
+		"overlayId": "lower-third-1",
+		"emptyFrame": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5005524861878453,
+			"distinctColours": 20,
+			"sha256": "9c49c27696e5e2b9293bf5d9e1cccb9b641e15c05c5c9118d4377ae463c54e43",
+			"settledAfter": 3,
+			"focusLabel": "Composition"
+		},
+		"authoredFrame": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5325423065210771,
+			"distinctColours": 754,
+			"sha256": "ca79ab2fff86d9df830541d669347108bf0555b9a1047c0a24b96052a81ac1a6",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		},
+		"removedOverlay": { "pointers": ["/state/overlays"], "total": 1, "truncated": false }
+	},
+	"design": {
+		"beforePack": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5325423065210771,
+			"distinctColours": 754,
+			"sha256": "ca79ab2fff86d9df830541d669347108bf0555b9a1047c0a24b96052a81ac1a6",
+			"settledAfter": 7,
+			"focusLabel": "Composition"
+		},
+		"afterPack": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		},
+		"vertical": {
+			"backingWidth": 2160,
+			"backingHeight": 3840,
+			"clip": { "x": 402, "y": 101, "width": 285, "height": 508 },
+			"nonUniformRatio": 0.5247755214808675,
+			"distinctColours": 408,
+			"sha256": "de21c0ab26fa253d475d091cdae9b7c3fa632feb36c6d428c940268544d61d47",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		},
+		"horizontal": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		}
+	},
+	"motionAndSound": {
+		"cue": {
+			"status": "applied",
+			"operationId": "sound.set-cue",
+			"revision": 14,
+			"changed": { "pointers": ["/state/audioCues"], "total": 1, "truncated": false },
+			"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+			"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+			"undoLabel": "Set sound cue",
+			"focus": { "target": "sound-cue", "reference": { "kind": "manual", "cueId": "cue-1" } }
+		},
+		"motionOverride": {
+			"status": "applied",
+			"operationId": "sound.set-motion-override",
+			"revision": 15,
+			"changed": { "pointers": ["/state/overlays/0/enter/sound"], "total": 1, "truncated": false },
+			"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+			"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+			"undoLabel": "Set motion sound",
+			"focus": {
+				"target": "sound-cue",
+				"reference": { "kind": "derived", "cueId": "overlay:lower-third-1:enter" }
+			}
+		}
+	},
+	"seek": {
+		"comparedFrame": 45,
+		"otherFrame": 12,
+		"firstVisit": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "ecb67f7454e635b316bea32536fa51e71859843e73890a632f390294421bf60b",
+			"settledAfter": 4,
+			"focusLabel": "Sound cue"
+		},
+		"elsewhere": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5020033062165572,
+			"distinctColours": 271,
+			"sha256": "f122658dbfbd106900fe169b99eafe16b01893774fcd03b19332174503a29031",
+			"settledAfter": 4,
+			"focusLabel": "Sound cue"
+		},
+		"secondVisit": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "ecb67f7454e635b316bea32536fa51e71859843e73890a632f390294421bf60b",
+			"settledAfter": 4,
+			"focusLabel": "Sound cue"
+		},
+		"receipt": {
+			"status": "moved",
+			"operationId": "playhead.seek-frame",
+			"revision": 15,
+			"focus": "timeline-playhead",
+			"frame": 45,
+			"frameCount": 60,
+			"fps": 30,
+			"frameRate": "30",
+			"seconds": 1.5,
+			"durationSeconds": 2,
+			"timecode": "00:00:01:15",
+			"isPlaying": false
+		}
+	},
+	"validationRepair": {
+		"appeared": {
+			"findings": [
+				{
+					"source": "lint",
+					"rule": "G2",
+					"severity": "error",
+					"path": "overlays[0].position.rect",
+					"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+				}
+			],
+			"total": 1,
+			"truncated": false
+		},
+		"reported": {
+			"findings": [
+				{
+					"source": "lint",
+					"rule": "L4",
+					"severity": "error",
+					"path": "overlays[0].exit.start",
+					"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+				},
+				{
+					"source": "lint",
+					"rule": "G2",
+					"severity": "error",
+					"path": "overlays[0].position.rect",
+					"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+				}
+			],
+			"total": 2,
+			"truncated": false
+		},
+		"cleared": {
+			"findings": [
+				{
+					"source": "lint",
+					"rule": "G2",
+					"severity": "error",
+					"path": "overlays[0].position.rect",
+					"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+				}
+			],
+			"total": 1,
+			"truncated": false
+		},
+		"remaining": {
+			"findings": [
+				{
+					"source": "lint",
+					"rule": "L4",
+					"severity": "error",
+					"path": "overlays[0].exit.start",
+					"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+				}
+			],
+			"total": 1,
+			"truncated": false
+		}
+	},
+	"history": {
+		"revisionBeforeEdit": 17,
+		"revisionAfterRedo": 20,
+		"beforeEdit": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+			"settledAfter": 3,
+			"focusLabel": "Overlay"
+		},
+		"afterEdit": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5247009179101231,
+			"distinctColours": 1309,
+			"sha256": "233fc4f8f9d99e8a8b8eec9eb10524fd3be7ba8014ef1a7168576b6cb862e808",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		},
+		"afterUndo": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5235915952494888,
+			"distinctColours": 877,
+			"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+			"settledAfter": 4,
+			"focusLabel": "Composition"
+		},
+		"afterRedo": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5247009179101231,
+			"distinctColours": 1309,
+			"sha256": "233fc4f8f9d99e8a8b8eec9eb10524fd3be7ba8014ef1a7168576b6cb862e808",
+			"settledAfter": 6,
+			"focusLabel": "Composition"
+		},
+		"undonePack": "editorial-mono",
+		"redonePack": "crt-terminal"
+	},
+	"media": {
+		"status": "inspected",
+		"operationId": "media.inspect-library",
+		"revision": 21,
+		"contentTrust": "untrusted",
+		"entries": [],
+		"entryTotal": 0,
+		"entriesTruncated": false,
+		"clips": [],
+		"clipTotal": 0,
+		"clipsTruncated": false,
+		"addableGrantIds": [],
+		"frameCount": 60
+	},
+	"deliveries": [
+		{
+			"lane": "transparent-webm",
+			"receipt": {
+				"status": "delivered",
+				"operationId": "delivery.export-video",
+				"revision": 21,
+				"format": "webm",
+				"codec": "vp9-alpha",
+				"output": "transparent",
+				"width": 3840,
+				"height": 2160,
+				"fps": 30,
+				"frameCount": 60,
+				"durationSeconds": 2,
+				"videoFilename": "gfx-overlay.webm",
+				"videoByteLength": 1341841,
+				"wavFilename": null
+			},
+			"download": { "name": "gfx-overlay.webm", "bytes": 1341841 },
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"width": 3840,
+				"height": 2160,
+				"frameRate": "30/1",
+				"decodedFrameCount": 60,
+				"audioCodec": "opus",
+				"audioChannels": 2,
+				"durationSeconds": 2.008
+			},
+			"decoded": {
+				"exitStatus": 1,
+				"animates": true,
+				"carriesAlpha": true,
+				"report": {
+					"source": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-authoring-scenario-lM1aPX/gfx-overlay.webm",
+					"decode": {
+						"total_frames": 60,
+						"decoded_frames": 4,
+						"mode": "sampled",
+						"step": 15,
+						"pix_fmt": "rgba",
+						"expected_alpha": "transparent"
+					},
+					"frames": [
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0001.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 0,
+								"max": 255,
+								"pct_transparent": 99.83,
+								"pct_opaque": 0.17,
+								"pct_partial": 0.0792,
+								"transparent_rgb_max": 0
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0002.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 0,
+								"max": 255,
+								"pct_transparent": 99.83,
+								"pct_opaque": 0.17,
+								"pct_partial": 4.4162,
+								"transparent_rgb_max": 61
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0003.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 0,
+								"max": 255,
+								"pct_transparent": 99.21,
+								"pct_opaque": 0.79,
+								"pct_partial": 3.7947,
+								"transparent_rgb_max": 20
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0004.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 0,
+								"max": 255,
+								"pct_transparent": 99.21,
+								"pct_opaque": 0.79,
+								"pct_partial": 3.7947,
+								"transparent_rgb_max": 20
+							}
+						}
+					],
+					"diffs": [
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0001.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0002.png",
+							"mean_delta": 0.01358,
+							"changed": true
+						},
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0002.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0003.png",
+							"mean_delta": 0.00488,
+							"changed": true
+						},
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0003.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-JXyDVC/frame_0004.png",
+							"mean_delta": 0,
+							"changed": false
+						}
+					],
+					"frozen_pairs": 1,
+					"changed_pairs": 2,
+					"has_alpha": true,
+					"is_opaque": false,
+					"verdict": "fail",
+					"reason": "fully transparent pixels retain RGB above the clean-edge tolerance"
+				}
+			}
+		},
+		{
+			"lane": "full-frame-prores",
+			"receipt": {
+				"status": "delivered",
+				"operationId": "delivery.export-video",
+				"revision": 23,
+				"format": "prores",
+				"codec": "prores-4444",
+				"output": "opaque",
+				"width": 3840,
+				"height": 2160,
+				"fps": 30,
+				"frameCount": 60,
+				"durationSeconds": 2,
+				"videoFilename": "gfx-bumper.mov",
+				"videoByteLength": 23020371,
+				"wavFilename": null
+			},
+			"download": { "name": "gfx-bumper.mov", "bytes": 23020371 },
+			"streams": {
+				"videoCodec": "prores",
+				"pixelFormat": "yuva444p12le",
+				"width": 3840,
+				"height": 2160,
+				"frameRate": "30/1",
+				"decodedFrameCount": 60,
+				"audioCodec": "pcm_s16le",
+				"audioChannels": 2,
+				"durationSeconds": 2
+			},
+			"decoded": {
+				"exitStatus": 0,
+				"animates": true,
+				"carriesAlpha": false,
+				"report": {
+					"source": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-authoring-scenario-lM1aPX/gfx-bumper.mov",
+					"decode": {
+						"total_frames": 60,
+						"decoded_frames": 4,
+						"mode": "sampled",
+						"step": 15,
+						"pix_fmt": "rgba",
+						"expected_alpha": "opaque"
+					},
+					"frames": [
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0001.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 255,
+								"max": 255,
+								"pct_transparent": 0,
+								"pct_opaque": 100,
+								"pct_partial": 0,
+								"transparent_rgb_max": 0
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0002.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 255,
+								"max": 255,
+								"pct_transparent": 0,
+								"pct_opaque": 100,
+								"pct_partial": 0,
+								"transparent_rgb_max": 0
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0003.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 255,
+								"max": 255,
+								"pct_transparent": 0,
+								"pct_opaque": 100,
+								"pct_partial": 0,
+								"transparent_rgb_max": 0
+							}
+						},
+						{
+							"path": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0004.png",
+							"width": 3840,
+							"height": 2160,
+							"alpha": {
+								"min": 255,
+								"max": 255,
+								"pct_transparent": 0,
+								"pct_opaque": 100,
+								"pct_partial": 0,
+								"transparent_rgb_max": 0
+							}
+						}
+					],
+					"diffs": [
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0001.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0002.png",
+							"mean_delta": 0.00358,
+							"changed": true
+						},
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0002.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0003.png",
+							"mean_delta": 0.00255,
+							"changed": true
+						},
+						{
+							"from": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0003.png",
+							"to": "/var/folders/x1/klnfs1qn5g93zj76632x66r00000gn/T/gfx-decode-p7vyQq/frame_0004.png",
+							"mean_delta": 0,
+							"changed": false
+						}
+					],
+					"frozen_pairs": 1,
+					"changed_pairs": 2,
+					"has_alpha": false,
+					"is_opaque": true,
+					"verdict": "pass",
+					"reason": "frames animate and are opaque"
+				}
+			}
+		}
+	],
+	"progressiveEnhancement": {
+		"capabilities": { "modelContext": false, "canvasDrawElement": false },
+		"frame": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+			"nonUniformRatio": 0.5230826119110802,
+			"distinctColours": 506,
+			"sha256": "7246852669e0228450052d6cbe55a96acf395632327376f8905862f37dd3358e",
+			"settledAfter": 8,
+			"focusLabel": "Composition"
+		},
+		"runtimeFaults": [],
+		"networkFaults": [
+			{
+				"phase": "progressive-enhancement",
+				"url": "http://localhost:7363/api/posters/b968136b2af5eeb3",
+				"detail": "net::ERR_ABORTED",
+				"isAborted": true
+			}
+		]
+	},
+	"registrationAfterRouteChange": {
+		"registered": [
+			"gfx_appearance_set_backdrop_visibility",
+			"gfx_appearance_set_mark_defaults",
+			"gfx_appearance_set_pack",
+			"gfx_appearance_set_stage",
+			"gfx_appearance_set_typography",
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_export_json",
+			"gfx_composition_import_json",
+			"gfx_composition_inspect",
+			"gfx_composition_open",
+			"gfx_composition_redo",
+			"gfx_composition_set_identity",
+			"gfx_composition_undo",
+			"gfx_content_set_captions",
+			"gfx_content_set_overlay_content",
+			"gfx_content_set_surface_content",
+			"gfx_delivery_export_video",
+			"gfx_layer_add_annotation_mark",
+			"gfx_layer_add_chart_block",
+			"gfx_layer_add_diagram_primitive",
+			"gfx_layer_add_effect",
+			"gfx_layer_add_overlay",
+			"gfx_layer_add_text_animation",
+			"gfx_layer_remove_overlay",
+			"gfx_layer_reorder_overlay",
+			"gfx_layer_set_surface",
+			"gfx_media_inspect_library",
+			"gfx_motion_set_cascade_anchor",
+			"gfx_motion_set_composition_transition",
+			"gfx_motion_set_keyframe_channel",
+			"gfx_motion_set_overlay_timing",
+			"gfx_motion_set_surface_timing",
+			"gfx_placement_set_overlay_depth",
+			"gfx_placement_set_overlay_placement",
+			"gfx_playhead_inspect",
+			"gfx_playhead_seek_frame",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect",
+			"gfx_sound_remove_cue",
+			"gfx_sound_set_cue",
+			"gfx_sound_set_motion_override",
+			"gfx_transport_set_background",
+			"gfx_transport_set_format",
+			"gfx_transport_set_orientation",
+			"gfx_transport_set_timing",
+			"gfx_validation_inspect_findings"
+		]
+	},
+	"session": {
+		"held": {
+			"status": "inspected",
+			"operationId": "session.inspect",
+			"entries": [
+				{
+					"slug": "untitled",
+					"name": "Signal to noise",
+					"revision": 25,
+					"forkedFrom": null,
+					"savedAt": "2026-08-31T17:46:15.946Z",
+					"durationSeconds": 2,
+					"surfaceType": "plain"
+				}
+			],
+			"total": 1,
+			"truncated": false,
+			"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+		},
+		"refusedWhileOpen": {
+			"status": "failed",
+			"operationId": "session.clear",
+			"code": "precondition_unmet",
+			"message": "\"untitled\" is the composition currently open and would autosave itself back; discard it with composition.revert-to-starter instead.",
+			"rejected": "untitled",
+			"alternatives": ["composition.revert-to-starter"],
+			"findings": { "findings": [], "total": 0, "truncated": false },
+			"movedSince": [],
+			"revision": 25
+		},
+		"cleared": {
+			"status": "inspected",
+			"operationId": "session.inspect",
+			"entries": [],
+			"total": 0,
+			"truncated": false,
+			"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+		}
+	},
+	"negatives": {
+		"unsupportedVariant": {
+			"status": "failed",
+			"operationId": "transport.set-orientation",
+			"code": "unsupported_variant",
+			"message": "\"orientation\" is not one this engine accepts.",
+			"rejected": "diagonal",
+			"alternatives": ["horizontal", "vertical"],
+			"findings": { "findings": [], "total": 0, "truncated": false },
+			"movedSince": [],
+			"revision": 21
+		},
+		"missingArgument": {
+			"status": "failed",
+			"operationId": "composition.undo",
+			"code": "invalid_argument",
+			"message": "Supply the Composition revision you last observed as \"expectedRevision\".",
+			"rejected": "undefined",
+			"alternatives": [],
+			"findings": { "findings": [], "total": 0, "truncated": false },
+			"movedSince": [],
+			"revision": 21
+		},
+		"staleRevision": {
+			"receipt": {
+				"status": "failed",
+				"operationId": "appearance.set-pack",
+				"code": "stale_revision",
+				"message": "The composition has moved to revision 21 since revision 28; re-read it before editing.",
+				"rejected": "28",
+				"alternatives": ["21"],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 21
+			},
+			"packAfterStale": "editorial-mono",
+			"beforeStale": {
+				"backingWidth": 3840,
+				"backingHeight": 2160,
+				"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+				"nonUniformRatio": 0.5235915952494888,
+				"distinctColours": 877,
+				"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+				"settledAfter": 3,
+				"focusLabel": "Composition"
+			},
+			"afterStale": {
+				"backingWidth": 3840,
+				"backingHeight": 2160,
+				"clip": { "x": 92, "y": 101, "width": 905, "height": 508 },
+				"nonUniformRatio": 0.5235915952494888,
+				"distinctColours": 877,
+				"sha256": "5087489caff215ed9a9319d20f99328c22c1108d4d1f3794d962ef80352036c4",
+				"settledAfter": 3,
+				"focusLabel": "Composition"
+			}
+		},
+		"sessionStorage": {
+			"store": { "available": true, "usedBytes": null, "quotaBytes": null },
+			"skipped": "This origin does not hold compositions in the browser, so it declares no per-composition ceiling to refuse against."
+		},
+		"exportEnvelope": {
+			"status": "failed",
+			"operationId": "delivery.export-video",
+			"code": "export_failed",
+			"message": "Export spans 20.000 seconds; the public limit is 15 seconds (450 frames at 30 fps).",
+			"rejected": "prores",
+			"alternatives": [],
+			"findings": { "findings": [], "total": 0, "truncated": false },
+			"movedSince": [],
+			"revision": 24
+		},
+		"cancelledExport": {
+			"receipt": {
+				"status": "failed",
+				"operationId": "delivery.export-video",
+				"code": "cancelled",
+				"message": "The export was cancelled; no file was produced.",
+				"rejected": null,
+				"alternatives": [],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 25
+			},
+			"download": null
+		}
+	},
+	"runtimeFaults": [
+		{
+			"phase": "negative-export-envelope",
+			"detail": "console.error: Unable to export overlay. Error: Export spans 20.000 seconds; the public limit is 15 seconds (450 frames at 30 fps).\n    at responseFailure (http://localhost:7363/src/lib/platform/export-video.ts:35:9)\n    at async createExportSession (http://localhost:7363/src/lib/platform/export-video.ts:48:26)\n    at async exportCanvasVideo (http://localhost:7363/src/lib/platform/export-video.ts:78:13)\n    at async CompositionExportController.export (http://localhost:7363/src/lib/platform/composition-export-controller.ts:173:18)\n    at async runExportCompositionVideoOperation (http://localhost:7363/src/lib/platform/composition-delivery-operations.ts:49:18)\n    at async runWebmcpToolOperation (http://localhost:7363/src/lib/platform/webmcp-tool-arguments.ts:223:10)\n    at async execute (http://localhost:7363/src/lib/platform/webmcp-tool-controller.ts?t=1788198039414:276:16)"
+		}
+	],
+	"networkFaults": [
+		{
+			"phase": "creation",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "structure-and-content",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "structure-and-content",
+			"url": "http://localhost:7363/api/posters/3cc7a02b25956079",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "structure-and-content",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "design",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "design",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "design",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "seek-and-compare",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "undo-and-redo",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "undo-and-redo",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "undo-and-redo",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "undo-and-redo",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-stale-revision",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/audio",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/0",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/1",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/2",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/3",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/4",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/5",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/6",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/7",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/8",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/9",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/10",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/11",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/12",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/13",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/14",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/15",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/16",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/17",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/18",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/19",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/20",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/21",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/22",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/23",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/24",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/25",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/26",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/27",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/28",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/29",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/30",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/31",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/32",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/33",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/34",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/35",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/36",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/37",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/38",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/39",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/40",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/41",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/42",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/43",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/44",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/45",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/46",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/47",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/48",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/49",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/50",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/51",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/52",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/53",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/54",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/55",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/56",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/57",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/58",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/DVHyTozKYhpV63Uf9_hqEo7s3LeWeBYTLBBN5oxf3rY/frames/59",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/audio",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/0",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/1",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/2",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/3",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/4",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/5",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/6",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/7",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/8",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/9",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/10",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/11",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/12",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/13",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/14",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/15",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/16",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/17",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/18",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/19",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/20",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/21",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/22",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/23",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/24",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/25",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/26",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/27",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/28",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/29",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/30",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/31",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/32",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/33",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/34",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/35",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/36",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/37",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/38",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/39",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/40",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/41",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/42",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/43",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/44",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/45",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/46",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/47",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/48",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/49",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/50",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/51",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/52",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/53",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/54",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/55",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/56",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/57",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/58",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "export",
+			"url": "http://localhost:7363/api/export/sessions/hdXAfEOi_yqcat9VYhFWdMeg_pkXTVQ_CohKKqWcFJl/frames/59",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-export-envelope",
+			"url": "http://localhost:7363/api/export/sessions",
+			"detail": "status 400",
+			"isAborted": false
+		},
+		{
+			"phase": "negative-export-envelope",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/audio",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/0",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/1",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/2",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/3",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/4",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/5",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/6",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/7",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/8",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/9",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo/frames/10",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"url": "http://localhost:7363/api/export/sessions/CGbLVDP76d4PNgBG2Aafx6JwDiyja3TbalIlFsxYxBo",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		},
+		{
+			"phase": "cleanup",
+			"url": "http://localhost:7363/api/user-compositions/untitled",
+			"detail": "net::ERR_ABORTED",
+			"isAborted": true
+		}
+	],
+	"expectedRuntimeFaults": [
+		{
+			"phase": "negative-export-envelope",
+			"detail": "console.error: Unable to export overlay. Error: Export spans 20.000 seconds; the public limit is 15 seconds (450 frames at 30 fps).\n    at responseFailure (http://localhost:7363/src/lib/platform/export-video.ts:35:9)\n    at async createExportSession (http://localhost:7363/src/lib/platform/export-video.ts:48:26)\n    at async exportCanvasVideo (http://localhost:7363/src/lib/platform/export-video.ts:78:13)\n    at async CompositionExportController.export (http://localhost:7363/src/lib/platform/composition-export-controller.ts:173:18)\n    at async runExportCompositionVideoOperation (http://localhost:7363/src/lib/platform/composition-delivery-operations.ts:49:18)\n    at async runWebmcpToolOperation (http://localhost:7363/src/lib/platform/webmcp-tool-arguments.ts:223:10)\n    at async execute (http://localhost:7363/src/lib/platform/webmcp-tool-controller.ts?t=1788198039414:276:16)"
+		}
+	],
+	"calls": [
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-vocabulary",
+			"toolName": "gfx_capability_inspect_vocabulary",
+			"isError": false,
+			"characterCount": 299,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-vocabulary",
+				"section": "surface-type",
+				"members": [
+					"paper",
+					"plain",
+					"newspaper",
+					"pullquote-on-photo",
+					"chapter-card",
+					"brand-mark",
+					"title-sequence",
+					"type-hero",
+					"web-document",
+					"website-screenshot",
+					"imessage",
+					"checklist"
+				],
+				"total": 12,
+				"truncated": false
+			}
+		},
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-vocabulary",
+			"toolName": "gfx_capability_inspect_vocabulary",
+			"isError": false,
+			"characterCount": 319,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-vocabulary",
+				"section": "overlay-type",
+				"members": [
+					"lower-third",
+					"washi-tape",
+					"watermark",
+					"shader-fill",
+					"cursor-trail",
+					"counter",
+					"instance-stack",
+					"text-3d",
+					"tweet-stack",
+					"youtube-subscribe",
+					"instagram-follow",
+					"achievement",
+					"source-url"
+				],
+				"total": 13,
+				"truncated": false
+			}
+		},
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-vocabulary",
+			"toolName": "gfx_capability_inspect_vocabulary",
+			"isError": false,
+			"characterCount": 185,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-vocabulary",
+				"section": "pack-slug",
+				"members": ["syntax", "editorial-mono", "crt-terminal", "clean-light"],
+				"total": 4,
+				"truncated": false
+			}
+		},
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-vocabulary",
+			"toolName": "gfx_capability_inspect_vocabulary",
+			"isError": false,
+			"characterCount": 551,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-vocabulary",
+				"section": "sound-asset",
+				"members": [
+					"foley-tick",
+					"foley-hover",
+					"foley-glide",
+					"foley-pop",
+					"foley-press",
+					"foley-release",
+					"foley-tap",
+					"foley-thock",
+					"foley-on",
+					"foley-off",
+					"foley-switch",
+					"foley-latch",
+					"foley-success",
+					"foley-error",
+					"foley-warning",
+					"foley-denied",
+					"foley-chime",
+					"foley-ping",
+					"foley-bell",
+					"foley-bubble",
+					"foley-swoosh",
+					"foley-whoosh",
+					"foley-drop",
+					"foley-rise",
+					"foley-loading",
+					"foley-ready",
+					"foley-complete",
+					"foley-sparkle",
+					"bed-ambient-texture"
+				],
+				"total": 29,
+				"truncated": false
+			}
+		},
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-vocabulary",
+			"toolName": "gfx_capability_inspect_vocabulary",
+			"isError": false,
+			"characterCount": 439,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-vocabulary",
+				"section": "operation-error-code",
+				"members": [
+					"stale_revision",
+					"no_composition_open",
+					"composition_read_only",
+					"precondition_unmet",
+					"invalid_argument",
+					"unknown_target",
+					"unsupported_variant",
+					"schema_invalid",
+					"semantic_invalid",
+					"consent_required",
+					"storage_unavailable",
+					"quota_exceeded",
+					"limit_exceeded",
+					"cancelled",
+					"render_failed",
+					"export_failed"
+				],
+				"total": 16,
+				"truncated": false
+			}
+		},
+		{
+			"phase": "capability-inspection",
+			"operationId": "capability.inspect-limits",
+			"toolName": "gfx_capability_inspect_limits",
+			"isError": false,
+			"characterCount": 502,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "capability.inspect-limits",
+				"transport": {
+					"maxDurationSeconds": 15,
+					"maxFrameRate": 60,
+					"maxFrameCount": 900,
+					"rates": [23.976, 24, 25, 29.97, 30, 50, 59.94, 60]
+				},
+				"output": {
+					"maxOutputBytes": 2147483648,
+					"maxFrameBytes": 67108864,
+					"maxAudioBytes": 8388608
+				},
+				"exportSession": { "maxConcurrent": 2, "idleTimeoutMs": 900000, "maxLifetimeMs": 1800000 },
+				"sessionStorage": { "maxStorageBytes": 4194304, "maxCompositionBytes": 1048576 },
+				"result": { "characterBudget": 4000, "wholeDocumentCharacterBudget": 262144 }
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "session.inspect",
+			"toolName": "gfx_session_inspect",
+			"isError": false,
+			"characterCount": 316,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "session.inspect",
+				"entries": [
+					{
+						"slug": "untitled",
+						"name": "Signal to noise",
+						"revision": null,
+						"forkedFrom": null,
+						"savedAt": "2026-08-31T17:43:17.412Z",
+						"durationSeconds": 2,
+						"surfaceType": "plain"
+					}
+				],
+				"total": 1,
+				"truncated": false,
+				"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "session.clear",
+			"toolName": "gfx_session_clear",
+			"isError": false,
+			"characterCount": 206,
+			"receipt": {
+				"status": "applied",
+				"operationId": "session.clear",
+				"slug": null,
+				"name": null,
+				"forkedFrom": null,
+				"revision": 0,
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"legacyUpgrades": [],
+				"focus": "session-catalog"
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "session.inspect",
+			"toolName": "gfx_session_inspect",
+			"isError": false,
+			"characterCount": 159,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "session.inspect",
+				"entries": [],
+				"total": 0,
+				"truncated": false,
+				"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "composition.create-blank",
+			"toolName": "gfx_composition_create_blank",
+			"isError": false,
+			"characterCount": 230,
+			"receipt": {
+				"status": "applied",
+				"operationId": "composition.create-blank",
+				"slug": "untitled",
+				"name": "Untitled",
+				"forkedFrom": null,
+				"revision": 0,
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"legacyUpgrades": [],
+				"focus": "composition-root"
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 503,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 0,
+				"slug": "untitled",
+				"name": "Untitled",
+				"description": null,
+				"kind": "fixture",
+				"forkedFrom": null,
+				"pack": "syntax",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 6,
+					"fps": 30,
+					"format": "webm"
+				},
+				"outputClass": "transparent-overlay",
+				"backgroundFill": null,
+				"layers": {
+					"entries": [{ "kind": "surface", "id": "surface", "type": "plain" }],
+					"total": 1,
+					"truncated": false
+				},
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "creation",
+			"operationId": "composition.set-identity",
+			"toolName": "gfx_composition_set_identity",
+			"isError": false,
+			"characterCount": 360,
+			"receipt": {
+				"status": "applied",
+				"operationId": "composition.set-identity",
+				"revision": 1,
+				"changed": {
+					"pointers": ["/name", "/kind", "/description"],
+					"total": 3,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set composition identity",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "content.set-surface-content",
+			"toolName": "gfx_content_set_surface_content",
+			"isError": false,
+			"characterCount": 348,
+			"receipt": {
+				"status": "applied",
+				"operationId": "content.set-surface-content",
+				"revision": 2,
+				"changed": { "pointers": ["/state/surface/content/body"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Surface content",
+				"focus": { "target": "surface" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "layer.add-overlay",
+			"toolName": "gfx_layer_add_overlay",
+			"isError": false,
+			"characterCount": 350,
+			"receipt": {
+				"status": "applied",
+				"operationId": "layer.add-overlay",
+				"revision": 3,
+				"changed": { "pointers": ["/state/overlays"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Add Lower-third",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "content.set-overlay-content",
+			"toolName": "gfx_content_set_overlay_content",
+			"isError": false,
+			"characterCount": 456,
+			"receipt": {
+				"status": "applied",
+				"operationId": "content.set-overlay-content",
+				"revision": 4,
+				"changed": {
+					"pointers": [
+						"/state/overlays/0/content/kicker",
+						"/state/overlays/0/content/title",
+						"/state/overlays/0/content/subtitle"
+					],
+					"total": 3,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Lower-third content",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "placement.set-overlay-placement",
+			"toolName": "gfx_placement_set_overlay_placement",
+			"isError": false,
+			"characterCount": 428,
+			"receipt": {
+				"status": "applied",
+				"operationId": "placement.set-overlay-placement",
+				"revision": 5,
+				"changed": {
+					"pointers": [
+						"/state/overlays/0/position/offset/x",
+						"/state/overlays/0/position/offset/y"
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Overlay placement",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "layer.add-overlay",
+			"toolName": "gfx_layer_add_overlay",
+			"isError": false,
+			"characterCount": 346,
+			"receipt": {
+				"status": "applied",
+				"operationId": "layer.add-overlay",
+				"revision": 6,
+				"changed": { "pointers": ["/state/overlays"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Add Watermark",
+				"focus": { "target": "overlay", "overlayId": "watermark-1" }
+			}
+		},
+		{
+			"phase": "structure-and-content",
+			"operationId": "layer.remove-overlay",
+			"toolName": "gfx_layer_remove_overlay",
+			"isError": false,
+			"characterCount": 333,
+			"receipt": {
+				"status": "applied",
+				"operationId": "layer.remove-overlay",
+				"revision": 7,
+				"changed": { "pointers": ["/state/overlays"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Remove Overlay",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "design",
+			"operationId": "appearance.set-pack",
+			"toolName": "gfx_appearance_set_pack",
+			"isError": false,
+			"characterCount": 316,
+			"receipt": {
+				"status": "applied",
+				"operationId": "appearance.set-pack",
+				"revision": 8,
+				"changed": { "pointers": ["/pack"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Pack",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "design",
+			"operationId": "transport.set-orientation",
+			"toolName": "gfx_transport_set_orientation",
+			"isError": false,
+			"characterCount": 352,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-orientation",
+				"revision": 9,
+				"changed": { "pointers": ["/state/transport/orientation"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set orientation",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "design",
+			"operationId": "transport.set-orientation",
+			"toolName": "gfx_transport_set_orientation",
+			"isError": false,
+			"characterCount": 353,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-orientation",
+				"revision": 10,
+				"changed": { "pointers": ["/state/transport/orientation"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set orientation",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "motion-and-sound",
+			"operationId": "transport.set-timing",
+			"toolName": "gfx_transport_set_timing",
+			"isError": false,
+			"characterCount": 509,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-timing",
+				"revision": 11,
+				"changed": {
+					"pointers": ["/state/transport/durationSeconds"],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsAppeared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.08s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set transport timing",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "motion-and-sound",
+			"operationId": "motion.set-surface-timing",
+			"toolName": "gfx_motion_set_surface_timing",
+			"isError": false,
+			"characterCount": 339,
+			"receipt": {
+				"status": "applied",
+				"operationId": "motion.set-surface-timing",
+				"revision": 12,
+				"changed": { "pointers": ["/state/surface/enter"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Surface timing",
+				"focus": { "target": "surface" }
+			}
+		},
+		{
+			"phase": "motion-and-sound",
+			"operationId": "motion.set-overlay-timing",
+			"toolName": "gfx_motion_set_overlay_timing",
+			"isError": false,
+			"characterCount": 841,
+			"receipt": {
+				"status": "applied",
+				"operationId": "motion.set-overlay-timing",
+				"revision": 13,
+				"changed": {
+					"pointers": [
+						"/state/overlays/0/enter/start",
+						"/state/overlays/0/enter/duration",
+						"/state/overlays/0/enter/ease",
+						"/state/overlays/0/exit/start",
+						"/state/overlays/0/exit/duration",
+						"/state/overlays/0/exit/ease"
+					],
+					"total": 6,
+					"truncated": false
+				},
+				"findingsAppeared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsCleared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.08s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"undoLabel": "Set Overlay timing",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "motion-and-sound",
+			"operationId": "sound.set-cue",
+			"toolName": "gfx_sound_set_cue",
+			"isError": false,
+			"characterCount": 366,
+			"receipt": {
+				"status": "applied",
+				"operationId": "sound.set-cue",
+				"revision": 14,
+				"changed": { "pointers": ["/state/audioCues"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set sound cue",
+				"focus": { "target": "sound-cue", "reference": { "kind": "manual", "cueId": "cue-1" } }
+			}
+		},
+		{
+			"phase": "motion-and-sound",
+			"operationId": "sound.set-motion-override",
+			"toolName": "gfx_sound_set_motion_override",
+			"isError": false,
+			"characterCount": 417,
+			"receipt": {
+				"status": "applied",
+				"operationId": "sound.set-motion-override",
+				"revision": 15,
+				"changed": {
+					"pointers": ["/state/overlays/0/enter/sound"],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set motion sound",
+				"focus": {
+					"target": "sound-cue",
+					"reference": { "kind": "derived", "cueId": "overlay:lower-third-1:enter" }
+				}
+			}
+		},
+		{
+			"phase": "seek-and-compare",
+			"operationId": "playhead.inspect",
+			"toolName": "gfx_playhead_inspect",
+			"isError": false,
+			"characterCount": 197,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "playhead.inspect",
+				"revision": 15,
+				"frame": 59,
+				"frameCount": 60,
+				"fps": 30,
+				"frameRate": "30",
+				"seconds": 2,
+				"durationSeconds": 2,
+				"timecode": "00:00:01:29",
+				"isPlaying": false
+			}
+		},
+		{
+			"phase": "seek-and-compare",
+			"operationId": "playhead.seek-frame",
+			"toolName": "gfx_playhead_seek_frame",
+			"isError": false,
+			"characterCount": 226,
+			"receipt": {
+				"status": "moved",
+				"operationId": "playhead.seek-frame",
+				"revision": 15,
+				"focus": "timeline-playhead",
+				"frame": 45,
+				"frameCount": 60,
+				"fps": 30,
+				"frameRate": "30",
+				"seconds": 1.5,
+				"durationSeconds": 2,
+				"timecode": "00:00:01:15",
+				"isPlaying": false
+			}
+		},
+		{
+			"phase": "seek-and-compare",
+			"operationId": "playhead.seek-frame",
+			"toolName": "gfx_playhead_seek_frame",
+			"isError": false,
+			"characterCount": 226,
+			"receipt": {
+				"status": "moved",
+				"operationId": "playhead.seek-frame",
+				"revision": 15,
+				"focus": "timeline-playhead",
+				"frame": 12,
+				"frameCount": 60,
+				"fps": 30,
+				"frameRate": "30",
+				"seconds": 0.4,
+				"durationSeconds": 2,
+				"timecode": "00:00:00:12",
+				"isPlaying": false
+			}
+		},
+		{
+			"phase": "seek-and-compare",
+			"operationId": "playhead.seek-frame",
+			"toolName": "gfx_playhead_seek_frame",
+			"isError": false,
+			"characterCount": 226,
+			"receipt": {
+				"status": "moved",
+				"operationId": "playhead.seek-frame",
+				"revision": 15,
+				"focus": "timeline-playhead",
+				"frame": 45,
+				"frameCount": 60,
+				"fps": 30,
+				"frameRate": "30",
+				"seconds": 1.5,
+				"durationSeconds": 2,
+				"timecode": "00:00:01:15",
+				"isPlaying": false
+			}
+		},
+		{
+			"phase": "validation-repair",
+			"operationId": "placement.set-overlay-placement",
+			"toolName": "gfx_placement_set_overlay_placement",
+			"isError": false,
+			"characterCount": 651,
+			"receipt": {
+				"status": "applied",
+				"operationId": "placement.set-overlay-placement",
+				"revision": 16,
+				"changed": {
+					"pointers": [
+						"/state/overlays/0/position/anchor",
+						"/state/overlays/0/position/offset",
+						"/state/overlays/0/position/rect"
+					],
+					"total": 3,
+					"truncated": false
+				},
+				"findingsAppeared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "G2",
+							"severity": "error",
+							"path": "overlays[0].position.rect",
+							"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Overlay placement",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "validation-repair",
+			"operationId": "validation.inspect-findings",
+			"toolName": "gfx_validation_inspect_findings",
+			"isError": false,
+			"characterCount": 627,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "validation.inspect-findings",
+				"revision": 16,
+				"schema": { "findings": [], "total": 0, "truncated": false },
+				"semantic": { "findings": [], "total": 0, "truncated": false },
+				"lint": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						},
+						{
+							"source": "lint",
+							"rule": "G2",
+							"severity": "error",
+							"path": "overlays[0].position.rect",
+							"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+						}
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"loadable": true,
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "validation-repair",
+			"operationId": "placement.set-overlay-placement",
+			"toolName": "gfx_placement_set_overlay_placement",
+			"isError": false,
+			"characterCount": 651,
+			"receipt": {
+				"status": "applied",
+				"operationId": "placement.set-overlay-placement",
+				"revision": 17,
+				"changed": {
+					"pointers": [
+						"/state/overlays/0/position/anchor",
+						"/state/overlays/0/position/rect",
+						"/state/overlays/0/position/offset"
+					],
+					"total": 3,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "G2",
+							"severity": "error",
+							"path": "overlays[0].position.rect",
+							"message": "Overlay rect extends outside the horizontal safe zone (top 5% / right 5% / bottom 5% / left 5%)."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"undoLabel": "Set Overlay placement",
+				"focus": { "target": "overlay", "overlayId": "lower-third-1" }
+			}
+		},
+		{
+			"phase": "validation-repair",
+			"operationId": "validation.inspect-findings",
+			"toolName": "gfx_validation_inspect_findings",
+			"isError": false,
+			"characterCount": 434,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "validation.inspect-findings",
+				"revision": 17,
+				"schema": { "findings": [], "total": 0, "truncated": false },
+				"semantic": { "findings": [], "total": 0, "truncated": false },
+				"lint": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"loadable": true,
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "playhead.seek-frame",
+			"toolName": "gfx_playhead_seek_frame",
+			"isError": false,
+			"characterCount": 226,
+			"receipt": {
+				"status": "moved",
+				"operationId": "playhead.seek-frame",
+				"revision": 17,
+				"focus": "timeline-playhead",
+				"frame": 45,
+				"frameCount": 60,
+				"fps": 30,
+				"frameRate": "30",
+				"seconds": 1.5,
+				"durationSeconds": 2,
+				"timecode": "00:00:01:15",
+				"isPlaying": false
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "appearance.set-pack",
+			"toolName": "gfx_appearance_set_pack",
+			"isError": false,
+			"characterCount": 317,
+			"receipt": {
+				"status": "applied",
+				"operationId": "appearance.set-pack",
+				"revision": 18,
+				"changed": { "pointers": ["/pack"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Pack",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "composition.undo",
+			"toolName": "gfx_composition_undo",
+			"isError": false,
+			"characterCount": 308,
+			"receipt": {
+				"status": "applied",
+				"operationId": "composition.undo",
+				"revision": 19,
+				"changed": { "pointers": ["/pack"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": null,
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 775,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 19,
+				"slug": "untitled",
+				"name": "Signal to noise",
+				"description": "The live create-to-export scenario piece.",
+				"kind": "deliverable",
+				"forkedFrom": null,
+				"pack": "editorial-mono",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 2,
+					"fps": 30,
+					"format": "webm"
+				},
+				"outputClass": "transparent-overlay",
+				"backgroundFill": null,
+				"layers": {
+					"entries": [
+						{ "kind": "surface", "id": "surface", "type": "plain" },
+						{ "kind": "overlay", "id": "lower-third-1", "type": "lower-third" }
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findings": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "composition.redo",
+			"toolName": "gfx_composition_redo",
+			"isError": false,
+			"characterCount": 308,
+			"receipt": {
+				"status": "applied",
+				"operationId": "composition.redo",
+				"revision": 20,
+				"changed": { "pointers": ["/pack"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": null,
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 773,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 20,
+				"slug": "untitled",
+				"name": "Signal to noise",
+				"description": "The live create-to-export scenario piece.",
+				"kind": "deliverable",
+				"forkedFrom": null,
+				"pack": "crt-terminal",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 2,
+					"fps": 30,
+					"format": "webm"
+				},
+				"outputClass": "transparent-overlay",
+				"backgroundFill": null,
+				"layers": {
+					"entries": [
+						{ "kind": "surface", "id": "surface", "type": "plain" },
+						{ "kind": "overlay", "id": "lower-third-1", "type": "lower-third" }
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findings": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "undo-and-redo",
+			"operationId": "appearance.set-pack",
+			"toolName": "gfx_appearance_set_pack",
+			"isError": false,
+			"characterCount": 317,
+			"receipt": {
+				"status": "applied",
+				"operationId": "appearance.set-pack",
+				"revision": 21,
+				"changed": { "pointers": ["/pack"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set Pack",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "negative-invalid-argument",
+			"operationId": "transport.set-orientation",
+			"toolName": "gfx_transport_set_orientation",
+			"isError": true,
+			"characterCount": 298,
+			"receipt": {
+				"status": "failed",
+				"operationId": "transport.set-orientation",
+				"code": "unsupported_variant",
+				"message": "\"orientation\" is not one this engine accepts.",
+				"rejected": "diagonal",
+				"alternatives": ["horizontal", "vertical"],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 21
+			}
+		},
+		{
+			"phase": "negative-invalid-argument",
+			"operationId": "composition.undo",
+			"toolName": "gfx_composition_undo",
+			"isError": true,
+			"characterCount": 291,
+			"receipt": {
+				"status": "failed",
+				"operationId": "composition.undo",
+				"code": "invalid_argument",
+				"message": "Supply the Composition revision you last observed as \"expectedRevision\".",
+				"rejected": "undefined",
+				"alternatives": [],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 21
+			}
+		},
+		{
+			"phase": "negative-stale-revision",
+			"operationId": "appearance.set-pack",
+			"toolName": "gfx_appearance_set_pack",
+			"isError": true,
+			"characterCount": 301,
+			"receipt": {
+				"status": "failed",
+				"operationId": "appearance.set-pack",
+				"code": "stale_revision",
+				"message": "The composition has moved to revision 21 since revision 28; re-read it before editing.",
+				"rejected": "28",
+				"alternatives": ["21"],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 21
+			}
+		},
+		{
+			"phase": "negative-stale-revision",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 775,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 21,
+				"slug": "untitled",
+				"name": "Signal to noise",
+				"description": "The live create-to-export scenario piece.",
+				"kind": "deliverable",
+				"forkedFrom": null,
+				"pack": "editorial-mono",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 2,
+					"fps": 30,
+					"format": "webm"
+				},
+				"outputClass": "transparent-overlay",
+				"backgroundFill": null,
+				"layers": {
+					"entries": [
+						{ "kind": "surface", "id": "surface", "type": "plain" },
+						{ "kind": "overlay", "id": "lower-third-1", "type": "lower-third" }
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findings": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "media",
+			"operationId": "media.inspect-library",
+			"toolName": "gfx_media_inspect_library",
+			"isError": false,
+			"characterCount": 239,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "media.inspect-library",
+				"revision": 21,
+				"contentTrust": "untrusted",
+				"entries": [],
+				"entryTotal": 0,
+				"entriesTruncated": false,
+				"clips": [],
+				"clipTotal": 0,
+				"clipsTruncated": false,
+				"addableGrantIds": [],
+				"frameCount": 60
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "transport.set-format",
+			"toolName": "gfx_transport_set_format",
+			"isError": false,
+			"characterCount": 305,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-format",
+				"revision": 21,
+				"changed": { "pointers": [], "total": 0, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": null,
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "transport.set-background",
+			"toolName": "gfx_transport_set_background",
+			"isError": false,
+			"characterCount": 309,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-background",
+				"revision": 21,
+				"changed": { "pointers": [], "total": 0, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": null,
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 775,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 21,
+				"slug": "untitled",
+				"name": "Signal to noise",
+				"description": "The live create-to-export scenario piece.",
+				"kind": "deliverable",
+				"forkedFrom": null,
+				"pack": "editorial-mono",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 2,
+					"fps": 30,
+					"format": "webm"
+				},
+				"outputClass": "transparent-overlay",
+				"backgroundFill": null,
+				"layers": {
+					"entries": [
+						{ "kind": "surface", "id": "surface", "type": "plain" },
+						{ "kind": "overlay", "id": "lower-third-1", "type": "lower-third" }
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findings": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "delivery.export-video",
+			"toolName": "gfx_delivery_export_video",
+			"isError": false,
+			"characterCount": 285,
+			"receipt": {
+				"status": "delivered",
+				"operationId": "delivery.export-video",
+				"revision": 21,
+				"format": "webm",
+				"codec": "vp9-alpha",
+				"output": "transparent",
+				"width": 3840,
+				"height": 2160,
+				"fps": 30,
+				"frameCount": 60,
+				"durationSeconds": 2,
+				"videoFilename": "gfx-overlay.webm",
+				"videoByteLength": 1341841,
+				"wavFilename": null
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "transport.set-format",
+			"toolName": "gfx_transport_set_format",
+			"isError": false,
+			"characterCount": 347,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-format",
+				"revision": 22,
+				"changed": { "pointers": ["/state/transport/format"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set delivery format",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "transport.set-background",
+			"toolName": "gfx_transport_set_background",
+			"isError": false,
+			"characterCount": 349,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-background",
+				"revision": 23,
+				"changed": { "pointers": ["/state/backgroundFill"], "total": 1, "truncated": false },
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set background fill",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "composition.inspect",
+			"toolName": "gfx_composition_inspect",
+			"isError": false,
+			"characterCount": 773,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "composition.inspect",
+				"revision": 23,
+				"slug": "untitled",
+				"name": "Signal to noise",
+				"description": "The live create-to-export scenario piece.",
+				"kind": "deliverable",
+				"forkedFrom": null,
+				"pack": "editorial-mono",
+				"transport": {
+					"orientation": "horizontal",
+					"durationSeconds": 2,
+					"fps": 30,
+					"format": "prores"
+				},
+				"outputClass": "full-frame",
+				"backgroundFill": "#0c0c0e",
+				"layers": {
+					"entries": [
+						{ "kind": "surface", "id": "surface", "type": "plain" },
+						{ "kind": "overlay", "id": "lower-third-1", "type": "lower-third" }
+					],
+					"total": 2,
+					"truncated": false
+				},
+				"findings": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"contentTrust": "untrusted"
+			}
+		},
+		{
+			"phase": "export",
+			"operationId": "delivery.export-video",
+			"toolName": "gfx_delivery_export_video",
+			"isError": false,
+			"characterCount": 283,
+			"receipt": {
+				"status": "delivered",
+				"operationId": "delivery.export-video",
+				"revision": 23,
+				"format": "prores",
+				"codec": "prores-4444",
+				"output": "opaque",
+				"width": 3840,
+				"height": 2160,
+				"fps": 30,
+				"frameCount": 60,
+				"durationSeconds": 2,
+				"videoFilename": "gfx-bumper.mov",
+				"videoByteLength": 23020371,
+				"wavFilename": null
+			}
+		},
+		{
+			"phase": "negative-session-storage",
+			"operationId": "session.inspect",
+			"toolName": "gfx_session_inspect",
+			"isError": false,
+			"characterCount": 314,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "session.inspect",
+				"entries": [
+					{
+						"slug": "untitled",
+						"name": "Signal to noise",
+						"revision": 23,
+						"forkedFrom": null,
+						"savedAt": "2026-08-31T17:45:42.234Z",
+						"durationSeconds": 2,
+						"surfaceType": "plain"
+					}
+				],
+				"total": 1,
+				"truncated": false,
+				"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+			}
+		},
+		{
+			"phase": "negative-export-envelope",
+			"operationId": "transport.set-timing",
+			"toolName": "gfx_transport_set_timing",
+			"isError": false,
+			"characterCount": 509,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-timing",
+				"revision": 24,
+				"changed": {
+					"pointers": ["/state/transport/durationSeconds"],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsAppeared": { "findings": [], "total": 0, "truncated": false },
+				"findingsCleared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"undoLabel": "Set transport timing",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "negative-export-envelope",
+			"operationId": "delivery.export-video",
+			"toolName": "gfx_delivery_export_video",
+			"isError": true,
+			"characterCount": 299,
+			"receipt": {
+				"status": "failed",
+				"operationId": "delivery.export-video",
+				"code": "export_failed",
+				"message": "Export spans 20.000 seconds; the public limit is 15 seconds (450 frames at 30 fps).",
+				"rejected": "prores",
+				"alternatives": [],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 24
+			}
+		},
+		{
+			"phase": "negative-export-envelope",
+			"operationId": "transport.set-timing",
+			"toolName": "gfx_transport_set_timing",
+			"isError": false,
+			"characterCount": 509,
+			"receipt": {
+				"status": "applied",
+				"operationId": "transport.set-timing",
+				"revision": 25,
+				"changed": {
+					"pointers": ["/state/transport/durationSeconds"],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsAppeared": {
+					"findings": [
+						{
+							"source": "lint",
+							"rule": "L4",
+							"severity": "error",
+							"path": "overlays[0].exit.start",
+							"message": "Lower-third on-screen hold is 1.00s — needs ≥ 2.5s to read."
+						}
+					],
+					"total": 1,
+					"truncated": false
+				},
+				"findingsCleared": { "findings": [], "total": 0, "truncated": false },
+				"undoLabel": "Set transport timing",
+				"focus": { "target": "composition-root" }
+			}
+		},
+		{
+			"phase": "negative-cancelled-export",
+			"operationId": "delivery.export-video",
+			"toolName": "gfx_delivery_export_video",
+			"isError": true,
+			"characterCount": 255,
+			"receipt": {
+				"status": "failed",
+				"operationId": "delivery.export-video",
+				"code": "cancelled",
+				"message": "The export was cancelled; no file was produced.",
+				"rejected": null,
+				"alternatives": [],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 25
+			}
+		},
+		{
+			"phase": "cleanup",
+			"operationId": "session.inspect",
+			"toolName": "gfx_session_inspect",
+			"isError": false,
+			"characterCount": 314,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "session.inspect",
+				"entries": [
+					{
+						"slug": "untitled",
+						"name": "Signal to noise",
+						"revision": 25,
+						"forkedFrom": null,
+						"savedAt": "2026-08-31T17:46:15.946Z",
+						"durationSeconds": 2,
+						"surfaceType": "plain"
+					}
+				],
+				"total": 1,
+				"truncated": false,
+				"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+			}
+		},
+		{
+			"phase": "cleanup",
+			"operationId": "session.clear",
+			"toolName": "gfx_session_clear",
+			"isError": true,
+			"characterCount": 379,
+			"receipt": {
+				"status": "failed",
+				"operationId": "session.clear",
+				"code": "precondition_unmet",
+				"message": "\"untitled\" is the composition currently open and would autosave itself back; discard it with composition.revert-to-starter instead.",
+				"rejected": "untitled",
+				"alternatives": ["composition.revert-to-starter"],
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"movedSince": [],
+				"revision": 25
+			}
+		},
+		{
+			"phase": "cleanup",
+			"operationId": "session.clear",
+			"toolName": "gfx_session_clear",
+			"isError": false,
+			"characterCount": 206,
+			"receipt": {
+				"status": "applied",
+				"operationId": "session.clear",
+				"slug": null,
+				"name": null,
+				"forkedFrom": null,
+				"revision": 0,
+				"findings": { "findings": [], "total": 0, "truncated": false },
+				"legacyUpgrades": [],
+				"focus": "session-catalog"
+			}
+		},
+		{
+			"phase": "cleanup",
+			"operationId": "session.inspect",
+			"toolName": "gfx_session_inspect",
+			"isError": false,
+			"characterCount": 159,
+			"receipt": {
+				"status": "inspected",
+				"operationId": "session.inspect",
+				"entries": [],
+				"total": 0,
+				"truncated": false,
+				"storage": { "available": true, "usedBytes": null, "quotaBytes": null }
+			}
+		}
+	],
+	"coverage": {
+		"operations": [
+			"appearance.set-pack",
+			"capability.inspect-limits",
+			"capability.inspect-vocabulary",
+			"composition.create-blank",
+			"composition.inspect",
+			"composition.redo",
+			"composition.set-identity",
+			"composition.undo",
+			"content.set-overlay-content",
+			"content.set-surface-content",
+			"delivery.export-video",
+			"layer.add-overlay",
+			"layer.remove-overlay",
+			"media.inspect-library",
+			"motion.set-overlay-timing",
+			"motion.set-surface-timing",
+			"placement.set-overlay-placement",
+			"playhead.inspect",
+			"playhead.seek-frame",
+			"session.clear",
+			"session.inspect",
+			"sound.set-cue",
+			"sound.set-motion-override",
+			"transport.set-background",
+			"transport.set-format",
+			"transport.set-orientation",
+			"transport.set-timing",
+			"validation.inspect-findings"
+		],
+		"families": [
+			"appearance",
+			"capability",
+			"composition",
+			"content",
+			"delivery",
+			"layer",
+			"media",
+			"motion",
+			"placement",
+			"playhead",
+			"session",
+			"sound",
+			"transport",
+			"validation"
+		],
+		"agentFamilies": [
+			"appearance",
+			"capability",
+			"composition",
+			"content",
+			"delivery",
+			"layer",
+			"media",
+			"motion",
+			"placement",
+			"playhead",
+			"session",
+			"sound",
+			"transport",
+			"validation"
+		]
+	},
+	"failures": [],
+	"verified": true
+}

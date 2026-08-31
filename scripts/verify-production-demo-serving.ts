@@ -1072,6 +1072,58 @@ try {
 		`pnpm eval:webmcp against the served origin exited ${webmcpEval.status}: ${(webmcpEvidence.failures ?? []).join('; ')}`
 	);
 
+	// --- the whole authoring scenario, on the served origin -----------------
+	// Delegated for the same reason: `pnpm verify:authoring-scenario` owns the
+	// create-to-export arc and every refusal that goes with it. Discovery says an
+	// agent can see the surface; this says an agent can use it here — and because
+	// the scenario cancels one export and has another refused, the work-directory
+	// count afterwards is a statement about the paths that produce no file.
+	console.log('Running the live authoring scenario against the served origin…');
+	const scenarioEvidencePath = join(workingDirectory, 'authoring-scenario.json');
+	const scenarioRun = spawnSync(
+		'node',
+		['--experimental-strip-types', 'scripts/run-gfx-authoring-scenario.ts'],
+		{
+			cwd: repoRoot,
+			encoding: 'utf8',
+			stdio: 'inherit',
+			env: {
+				...process.env,
+				GFX_SCENARIO_ORIGIN: origin,
+				GFX_SCENARIO_EVIDENCE: scenarioEvidencePath
+			}
+		}
+	);
+	const scenarioEvidence = JSON.parse(
+		await readFile(scenarioEvidencePath, 'utf8').catch(() => '{}')
+	) as {
+		coverage?: { operations?: string[]; families?: string[] };
+		deliveries?: { lane?: string; download?: { name?: string; bytes?: number } | null }[];
+		failures?: { check: string }[];
+	};
+	const workDirectoriesAfterScenario = await countContainerWorkDirectories();
+	evidence.authoringScenario = {
+		exitStatus: scenarioRun.status,
+		operations: scenarioEvidence.coverage?.operations ?? null,
+		families: scenarioEvidence.coverage?.families ?? null,
+		delivered: (scenarioEvidence.deliveries ?? []).map((delivery) => ({
+			lane: delivery.lane ?? null,
+			download: delivery.download ?? null
+		})),
+		failures: (scenarioEvidence.failures ?? []).map((failure) => failure.check),
+		workDirectoriesAfterScenario
+	};
+	expect(
+		'an-agent-authors-and-exports-a-whole-piece-here',
+		scenarioRun.status === 0,
+		`pnpm verify:authoring-scenario against the served origin exited ${scenarioRun.status}`
+	);
+	expect(
+		'the-served-origin-retains-nothing-after-the-scenario-cancels-and-is-refused',
+		workDirectoriesAfterScenario === 0,
+		`${workDirectoriesAfterScenario} work directories survived the scenario`
+	);
+
 	// --- rollback -----------------------------------------------------------
 	console.log(`Rolling back to ${priorRelease}…`);
 	await stopServedImage();

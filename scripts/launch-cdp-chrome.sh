@@ -49,10 +49,13 @@ if [[ ! -x "${CHROME}" ]]; then
 	exit 1
 fi
 
+# `standard` mode adds no flags at all, and under `set -u` the bash 3.2 that
+# ships with macOS treats an empty array expansion as unbound. The `+` form
+# expands to nothing when the array is empty instead of killing the launch.
 nohup "${CHROME}" \
 	--remote-debugging-port="${PORT}" \
 	--user-data-dir="${PROFILE}" \
-	"${MODE_FLAGS[@]}" \
+	${MODE_FLAGS[@]+"${MODE_FLAGS[@]}"} \
 	--no-first-run \
 	--no-default-browser-check \
 	about:blank >/dev/null 2>&1 &

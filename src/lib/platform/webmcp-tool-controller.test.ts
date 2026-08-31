@@ -284,7 +284,7 @@ describe('WebMCP tool registration', () => {
 		expect(summary.registered).toEqual([toolNameFor('session.delete-composition')]);
 	});
 
-	it('ends every registration on a route change before deciding the next set', async () => {
+	it('keeps a registration the new route would ask for again across a route change', async () => {
 		const host = new FakeModelContext();
 		const controller = new WebmcpToolController({
 			host,
@@ -293,12 +293,35 @@ describe('WebMCP tool registration', () => {
 		});
 
 		await controller.synchronize(CLOSED_PAGE, '/');
+		const descriptor = host.describe(toolNameFor('composition.create-blank'));
 		const moved = await controller.synchronize(CLOSED_PAGE, '/p/lower-third');
 
-		expect(moved.removed).toEqual([toolNameFor('composition.create-blank')]);
-		expect(moved.added).toEqual([toolNameFor('composition.create-blank')]);
+		expect(moved.removed).toEqual([]);
+		expect(moved.added).toEqual([]);
 		expect(moved.registered).toEqual([toolNameFor('composition.create-blank')]);
 		expect(moved.routeId).toBe('/p/lower-third');
+		// The same registration, not a replacement: a name given up is never
+		// offered back by the document this controller is written against.
+		expect(descriptor?.signal.aborted).toBe(false);
+	});
+
+	it('ends only the registrations the new route makes ineligible', async () => {
+		const host = new FakeModelContext();
+		const controller = new WebmcpToolController({
+			host,
+			definitions: [definition('composition.inspect'), definition('composition.create-blank')],
+			lifetime: new AbortController().signal
+		});
+
+		await controller.synchronize(OPEN_COMPOSITION, '/p/lower-third');
+		expect([...host.getTools()].map((tool) => tool.name)).toContain(
+			toolNameFor('composition.inspect')
+		);
+
+		const closed = await controller.synchronize(CLOSED_PAGE, '/');
+
+		expect(closed.removed).toEqual([toolNameFor('composition.inspect')]);
+		expect(closed.registered).toEqual([toolNameFor('composition.create-blank')]);
 	});
 
 	it('unregisters everything when the page tears down', async () => {

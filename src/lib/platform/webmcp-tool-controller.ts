@@ -14,11 +14,18 @@
  *   depend on a tool being registered.
  * - **Registered means callable.** A tool whose precondition is unmet is absent,
  *   not present-and-refusing.
- * - **AbortSignal owns unregistration.** Each registration is scoped to its own
- *   signal, aborted when the tool stops being eligible, when the route changes,
- *   or when the page tears down. A call already in flight on an aborted
- *   registration resolves as `cancelled` rather than mutating a composition that
- *   has moved on.
+ * - **AbortSignal ends a registration; the document keeps the name.** Each
+ *   registration is scoped to its own signal, aborted when the tool stops being
+ *   eligible or when the page tears down, and a call already in flight on an
+ *   aborted registration resolves as `cancelled` rather than mutating a
+ *   composition that has moved on. The measured surface (Chrome 152) goes no
+ *   further than that: it offers `registerTool`, `getTools`, `executeTool` and
+ *   `ontoolchange` and no way to unregister, and an aborted registration stays
+ *   in `getTools()` while its name refuses re-registration as
+ *   `InvalidStateError: Duplicate tool name` for the life of the document. So a
+ *   name given up here is given up until the page reloads, which is why nothing
+ *   ends a registration the current state would ask for again — a tool ended and
+ *   re-asked is a tool an agent can see and can no longer call.
  * - **Registration is the browser's to refuse.** `registerTool` answers
  *   asynchronously and can say no — a name the document still holds from a
  *   controller that has not finished tearing down refuses as
@@ -284,15 +291,13 @@ export class WebmcpToolController {
 			return this.#summarize(routeId, [], []);
 		}
 
-		// A route change ends every registration before the next set is decided:
-		// a tool registered for the page the visitor just left is not a tool this
-		// page offers, even when both pages would have offered it.
+		// A route change does not end a registration that the new route would make
+		// again. It cannot: the measured document never releases a tool name (see
+		// the note on unregistration above), so ending and re-asking loses the name
+		// for the rest of the visit. What a route change actually changes is which
+		// preconditions hold, and the eligibility diff below ends exactly those.
 		const removed: string[] = [];
-		if (routeId !== this.#routeId) {
-			removed.push(...this.registeredToolNames);
-			this.#abortAll();
-			this.#routeId = routeId;
-		}
+		this.#routeId = routeId;
 
 		const state = completeWebmcpRegistrationState(
 			composition,
