@@ -63,6 +63,21 @@ const COLD_PAGE_TOOL_NAMES = new Set(
 	).map((row) => row.toolName)
 );
 
+/** The tools a cold page must end up offering, whatever its session holds. */
+const ALWAYS_REGISTERED_TOOL_NAMES = new Set(
+	AGENT_TOOL_ROWS.filter((row) => row.precondition === 'always').map((row) => row.toolName)
+);
+
+/** The operations this eval goes on to look for once a composition is open. */
+const OPEN_COMPOSITION_OPERATION_IDS: readonly string[] = [
+	'composition.inspect',
+	'composition.export-json',
+	'transport.set-orientation',
+	'layer.add-overlay',
+	'validation.inspect-findings',
+	'delivery.export-video'
+];
+
 const failures: string[] = [];
 
 function check(condition: boolean, failure: string): void {
@@ -196,24 +211,36 @@ async function readRegisteredTools(page: CdpPage): Promise<RegisteredToolDescrip
 	})()`);
 }
 
+/**
+ * Wait until every named tool is registered, not until *some* tool is.
+ *
+ * The controller awaits `registerTool` one call at a time, so `getTools()` mid
+ * reconcile returns a real but partial menu — and how far through that menu a
+ * poll lands depends on how fast the page hydrates, which differs between the
+ * dev server and a built artifact. Settling on a count would make this eval
+ * report a slow page as a missing tool.
+ */
 async function awaitRegistration(
 	page: CdpPage,
-	expected: number
+	required: ReadonlySet<string>
 ): Promise<RegisteredToolDescriptor[]> {
 	const deadline = Date.now() + REGISTRATION_TIMEOUT_MS;
 	let tools: RegisteredToolDescriptor[] = [];
+	let missing: string[] = [...required];
 	while (Date.now() < deadline) {
 		const ready = await page.evaluate<boolean>(
 			`document.readyState === 'complete' && typeof document.modelContext === 'object'`
 		);
 		if (ready) {
 			tools = await readRegisteredTools(page);
-			if (tools.length >= expected) return tools;
+			const registered = new Set(tools.map((tool) => tool.name));
+			missing = [...required].filter((name) => !registered.has(name));
+			if (missing.length === 0) return tools;
 		}
 		await sleep(POLL_INTERVAL_MS);
 	}
 	throw new Error(
-		`The page registered ${tools.length} WebMCP tools, never reaching ${expected}, within ${REGISTRATION_TIMEOUT_MS}ms`
+		`The page registered ${tools.length} WebMCP tools within ${REGISTRATION_TIMEOUT_MS}ms but never offered ${missing.join(', ')}`
 	);
 }
 
@@ -267,6 +294,13 @@ async function readHarnessCapabilities(page: CdpPage): Promise<Record<string, un
  * Whether a same-origin frame of this page registers tools of its own. ADR-0054
  * §7 registers only in the top-level document; Chrome's `ModelContext` reports
  * every same-origin tool in the tab, so the question is ownership, not presence.
+ *
+ * A public origin answers this before the frame ever loads: its
+ * `frame-ancestors 'none'` policy refuses the embed, and reaching into the
+ * blocked frame throws a `SecurityError`. That is the same guarantee, reached
+ * earlier, so it is recorded as `frameRefusedByPolicy` rather than treated as a
+ * failure — the dev server, which is held to no CSP, still takes the branch
+ * below and has its ownership measured.
  */
 async function readFramedRegistration(page: CdpPage): Promise<Record<string, unknown>> {
 	return page.evaluate<Record<string, unknown>>(`(async () => {
@@ -275,15 +309,27 @@ async function readFramedRegistration(page: CdpPage): Promise<Record<string, unk
 		document.body.appendChild(frame);
 		await new Promise((settle) => { frame.onload = settle; });
 		await new Promise((settle) => setTimeout(settle, 5000));
-		const framedContext = frame.contentWindow.document.modelContext;
-		const tools = framedContext ? Array.from(await framedContext.getTools()) : [];
-		const ownedByFrame = tools.filter((tool) => tool.window === frame.contentWindow);
-		frame.remove();
-		return {
-			framedContextExposed: Boolean(framedContext),
-			toolsOwnedByFrame: ownedByFrame.map((tool) => tool.name),
-			toolsOwnedByTopDocument: tools.filter((tool) => tool.window === window).length
-		};
+		try {
+			const framedContext = frame.contentWindow.document.modelContext;
+			const tools = framedContext ? Array.from(await framedContext.getTools()) : [];
+			const ownedByFrame = tools.filter((tool) => tool.window === frame.contentWindow);
+			return {
+				frameRefusedByPolicy: false,
+				framedContextExposed: Boolean(framedContext),
+				toolsOwnedByFrame: ownedByFrame.map((tool) => tool.name),
+				toolsOwnedByTopDocument: tools.filter((tool) => tool.window === window).length
+			};
+		} catch (cause) {
+			if (!(cause instanceof DOMException) || cause.name !== 'SecurityError') throw cause;
+			return {
+				frameRefusedByPolicy: true,
+				framedContextExposed: false,
+				toolsOwnedByFrame: [],
+				toolsOwnedByTopDocument: null
+			};
+		} finally {
+			frame.remove();
+		}
 	})()`);
 }
 
@@ -294,7 +340,7 @@ runCommand('scripts/launch-cdp-chrome.sh', [], {
 
 const page = await openCdpPage(STANDARD_WEBMCP_PORT);
 await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
-const coldPageTools = await awaitRegistration(page, 1);
+const coldPageTools = await awaitRegistration(page, ALWAYS_REGISTERED_TOOL_NAMES);
 
 const harness = await readHarnessCapabilities(page);
 check(harness.modelContext === true, 'the CDP session does not expose document.modelContext');
@@ -358,16 +404,12 @@ check(!created.isError, `creating a blank composition refused: ${String(created.
 const openSlug = String(created.payload.slug ?? '');
 check(openSlug.length > 0, 'the create receipt named no session slug');
 
-const openPageTools = await awaitRegistration(page, coldPageTools.length + 1);
+const openPageTools = await awaitRegistration(
+	page,
+	new Set(OPEN_COMPOSITION_OPERATION_IDS.map(toolNameFor))
+);
 const openPageToolNames = new Set(openPageTools.map((tool) => tool.name));
-for (const operationId of [
-	'composition.inspect',
-	'composition.export-json',
-	'transport.set-orientation',
-	'layer.add-overlay',
-	'validation.inspect-findings',
-	'delivery.export-video'
-]) {
+for (const operationId of OPEN_COMPOSITION_OPERATION_IDS) {
 	check(
 		openPageToolNames.has(toolNameFor(operationId)),
 		`${operationId} did not appear once a composition was open`
@@ -439,7 +481,10 @@ check(
 // composition — a session tool refuses to delete the one that is open, because
 // it would autosave itself straight back — and returns the revision to zero.
 await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
-await awaitRegistration(page, 1);
+await awaitRegistration(
+	page,
+	new Set([...ALWAYS_REGISTERED_TOOL_NAMES, toolNameFor('session.delete-composition')])
+);
 const deleted = await callTool(page, toolNameFor('session.delete-composition'), {
 	slug: openSlug,
 	expectedRevision: 0

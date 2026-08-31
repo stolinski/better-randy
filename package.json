@@ -38,7 +38,8 @@
 		"verify:layout-contract": "node --experimental-strip-types scripts/run-gfx-layout-contract-matrix.mjs",
 		"verify:browser-render": "node --experimental-strip-types scripts/verify-browser-render-matrix.mjs",
 		"verify:export-decode:public-matrix": "node --experimental-strip-types scripts/probe-public-export-decode-matrix.ts",
-		"verify:production-image": "node --experimental-strip-types scripts/verify-production-image.ts"
+		"verify:production-image": "node --experimental-strip-types scripts/verify-production-image.ts",
+		"verify:production-demo": "node --experimental-strip-types scripts/verify-production-demo-serving.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",

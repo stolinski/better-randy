@@ -16,6 +16,7 @@ Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks
 | [`project-control-plane.md`](project-control-plane.md) | The lean control plane — deterministic checks, the planning-drift audit, the `gfx-factory`, and the `sentry-autofix` lane. | Understanding how repo checks, planning audits, and automation fit together. |
 | [`user-composition-workflows.md`](user-composition-workflows.md) | User-composition interchange, validation, verification, and the CLI render/batch lane. | Importing/exporting compositions or automating renders. |
 | [`sentry-dev-flow.md`](sentry-dev-flow.md) | Sentry capture boundaries and the fix-broken-code loop. | Investigating runtime errors, traces, or export performance. |
+| [`production-serve-rollback-runbook.md`](production-serve-rollback-runbook.md) | Build the production image, serve the demo from it on a local production-shaped origin, confirm it with the two gates, and roll back to the previous release. | Serving or rolling back the production artifact. |
 | [`ideas/`](ideas/) | Pre-design speculation — a thing that *might* be built someday. | Considering a new feature area not yet designed. |
 | [`history/`](history/) | Historical explorations and shipped design docs, kept for reference. | Tracing how a shipped design evolved. |
 | [`briefs/`](briefs/) | The in-flight build queue *(build-harness)* — one Brief per about-to-be-built Preset/Pipeline. | Starting/continuing the build of a specific thing. |

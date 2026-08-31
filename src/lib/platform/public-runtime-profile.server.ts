@@ -19,6 +19,8 @@
 
 import { env } from '$env/dynamic/private';
 
+import { resolveGitRelease } from './git-version.server';
+import { parsePublicRuntimeConfig } from './public-runtime-contract';
 import { parsePublicRuntimeProfile, type PublicRuntimeProfile } from './public-runtime-deployment';
 
 /**
@@ -28,6 +30,26 @@ import { parsePublicRuntimeProfile, type PublicRuntimeProfile } from './public-r
  */
 export function servedPublicRuntimeProfile(): PublicRuntimeProfile {
 	return parsePublicRuntimeProfile(env);
+}
+
+/**
+ * The release this process is serving: the `GFX_RELEASE` a production image was
+ * built with, and otherwise the commit of the checkout it is running from.
+ *
+ * Both halves are load-bearing. A production image carries no `.git`, so without
+ * the deployment input the app shell would declare no release at all while
+ * `/api/health` reported one — and a deploy or rollback is confirmed by reading
+ * that identity back, which a browser can only do from the app shell (ADR-0052).
+ * A development host sets no `GFX_RELEASE`, so it keeps reporting the working
+ * tree's commit at capture time, which is what a dev server outliving its own
+ * commits needs.
+ *
+ * `inspectPublicRuntimeReadiness` answers the same question for `/api/health`,
+ * from a `PublicRuntimeConfig` it is handed rather than from this process — that
+ * is what lets `pnpm probe:public-runtime` measure a host other than itself.
+ */
+export function servedRelease(): string | null {
+	return parsePublicRuntimeConfig(env).release ?? resolveGitRelease() ?? null;
 }
 
 /**

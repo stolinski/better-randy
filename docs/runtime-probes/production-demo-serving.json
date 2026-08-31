@@ -1,0 +1,158 @@
+{
+	"schemaVersion": 1,
+	"measuredAt": "2026-08-31T16:14:37.325Z",
+	"probe": "production-demo-serving",
+	"currentRelease": "gfx@d83c7a576ef7c8f3fc614c1ded51431fed174bcc",
+	"priorRelease": "gfx@98b1b6e3a3fe1c352b11e90c01bfe2271747e07e",
+	"builds": { "currentBuildMs": 52679, "priorBuildMs": 14113 },
+	"origin": "http://127.0.0.1:55379",
+	"servedIdentity": {
+		"health": {
+			"status": "ready",
+			"release": "gfx@d83c7a576ef7c8f3fc614c1ded51431fed174bcc",
+			"checks": { "ffmpeg": "ok", "temporaryDisk": "ok" }
+		},
+		"appShellStatus": 200,
+		"appShellRelease": "gfx@d83c7a576ef7c8f3fc614c1ded51431fed174bcc",
+		"title": "GFX"
+	},
+	"identity": {
+		"shareCard": { "path": "/gfx-social-card.png", "status": 200, "bytes": 18205 },
+		"masthead": { "images": 2, "drawn": 2 }
+	},
+	"privateSurfaces": {
+		"probed": [
+			{ "path": "/poc/dof3d", "status": 404 },
+			{ "path": "/api/backdrops", "status": 404 },
+			{ "path": "/api/posters/abcdef01", "status": 404 },
+			{ "path": "/api/sentry-canary", "status": 404 },
+			{ "path": "/api/user-assets", "status": 404 },
+			{ "path": "/api/user-compositions", "status": 404 },
+			{ "path": "/api/verification/source-identity", "status": 404 },
+			{ "path": "/api/website-capture", "status": 404 },
+			{ "path": "/api/x-post", "status": 404 }
+		],
+		"unprobedSubtrees": []
+	},
+	"library": { "ready": true, "starterHref": "/p/lower-third", "cards": 43 },
+	"starterRender": {
+		"slug": "lower-third",
+		"first": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"landedTime": 3.015,
+			"durationSeconds": 6.7,
+			"inkCoverage": 0.06442901234567901,
+			"distinctColors": 19,
+			"signature": "3e0f6348"
+		},
+		"second": {
+			"backingWidth": 3840,
+			"backingHeight": 2160,
+			"landedTime": 3.015,
+			"durationSeconds": 6.7,
+			"inkCoverage": 0.06442901234567901,
+			"distinctColors": 19,
+			"signature": "3e0f6348"
+		}
+	},
+	"narrowLayout": {
+		"viewport": { "width": 414, "height": 896 },
+		"library": { "innerWidth": 414, "documentScrollWidth": 399, "railIsStacked": true },
+		"workspace": { "innerWidth": 414, "documentScrollWidth": 414, "railIsStacked": null }
+	},
+	"failureStates": {
+		"missingComposition": {
+			"heading": "Preset not found",
+			"explanation": "No preset named \"a-composition-that-was-never-published\".",
+			"wayBack": "/"
+		},
+		"overEnvelope": {
+			"status": 400,
+			"body": "Export asks for 901 frames; the public limit is 900."
+		},
+		"workDirectoriesAfterRefusal": 0
+	},
+	"browserExports": {
+		"lanes": [
+			{
+				"lane": "webm-transparent-silent",
+				"createStatus": 201,
+				"completeStatus": 200,
+				"downloadStatus": 200,
+				"downloadBytes": 38758,
+				"declaredLength": 38758,
+				"cacheControl": "no-store",
+				"contentType": "video/webm",
+				"containerSignature": "1a45dfa39f4286810142f781",
+				"secondDownloadStatus": 404
+			},
+			{
+				"lane": "prores-transparent-audio",
+				"createStatus": 201,
+				"completeStatus": 200,
+				"downloadStatus": 200,
+				"downloadBytes": 421816,
+				"declaredLength": 421816,
+				"cacheControl": "no-store",
+				"contentType": "video/quicktime",
+				"containerSignature": "000000146674797071742020",
+				"secondDownloadStatus": 404
+			}
+		],
+		"workDirectoriesAfterExports": 0
+	},
+	"runtimeFaults": [],
+	"webmcpAgentEval": {
+		"exitStatus": 0,
+		"harness": {
+			"browser": "Chrome/152.0.7977.64",
+			"protocolVersion": "1.3",
+			"modelContext": true,
+			"modelContextMembers": [
+				"constructor",
+				"executeTool",
+				"getTools",
+				"ontoolchange",
+				"registerTool"
+			],
+			"secureContext": true,
+			"canvasDrawElement": false
+		},
+		"coldPage": {
+			"registered": [
+				"gfx_capability_inspect_limits",
+				"gfx_capability_inspect_vocabulary",
+				"gfx_composition_create_blank",
+				"gfx_composition_create_from_starter",
+				"gfx_composition_import_json",
+				"gfx_composition_open",
+				"gfx_session_inspect"
+			],
+			"ceiling": 9
+		},
+		"registeredWithACompositionOpen": 41,
+		"failures": []
+	},
+	"rollback": {
+		"priorRelease": "gfx@98b1b6e3a3fe1c352b11e90c01bfe2271747e07e",
+		"rolledBack": {
+			"health": {
+				"status": "ready",
+				"release": "gfx@98b1b6e3a3fe1c352b11e90c01bfe2271747e07e",
+				"checks": { "ffmpeg": "ok", "temporaryDisk": "ok" }
+			},
+			"appShellStatus": 200,
+			"appShellRelease": ""
+		},
+		"rolledForward": {
+			"health": {
+				"status": "ready",
+				"release": "gfx@d83c7a576ef7c8f3fc614c1ded51431fed174bcc",
+				"checks": { "ffmpeg": "ok", "temporaryDisk": "ok" }
+			}
+		}
+	},
+	"failures": [],
+	"verified": true
+}

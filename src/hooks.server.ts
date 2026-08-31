@@ -6,11 +6,13 @@ import * as Sentry from '@sentry/sveltekit';
 import { sequence } from '@sveltejs/kit/hooks';
 import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 
-import { resolveGitRelease } from '$lib/platform/git-version.server';
 import { describeErrorResponse } from '$lib/platform/public-error-observability';
 import { applyPublicResponseHeaders } from '$lib/platform/public-response-headers';
 import { startPublicRuntime } from '$lib/platform/public-runtime-lifecycle.server';
-import { servedPublicRuntimeProfile } from '$lib/platform/public-runtime-profile.server';
+import {
+	servedPublicRuntimeProfile,
+	servedRelease
+} from '$lib/platform/public-runtime-profile.server';
 import {
 	DEVELOPMENT_ONLY_SURFACE_MESSAGE,
 	DEVELOPMENT_ONLY_SURFACE_STATUS,
@@ -22,7 +24,7 @@ import {
 // is a no-op, so the app never depends on Sentry being configured.
 Sentry.init({
 	dsn: env.SENTRY_DSN,
-	release: resolveGitRelease(),
+	release: servedRelease() ?? undefined,
 	environment: dev ? 'development' : 'production',
 	// Local single-user dev — sample everything; there is no volume to shed.
 	tracesSampleRate: 1,
@@ -32,11 +34,12 @@ Sentry.init({
 	integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })]
 });
 
-// The launchd dev server survives commits. Bind every event to the repository
-// revision at capture time rather than the revision from process startup.
+// The launchd dev server survives commits. Bind every event to the release this
+// process is serving at capture time rather than the one it started with — the
+// working tree's commit on a dev host, and the built GFX_RELEASE on a public one.
 Sentry.addEventProcessor((event) => {
-	const release = resolveGitRelease();
-	return release === undefined ? event : { ...event, release };
+	const release = servedRelease();
+	return release === null ? event : { ...event, release };
 });
 
 // The Node adapter awaits this before it listens, so a host whose deployment
@@ -80,11 +83,14 @@ const publicResponseHeaders: Handle = async ({ event, resolve }) => {
 // the dev-server logs at all (only unexpected crashes get logged).
 const logErrorResponses: Handle = async ({ event, resolve }) => {
 	// The SDK's release is fixed at process start, but the launchd dev server
-	// outlives commits by days — tag every event with the commit the WORKING
-	// TREE is on, and hand the same value to the client via the app-shell meta
-	// (a freshly loaded page runs current code, so its release IS current).
-	const release = resolveGitRelease();
-	if (release !== undefined) {
+	// outlives commits by days — tag every event with the release being served
+	// right now, and hand the same value to the client via the app-shell meta.
+	// On a dev host that is the WORKING TREE's commit (a freshly loaded page runs
+	// current code, so its release IS current); on a production image it is the
+	// GFX_RELEASE it was built with, which is the only release identity in there
+	// at all — the image carries no checkout to read a commit from.
+	const release = servedRelease();
+	if (release !== null) {
 		Sentry.getIsolationScope().setTag('git.release', release);
 	}
 	const response = await resolve(event, {
