@@ -64,6 +64,23 @@ Deno.test("docs/packs changes stay app-relevant for the presets selector", () =>
 	assertEquals(plans.map((plan) => plan.name), ["check", "test", "presets"]);
 });
 
+Deno.test("docs-site changes derive only the docs-site suite", () => {
+	assertEquals(
+		suiteNames([
+			"docs-site/src/lib/server/docs.ts",
+			"docs/getting-started.md",
+		]),
+		["docs-site"],
+	);
+});
+
+Deno.test("mixed docs-site and app changes derive both lanes", () => {
+	assertEquals(
+		suiteNames(["docs-site/src/app.css", "src/lib/utils/thing.ts"]),
+		["docs-site", "check", "test", "presets"],
+	);
+});
+
 Deno.test("run_checks arguments accept filesChanged without suites", () => {
 	const parsed = runChecks.arguments.parse({
 		worktreePath: "/tmp/somewhere",
