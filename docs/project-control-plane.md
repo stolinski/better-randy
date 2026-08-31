@@ -68,11 +68,14 @@ cherry-pick onto `main` via `gfx-integration-git`. Drive it with the
 The `sentry-autofix` workflow (`workflows/workflow-sentry-autofix.yaml`,
 cron every 6h) makes at most one end-to-end repair attempt per run from
 Sentry event evidence alone — see [`docs/sentry-dev-flow.md`](sentry-dev-flow.md).
-Failed attempts persist as open `Repair SUPERS-<n> from Sentry evidence` Dex
-tasks, which is both the human escalation surface and the de-dupe. The
-`SUPERS-<n>` short id is `frozen` under
-[ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md) — it is
-how Sentry itself cites the issue, so the task name quotes it verbatim.
+Failed attempts persist as open `Repair GFX-COMPUTER-<n> from Sentry evidence`
+Dex tasks, which is both the human escalation surface and the de-dupe —
+pre-rename tasks named `Repair SUPERS-<n> from Sentry evidence` still count,
+because the 2026-08-31 Sentry slug rename changed the short-id prefix, never
+the counter. The `GFX-COMPUTER-<n>` short id is how Sentry itself cites the
+issue, so the task name quotes it verbatim; recorded `SUPERS-<n>` citations are
+`historical` under
+[ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md).
 
 ## History
 

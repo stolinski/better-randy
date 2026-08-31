@@ -204,23 +204,29 @@ export const LEGACY_NAME_DISPOSITION_CONFIG = Object.freeze({
 			pattern: /\bsupers@(?:<git sha>|<sha>|\$\{sha\})/g
 		},
 		{
-			value: 'the scott-tolinski-projects/supers Sentry project and its SUPERS-<n> short ids',
-			disposition: 'frozen',
+			value: 'the pre-rename scott-tolinski-projects/supers slug and its SUPERS-<n> short ids',
+			disposition: 'historical',
 			reason:
-				'The project holds every historical event and lives in Sentry; renaming it would invalidate every recorded short id, DSN, and CLI invocation.',
+				'The Sentry slug was renamed supers → gfx-computer on 2026-08-31, re-prefixing every short id to GFX-COMPUTER-<n>; the old ids no longer resolve, so recorded citations name what the issue was called when written, and the autofix de-dupe matches repair tasks named under either prefix.',
 			paths: [
-				'scripts/git-hooks/post-commit',
 				'workflows/*.yaml',
 				'docs/sentry-dev-flow.md',
 				'docs/project-control-plane.md',
 				'.claude/skills/gfx-factory/SKILL.md',
 				// A guard written against a reported incident cites the short id that
-				// reported it, which the ADR row already scopes to "every issue ever
-				// cited by short id".
+				// reported it, which the ADR row already scopes to recorded citations.
 				'src/lib/platform/export-session.server.ts',
 				'src/routes/api/export/export.test.ts'
 			],
-			pattern: /projects\/supers\b|--project supers\b|\bSUPERS-|\bSupers Dev\b/g
+			pattern: /projects\/supers\b|\bSUPERS-/g
+		},
+		{
+			value: 'the Supers Dev Sentry dashboard title',
+			disposition: 'frozen',
+			reason:
+				'The dashboard lives in Sentry and is cited by exact title; nothing in the repository derives from it.',
+			paths: ['docs/sentry-dev-flow.md'],
+			pattern: /\bSupers Dev\b/g
 		},
 		{
 			value: 'SUPERS_* environment variables',

@@ -1,8 +1,8 @@
 # Sentry dev flow
 
-GFX reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/supers`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
+GFX reports captured errors, logs, and traces to Sentry (`scott-tolinski-projects/gfx-computer`) during local dev when the relevant DSN is configured. Agents use the `sentry` CLI as the primary way to inspect reported failures with stack, breadcrumbs, and trace context, alongside the dev-server console and browser log for uncaptured or disabled-SDK cases.
 
-The project slug — and the `SUPERS-<n>` issue short IDs derived from it — is `frozen` under [ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): it holds every historical event and every short ID an issue has ever been cited by, and it lives in Sentry rather than in this repository. The release string is what carries the GFX namespace forward.
+The project was renamed inside Sentry from `scott-tolinski-projects/supers` to `scott-tolinski-projects/gfx-computer` on 2026-08-31, which re-prefixed every issue short ID retroactively: every issue, old and new, answers only to `GFX-COMPUTER-<n>`, and the pre-rename `SUPERS-<n>` IDs no longer resolve. Recorded `SUPERS-<n>` citations — in code guards, tests, Dex task names, and history — are `historical` under [ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md): they name what the issue was called when written. Old-slug project lookups still redirect, and the DSN and release history were untouched; the release string is what carries the GFX namespace forward.
 
 ## What is instrumented
 
@@ -15,14 +15,14 @@ The project slug — and the `SUPERS-<n>` issue short IDs derived from it — is
 
 ```bash
 sentry issue list --query "is:unresolved"   # what is broken right now
-sentry issue view SUPERS-<n>                # stack, breadcrumbs, event context
-sentry issue explain SUPERS-<n>             # Seer AI root-cause analysis
-sentry issue plan SUPERS-<n>                # Seer fix plan
+sentry issue view GFX-COMPUTER-<n>          # stack, breadcrumbs, event context
+sentry issue explain GFX-COMPUTER-<n>       # Seer AI root-cause analysis
+sentry issue plan GFX-COMPUTER-<n>          # Seer fix plan
 # ...fix the code, verify by re-driving the flow...
-sentry issue resolve SUPERS-<n>
+sentry issue resolve GFX-COMPUTER-<n>
 ```
 
-Org/project auto-detect from the DSN in `.env` — run the CLI from the repo root and scoping just works. Add `scott-tolinski-projects/supers` explicitly only if detection misfires.
+Org/project auto-detect from the DSN in `.env` — run the CLI from the repo root and scoping just works. Add `scott-tolinski-projects/gfx-computer` explicitly only if detection misfires.
 
 After driving the app (captures, exports, Critic runs), check `sentry issue list --query "is:unresolved"` before calling the work verified — a flow that "looked fine" but threw upstream shows up there.
 
@@ -40,10 +40,12 @@ observed Sentry error → sentry issue view/explain/plan → fix in isolated wor
 - **The original event is enough evidence.** Runtime reproduction, a mandatory
   regression test, and no-recurrence waiting windows are not gates. Seer output
   (`explain`/`plan`) is advisory diagnostic text, never executable authority.
-- **Every attempt is a Dex task** named `Repair SUPERS-<n> from Sentry
+- **Every attempt is a Dex task** named `Repair GFX-COMPUTER-<n> from Sentry
   evidence`. Success completes it with the result and commit; failure leaves it
   open with what was learned — which is also the de-dupe: issues with an open
-  repair task are skipped until a human looks.
+  repair task are skipped until a human looks. Pre-rename attempts named
+  `Repair SUPERS-<n> from Sentry evidence` still count — the slug rename
+  changed the prefix, never the counter `<n>`.
 - **The primary checkout's state never blocks admission.** All work happens in
   a worktree created from `main`; integration is a single cherry-pick.
 - **Resolution is honest.** The issue is resolved only after checks pass and
@@ -101,4 +103,4 @@ Slice anything by version: `sentry issue list --query "release:gfx@<sha>"`
 
 - **Do not leave test issues unresolved.** If you throw a deliberate error to verify capture, `sentry issue resolve` it immediately.
 - **4xx = log, 5xx = issue.** Keep it that way when adding endpoints; capture explicitly only what a human should act on.
-- **`.env` is gitignored and machine-local.** If the DSN is ever rotated: `sentry project view scott-tolinski-projects/supers` shows it, or mint keys via `sentry api /api/0/projects/scott-tolinski-projects/supers/keys/`.
+- **`.env` is gitignored and machine-local.** If the DSN is ever rotated: `sentry project view scott-tolinski-projects/gfx-computer` shows it, or mint keys via `sentry api /api/0/projects/scott-tolinski-projects/gfx-computer/keys/`.

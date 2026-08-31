@@ -104,7 +104,7 @@ lanes sit in different stages.
   feature work, not every keystroke.
 - The sentry lane is separate: the `sentry-autofix` workflow (cron, every 6h)
   repairs one unresolved Sentry issue per run end to end. Failed attempts stay
-  visible as open `Repair SUPERS-<n> from Sentry evidence` Dex tasks. (Issue
-  ids keep the `SUPERS-` prefix — the Sentry project slug is `frozen` under
-  ADR-0053: it holds every historical event and every short id an issue has
-  ever been cited by.)
+  visible as open `Repair GFX-COMPUTER-<n> from Sentry evidence` Dex tasks —
+  pre-rename attempts as `Repair SUPERS-<n> from Sentry evidence`. (The Sentry
+  project slug was renamed to `gfx-computer` on 2026-08-31, re-prefixing every
+  short id; recorded `SUPERS-<n>` citations are `historical` under ADR-0053.)

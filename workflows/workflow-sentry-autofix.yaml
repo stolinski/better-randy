@@ -26,22 +26,26 @@ jobs:
               You are the GFX Sentry repair agent. Fix at most ONE unresolved
               Sentry issue this run, end to end. Work from the repo root
               /Users/scotttolinski/Sites/properties/gfx-computer (the sentry CLI
-              auto-detects org/project scott-tolinski-projects/supers there).
+              auto-detects org/project scott-tolinski-projects/gfx-computer there).
 
               1. `sentry issue list --query "is:unresolved"`. Also run
                  `dex list --json` and skip any issue that already has an open
-                 Dex task named "Repair SUPERS-<n> from Sentry evidence" — an
-                 open task means a previous attempt failed and a human should
-                 look. If nothing is left to attempt, print the JSON from step 7
-                 with outcome "nothing-to-do" and stop.
+                 Dex repair task: for GFX-COMPUTER-<n>, a task named
+                 "Repair GFX-COMPUTER-<n> from Sentry evidence" — or the
+                 pre-rename "Repair SUPERS-<n> from Sentry evidence" with the
+                 same <n> (the 2026-08-31 Sentry slug rename changed the
+                 prefix, never the counter). An open task means a previous
+                 attempt failed and a human should look. If nothing is left to
+                 attempt, print the JSON from step 7 with outcome
+                 "nothing-to-do" and stop.
               2. Pick the most impactful remaining issue. Create its Dex task
-                 (`dex create "Repair SUPERS-<n> from Sentry evidence" --description ...`,
+                 (`dex create "Repair GFX-COMPUTER-<n> from Sentry evidence" --description ...`,
                  reusing an existing one if present) and `dex start` it.
               3. Gather evidence — the original event is enough, never block on
-                 reproducing: `sentry issue view SUPERS-<n>`,
-                 `sentry issue explain SUPERS-<n>`, `sentry issue plan SUPERS-<n>`.
+                 reproducing: `sentry issue view GFX-COMPUTER-<n>`,
+                 `sentry issue explain GFX-COMPUTER-<n>`, `sentry issue plan GFX-COMPUTER-<n>`.
               4. Fix it in an isolated worktree, never in the primary checkout:
-                 `git worktree add -b sentry/SUPERS-<n> ../gfx-computer-sentry-SUPERS-<n> main`
+                 `git worktree add -b sentry/GFX-COMPUTER-<n> ../gfx-computer-sentry-GFX-COMPUTER-<n> main`
                  (reuse and rebase onto main if it already exists), then
                  `SHARP_IGNORE_GLOBAL_LIBVIPS=1 CI=true pnpm install` there.
                  Implement the smallest credible fix per the worktree's CLAUDE.md.
@@ -53,14 +57,14 @@ jobs:
                  — never `--all`. Commit as ONE commit.
               6. Integrate and close out: cherry-pick that commit onto main in
                  the primary checkout, remove the worktree
-                 (`git worktree remove ../gfx-computer-sentry-SUPERS-<n>`),
-                 `sentry issue resolve SUPERS-<n>`, and
+                 (`git worktree remove ../gfx-computer-sentry-GFX-COMPUTER-<n>`),
+                 `sentry issue resolve GFX-COMPUTER-<n>`, and
                  `dex complete <taskId> --result "<what changed>" --commit <sha>`.
               7. If any step fails, leave the Dex task open with what you
                  learned in its description, leave the Sentry issue unresolved,
                  and report honestly. Always end by printing exactly one JSON
                  object: {"outcome": "fixed" | "attempted" | "nothing-to-do",
-                 "issue": "SUPERS-<n>" | null, "dexTask": "<id>" | null,
+                 "issue": "GFX-COMPUTER-<n>" | null, "dexTask": "<id>" | null,
                  "headSha": "<sha>" | null, "summary": "<one sentence>"}.
         dependsOn: []
         weight: 0
