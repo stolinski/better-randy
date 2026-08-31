@@ -182,6 +182,16 @@ function directCanvasChild(canvas: HTMLCanvasElement, element: Element): Element
 }
 
 /**
+ * Which lane a paint wait drives, and which scheduler serves it — the same seam
+ * `getDomFrameCaptureQueue` takes. Production passes neither: the lane is the
+ * session's own, resolved lazily so a server render never asks for a DOM.
+ */
+export interface CanvasPaintWaitOptions {
+	mode?: DomFrameCaptureMode;
+	capture?: StandardBrowserDomCaptureScheduler;
+}
+
+/**
  * Tracks browser paint snapshots independently from render requests. A manual
  * `requestPaint()` may report no changed elements; that advances paint
  * settlement without invalidating an already resident DOM texture.
@@ -218,11 +228,17 @@ export class CanvasPaintGenerationTracker {
 		return element ? (this.#elementGenerations.get(element) ?? 0) : 0;
 	}
 
-	waitForNextPaint(canvas: HTMLCanvasElement, signal?: AbortSignal): Promise<void> {
+	waitForNextPaint(
+		canvas: HTMLCanvasElement,
+		signal?: AbortSignal,
+		{
+			mode = resolveDomFrameCaptureMode(),
+			capture = standardBrowserDomCapture
+		}: CanvasPaintWaitOptions = {}
+	): Promise<void> {
 		if (signal?.aborted) {
 			return Promise.reject(signal.reason);
 		}
-		const mode = resolveDomFrameCaptureMode();
 		const requestPaint = canvas.requestPaint;
 		if (mode === 'canvas-draw-element' && typeof requestPaint !== 'function') {
 			return Promise.reject(
@@ -249,14 +265,21 @@ export class CanvasPaintGenerationTracker {
 		}
 		// The rasterization lane must settle on a raster taken at or after THIS
 		// call. `requestPaint` guarantees that — a pass already running gets a
-		// follow-up that reads the DOM once it ends — so awaiting it is the
+		// follow-up that reads the DOM once it ends — so requiring it is the
 		// contract. Racing a bare `settled` instead resolves on whichever paint
 		// lands first, and the caller has just seeked: the pass in flight is still
 		// rasterizing the PREVIOUS frame, so the settle returned in ~60 ms (far less
 		// than a 4K raster costs) with the pre-seek frame resident, and every export
 		// frame was the one before it. A failed or aborted pass rejects here rather
 		// than leaving the waiter stalled on a paint that will never come.
-		return standardBrowserDomCapture.requestPaint(canvas, signal).then(() => settled);
+		//
+		// Both promises are claimed together. `settled` exists before the paint is
+		// requested — it has to, or a paint landing during the request would be
+		// missed — so chaining it only after a *resolved* request orphans it when
+		// the request rejects: cancelling an export rejects the request and the
+		// waiter from the same abort, and the waiter's rejection reaches nobody.
+		// That is the unhandled `AbortError` a mid-export unmount used to report.
+		return Promise.all([capture.requestPaint(canvas, signal), settled]).then(() => undefined);
 	}
 }
 

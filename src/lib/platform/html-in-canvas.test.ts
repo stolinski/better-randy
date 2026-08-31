@@ -50,6 +50,17 @@ function rasterStore(raster: HTMLCanvasElement | null): StandardBrowserDomCaptur
 	return { readElementRaster: () => raster } as unknown as StandardBrowserDomCaptureScheduler;
 }
 
+/** A rasterization lane whose pass ends the way a cancelled export ends it:
+ *  rejected with the signal's own reason, and never with a committed paint. */
+function abortingCapture(): StandardBrowserDomCaptureScheduler {
+	return {
+		requestPaint: (_canvas: HTMLCanvasElement, signal?: AbortSignal) =>
+			new Promise<void>((_resolve, reject) => {
+				signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+			})
+	} as unknown as StandardBrowserDomCaptureScheduler;
+}
+
 describe('getDomFrameCaptureQueue', () => {
 	it('captures through the browser API in the HTML-in-Canvas lane', () => {
 		const recorded = {
@@ -150,5 +161,39 @@ describe('CanvasPaintGenerationTracker', () => {
 
 		assert.equal(tracker.generationFor(composition), 1);
 		assert.equal(tracker.generationFor(overlay), 1);
+	});
+
+	// GFX-COMPUTER-2B: unmounting the Workspace mid-export cancels the export,
+	// which rejects the paint request and the waiter from the same abort. The
+	// waiter is created before the request, so a wait that only chained it after a
+	// resolved request left its rejection unclaimed — an unhandled `AbortError`
+	// reported from the browser's global handler, not from the export.
+	it('claims the paint waiter when a cancelled export rejects the paint request', async () => {
+		const composition = element();
+		const targetCanvas = canvas([composition]);
+		const tracker = new CanvasPaintGenerationTracker();
+		const abortController = new AbortController();
+		const unhandledReasons: unknown[] = [];
+		const recordUnhandled = (reason: unknown): void => {
+			unhandledReasons.push(reason);
+		};
+
+		process.on('unhandledRejection', recordUnhandled);
+		try {
+			const paint = tracker.waitForNextPaint(targetCanvas, abortController.signal, {
+				mode: 'dom-rasterization',
+				capture: abortingCapture()
+			});
+			abortController.abort();
+
+			await assert.rejects(paint, (error: unknown) => error === abortController.signal.reason);
+			// One macrotask past the rejection: Node reports unhandled rejections
+			// once the microtask queue that could still have claimed them drains.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		} finally {
+			process.off('unhandledRejection', recordUnhandled);
+		}
+
+		assert.deepEqual(unhandledReasons, []);
 	});
 });
