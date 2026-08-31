@@ -73,7 +73,7 @@
 	<meta property="og:image" content="{GFX_PUBLIC_ORIGIN}{GFX_SOCIAL_CARD_PATH}" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content="The GFX mark and logotype on the deck" />
+	<meta property="og:image:alt" content="The GFX title card on the deck" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<link rel="preload" href={archivo400Url} as="font" type="font/woff2" crossorigin="anonymous" />
 	<link rel="preload" href={archivo600Url} as="font" type="font/woff2" crossorigin="anonymous" />

@@ -7,9 +7,9 @@
 //   2. Raster fidelity — the mark is rasterized at 16/24/32/48 and compared to
 //      its own 256px reference. Ink coverage must not drift (the form neither
 //      fills into a blob nor thins away) and the separate ink regions and
-//      enclosed counters must match, so the cells stay apart.
-//   3. Contrast — WCAG ratios for every colour pairing the identity sanctions,
-//      including both monochrome cuts on their worst-case backgrounds.
+//      enclosed counters must match, so the fan and the face stay apart.
+//   3. Contrast — WCAG ratios for every colour pairing the identity sanctions:
+//      the face on both cards, and every decay colour as a graphic on the deck.
 //
 // Usage: node --experimental-strip-types scripts/verify-gfx-identity-legibility.ts
 // Output: captures under docs/identity/captures/, docs/identity/legibility-report.md,
@@ -26,10 +26,11 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { GFX_ADDRESS, GFX_SPEC_PLATE } from '../src/lib/identity/gfx-brand.ts';
 import {
 	GFX_IDENTITY,
-	GFX_IDENTITY_PALETTES,
+	GFX_IDENTITY_PALETTE,
 	measureGfxIdentityFeaturePixels,
 	renderGfxIdentityLogotypeSvg,
-	renderGfxIdentityMarkSvg
+	renderGfxIdentityMarkSvg,
+	renderGfxIdentityTitleCardSvg
 } from '../src/lib/identity/gfx-identity-geometry.ts';
 import { relativeLuminance, wcagContrastRatio } from '../src/lib/utils/color.ts';
 
@@ -48,7 +49,7 @@ const MINIMUM_FEATURE_PIXELS = 1.5;
 const MAXIMUM_COVERAGE_DRIFT = 0.08;
 /** WCAG 1.4.3 text grade — the identity is held to it even though a mark is not text. */
 const MINIMUM_TEXT_CONTRAST = 4.5;
-/** WCAG 1.4.11 non-text grade, for the checker's second neutral against its own tile. */
+/** WCAG 1.4.11 non-text grade, for the decay colours against the deck. */
 const MINIMUM_GRAPHIC_CONTRAST = 3;
 
 // ── Chrome tokens (DESIGN.md) ────────────────────────────────────────────────
@@ -58,7 +59,6 @@ const PANEL = '#131315';
 const LINE = '#26262a';
 const TEXT = '#e8e8ea';
 const MUTED = '#8a8a90';
-const PAPER = '#ffffff';
 
 // ── Embedded fonts ───────────────────────────────────────────────────────────
 // Captures must render identically offline, so the two chrome faces are inlined
@@ -97,15 +97,10 @@ function pngDataUrl(bytes: Buffer): string {
 	return `data:image/png;base64,${bytes.toString('base64')}`;
 }
 
-const { deck, monoDark, monoLight } = GFX_IDENTITY_PALETTES;
-
 const ARTWORK = {
-	markTile: svgDataUrl(renderGfxIdentityMarkSvg(deck)),
-	markMonoDark: svgDataUrl(renderGfxIdentityMarkSvg(monoDark)),
-	markMonoLight: svgDataUrl(renderGfxIdentityMarkSvg(monoLight)),
-	logotype: svgDataUrl(renderGfxIdentityLogotypeSvg(deck)),
-	logotypeMonoDark: svgDataUrl(renderGfxIdentityLogotypeSvg(monoDark)),
-	logotypeMonoLight: svgDataUrl(renderGfxIdentityLogotypeSvg(monoLight))
+	mark: svgDataUrl(renderGfxIdentityMarkSvg()),
+	logotype: svgDataUrl(renderGfxIdentityLogotypeSvg()),
+	titleCardLit: svgDataUrl(renderGfxIdentityTitleCardSvg({ lit: true }))
 } as const;
 
 // ── Raster measurement ───────────────────────────────────────────────────────
@@ -113,20 +108,22 @@ const ARTWORK = {
 interface RasterMeasurement {
 	readonly size: number;
 	readonly inkCoverage: number;
-	/** Separate ink shapes the mark resolves into — the checker's ink cells. */
+	/** Separate bright shapes the mark resolves into — the fan and the face. */
 	readonly inkRegions: number;
 	/** Counters fully enclosed by ink. */
 	readonly enclosedCounters: number;
 }
 
 /**
- * Luminance a reader separates ink from the tone behind it at. Gamma-encoded
+ * Luminance a reader separates bright form from the ground at. Gamma-encoded
  * Rec. 709, because the question is on-screen separation, not a colorimetric
- * ratio. The boundary sits between the two checker neutrals rather than between
- * ink and the plate, so the mark is measured on its own alternation rather than
- * on its silhouette.
+ * ratio. The boundary sits between the dimmest decay colour and the card, so
+ * the whole fan counts as form and the card and deck count as ground.
  */
-const INK_THRESHOLD = (relativeLuminance(deck.ink) + relativeLuminance(deck.inkAlternate!)) / 2;
+const INK_THRESHOLD =
+	(relativeLuminance(GFX_IDENTITY_PALETTE.decay[2]) +
+		relativeLuminance(GFX_IDENTITY_PALETTE.card)) /
+	2;
 
 /** 4-connected component count over a boolean mask; diagonal touches stay separate. */
 function countRegions(mask: readonly boolean[], size: number, wanted: boolean): number {
@@ -212,7 +209,7 @@ function measureRaster(bytes: Buffer, inkThreshold: number): Omit<RasterMeasurem
 async function rasterizeMark(page: Page, size: number): Promise<Buffer> {
 	await page.setViewportSize({ width: Math.max(size, 64), height: Math.max(size, 64) });
 	await page.setContent(
-		`<!doctype html><style>html,body{margin:0;background:${DECK}}img{display:block;width:${size}px;height:${size}px}</style><img src="${ARTWORK.markTile}" alt="">`
+		`<!doctype html><style>html,body{margin:0;background:${DECK}}img{display:block;width:${size}px;height:${size}px}</style><img src="${ARTWORK.mark}" alt="">`
 	);
 	return page.screenshot({ clip: { x: 0, y: 0, width: size, height: size } });
 }
@@ -264,12 +261,12 @@ async function captureSheet(
 	capturedFileNames.add(fileName);
 }
 
-// Mirrors the shipped listing masthead, which carries no spec plate — the sheet
-// has to prove the lockup that actually renders.
+// Mirrors the shipped listing topbar — the sheet has to prove the lockup that
+// actually renders: the mark, then the flat logotype, on one baseline.
 function topbarMarkup(): string {
 	return `<header class="topbar">
 	<div class="topbar__brand">
-		<img src="${ARTWORK.markTile}" alt="" style="block-size:22px;inline-size:22px">
+		<img src="${ARTWORK.mark}" alt="" style="block-size:22px;inline-size:22px">
 		<img src="${ARTWORK.logotype}" alt="GFX" style="block-size:15px">
 	</div>
 	<div class="topbar__search">Search 42 compositions…</div>
@@ -278,51 +275,30 @@ function topbarMarkup(): string {
 </header>`;
 }
 
+// The masthead is the title card on air: the lit cut, the address, the plate.
 function mastheadMarkup(): string {
-	return `<section style="padding:64px 72px">
-	<div class="row" style="gap:28px">
-		<img src="${ARTWORK.markTile}" alt="" style="block-size:104px;inline-size:104px">
-		<div class="stack" style="gap:14px">
-			<img src="${ARTWORK.logotype}" alt="GFX" style="block-size:76px">
-			<p class="address" style="font-size:13px">${GFX_ADDRESS}</p>
-		</div>
-	</div>
-	<div style="background:${LINE};block-size:1px;margin-block:40px 20px"></div>
+	return `<section style="padding:56px 72px">
+	<img src="${ARTWORK.titleCardLit}" alt="GFX" style="inline-size:380px">
+	<p class="address" style="font-size:13px;margin-block-start:20px">${GFX_ADDRESS}</p>
+	<div style="background:${LINE};block-size:1px;margin-block:28px 18px"></div>
 	<p class="plate" style="font-size:11px">${GFX_SPEC_PLATE}</p>
 </section>`;
 }
 
 function socialCardMarkup(): string {
-	return `<section style="align-items:flex-start;block-size:630px;display:flex;flex-direction:column;justify-content:space-between;padding:72px 80px">
-	<img src="${ARTWORK.markTile}" alt="" style="block-size:120px;inline-size:120px">
-	<div class="stack" style="gap:24px">
-		<img src="${ARTWORK.logotype}" alt="GFX" style="block-size:132px">
+	return `<section style="block-size:630px;display:flex;flex-direction:column;justify-content:space-between;padding:64px 80px">
+	<img src="${ARTWORK.titleCardLit}" alt="GFX" style="inline-size:560px">
+	<div class="stack" style="gap:26px">
 		<p class="address" style="font-size:20px">${GFX_ADDRESS}</p>
-	</div>
-	<div style="align-items:center;display:flex;gap:14px;inline-size:100%">
-		<div style="background:${LINE};block-size:1px;flex:1"></div>
-		<p class="plate" style="font-size:14px">${GFX_SPEC_PLATE}</p>
+		<div style="align-items:center;display:flex;gap:14px;inline-size:100%">
+			<div style="background:${LINE};block-size:1px;flex:1"></div>
+			<p class="plate" style="font-size:14px">${GFX_SPEC_PLATE}</p>
+		</div>
 	</div>
 </section>`;
 }
 
-function monochromeMarkup(): string {
-	const cut = (label: string, background: string, mark: string, logotype: string): string =>
-		`<div style="background:${background};min-block-size:190px;padding:28px 32px">
-			<p class="caption" style="margin-block-end:20px">${label}</p>
-			<div class="row" style="gap:26px">
-				<img src="${mark}" alt="" style="block-size:56px;inline-size:56px">
-				<img src="${mark}" alt="" style="block-size:28px;inline-size:28px">
-				<img src="${logotype}" alt="GFX" style="block-size:40px">
-			</div>
-		</div>`;
-	return `<div style="display:grid;grid-template-columns:1fr 1fr">
-		${cut('One ink on deck', DECK, ARTWORK.markMonoDark, ARTWORK.logotypeMonoDark)}
-		${cut('One ink on paper', PAPER, ARTWORK.markMonoLight, ARTWORK.logotypeMonoLight)}
-	</div>`;
-}
-
-/** Magnification of the true small raster, so a merged cell is visible rather than inferred. */
+/** Magnification of the true small raster, so a merged feature is visible rather than inferred. */
 const FAVICON_MAGNIFICATION = 6;
 
 function faviconMarkup(rasters: readonly { readonly size: number; readonly url: string }[]): string {
@@ -345,13 +321,12 @@ const FAVICON_SHEET_HEIGHT =
 
 /** The levers the ratified artwork is drawn from, read off the identity itself. */
 function identitySpecLine(): string {
-	const { mark, shearDegrees, logotypeCellGutter, logotypeTrackingUnits } = GFX_IDENTITY;
+	const { markCardUnits, markFanStepUnits, titleCardUnits, titleCardFanStepUnits } = GFX_IDENTITY;
 	return [
-		`${mark.cellCount}×${mark.cellCount} floating`,
-		`${Math.abs(shearDegrees)}° lean`,
-		`gutter ${logotypeCellGutter}`,
-		`track ${logotypeTrackingUnits}`
-	].join(' / ');
+		`mark card ${markCardUnits} / step ${markFanStepUnits} flat`,
+		`title card ${titleCardUnits.width}×${titleCardUnits.height} / step ${titleCardFanStepUnits} concentric`,
+		`cap 100 / bar 26`
+	].join(' · ');
 }
 
 // ── Report ───────────────────────────────────────────────────────────────────
@@ -363,25 +338,27 @@ interface ContrastCheck {
 }
 
 /**
- * The identity draws from one achromatic set: ink against the plate, the second
- * checker neutral against the plate, and both one-ink cuts on their worst-case
- * backgrounds.
+ * The pairings the identity sanctions: the face on both cards, the plate and
+ * address voices on the deck, and each decay colour as a non-text graphic on
+ * the deck it fans over.
  */
 function verifyContrast(): ContrastCheck[] {
+	const palette = GFX_IDENTITY_PALETTE;
+	const decayNames = ['decay yellow', 'decay red', 'decay blue'] as const;
 	return [
 		{
-			pairing: 'ink on tile',
-			ratio: wcagContrastRatio(deck.ink, deck.tile!),
+			pairing: 'face on the mark card',
+			ratio: wcagContrastRatio(palette.face, palette.card),
 			minimum: MINIMUM_TEXT_CONTRAST
 		},
 		{
-			pairing: 'one-ink cut on deck',
-			ratio: wcagContrastRatio(monoDark.ink, DECK),
+			pairing: 'face on the title card',
+			ratio: wcagContrastRatio(palette.face, palette.cardLifted),
 			minimum: MINIMUM_TEXT_CONTRAST
 		},
 		{
-			pairing: 'one-ink cut on paper',
-			ratio: wcagContrastRatio(monoLight.ink, PAPER),
+			pairing: 'lit face on the title card',
+			ratio: wcagContrastRatio(palette.faceLit, palette.cardLifted),
 			minimum: MINIMUM_TEXT_CONTRAST
 		},
 		{
@@ -389,11 +366,11 @@ function verifyContrast(): ContrastCheck[] {
 			ratio: wcagContrastRatio(MUTED, DECK),
 			minimum: MINIMUM_TEXT_CONTRAST
 		},
-		{
-			pairing: 'checker second neutral on tile',
-			ratio: wcagContrastRatio(deck.inkAlternate!, deck.tile!),
+		...palette.decay.map((decayColor, index) => ({
+			pairing: `${decayNames[index]} on deck`,
+			ratio: wcagContrastRatio(decayColor, DECK),
 			minimum: MINIMUM_GRAPHIC_CONTRAST
-		}
+		}))
 	];
 }
 
@@ -414,21 +391,21 @@ function buildReport(
 		'Generated by `pnpm verify:identity`',
 		'(`scripts/verify-gfx-identity-legibility.ts`). Do not hand-edit — re-run it.',
 		'',
-		`The ratified identity is alpha cell, Quarter (\`${GFX_IDENTITY.ratifiedCandidateId}\`).`,
+		`The ratified identity is the Slate (\`${GFX_IDENTITY.ratifiedCandidateId}\`).`,
 		`Levers: ${identitySpecLine()}.`,
 		'',
 		'Gates, all measured against the mark’s own 256px reference raster:',
 		'',
-		`- Tightest cell at a 16px favicon ≥ ${MINIMUM_FEATURE_PIXELS}px.`,
+		`- Tightest feature at a 16px favicon ≥ ${MINIMUM_FEATURE_PIXELS}px.`,
 		`- Ink-coverage drift ≤ ${MAXIMUM_COVERAGE_DRIFT} — the form neither fills into a blob nor thins away.`,
-		'- Separate ink regions and enclosed counters both match the reference exactly — the cells stay apart and the counters stay open.',
+		'- Separate bright regions and enclosed counters both match the reference exactly — the fan and the face stay apart and the mouth stays open.',
 		`- WCAG contrast ≥ ${MINIMUM_TEXT_CONTRAST}:1 for anything read as text, ≥ ${MINIMUM_GRAPHIC_CONTRAST}:1 for non-text graphics.`,
 		'',
-		`Tightest cell at 16px: **${featurePixelsAt16.toFixed(2)}px**.`,
+		`Tightest feature at 16px: **${featurePixelsAt16.toFixed(2)}px**.`,
 		`Reference (${REFERENCE_SIZE}px): coverage ${reference.inkCoverage.toFixed(3)},`,
-		`${reference.inkRegions} ink region(s), ${reference.enclosedCounters} enclosed counter(s).`,
+		`${reference.inkRegions} bright region(s), ${reference.enclosedCounters} enclosed counter(s).`,
 		'',
-		'| Rendered size | Ink coverage | Coverage drift | Ink regions | Enclosed counters |',
+		'| Rendered size | Ink coverage | Coverage drift | Bright regions | Enclosed counters |',
 		'| --- | --- | --- | --- | --- |'
 	];
 	for (const raster of rasters) {
@@ -489,7 +466,7 @@ async function verifyIdentity(page: Page): Promise<IdentityVerification> {
 		}
 		if (raster.inkRegions !== reference.inkRegions) {
 			failures.push(
-				`${raster.size}px resolves ${raster.inkRegions} ink regions against ${reference.inkRegions} in the reference`
+				`${raster.size}px resolves ${raster.inkRegions} bright regions against ${reference.inkRegions} in the reference`
 			);
 		}
 		if (raster.enclosedCounters !== reference.enclosedCounters) {
@@ -515,8 +492,7 @@ async function verifyIdentity(page: Page): Promise<IdentityVerification> {
 		2
 	);
 	await captureSheet(page, topbarMarkup(), 1280, 53, 'topbar.png', 2);
-	await captureSheet(page, mastheadMarkup(), 1280, 310, 'masthead.png', 2);
-	await captureSheet(page, monochromeMarkup(), 1000, 190, 'monochrome.png', 2);
+	await captureSheet(page, mastheadMarkup(), 1280, 420, 'masthead.png', 2);
 
 	// The share card is a shipped asset, not a review capture, so it is rendered
 	// at its exact 1200x630 pixel size straight into static/.
@@ -536,7 +512,7 @@ try {
 }
 
 // Captures are generated output, so anything this run did not write is stale —
-// including every sheet left over from the closed candidate review.
+// including the retired Quarter's monochrome sheet.
 for (const entry of readdirSync(captureDirectory)) {
 	if (!capturedFileNames.has(entry)) rmSync(join(captureDirectory, entry), { force: true });
 }

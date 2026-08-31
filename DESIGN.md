@@ -177,30 +177,37 @@ sans/mono voice split — not from size inflation.
 
 ## Identity
 
-The mark and the `GFX` logotype are **drawn geometry, never typeset text** —
-explicit SVG paths emitted from `src/lib/identity/gfx-identity-geometry.ts`, so
-a favicon or a share card rasterizes identically with no font available. The
-shipped assets live in `src/lib/assets/identity/` and are generated: hand-edit
-one and the next `pnpm gen:identity` overwrites it.
+The mark, the `GFX` logotype, and the title card are **drawn geometry, never
+typeset text** — explicit SVG paths emitted from
+`src/lib/identity/gfx-identity-geometry.ts`, so a favicon or a share card
+rasterizes identically with no font available. The shipped assets live in
+`src/lib/assets/identity/` and are generated: hand-edit one and the next
+`pnpm gen:identity` overwrites it.
 
-Transparency is the engine's binding rule, so a transparency checkerboard is
-the mark — one quartered square, two cells of ink, leaning 14°. The letters are
-built from the same cells on a 5-by-7 module.
+The identity is **the Slate** — the early-broadcast title card: a stack of
+opaque cards fanned up-left behind a black top card carrying drawn extended
+letterforms (cap 100, bar 26, flat sides, a vertical-cut X). The mark is the G
+on its card stack; the logotype is the flat `GFX` line; the title card is the
+16:9 stack for the masthead and share card, in a flat core cut and a lit cut
+whose face blooms white — bloom is on-air dressing, never structure.
 
-The family is **achromatic**: ink `#E8E8EA`, second checker neutral `#8A8A90`,
-plate `#0C0C0E`, and nothing else. No accent, no gradient, no signal hue, and
-never a Pack colour — the identity has no colour latitude of any kind. Surfaces
-that cannot carry the plate use the one-ink cut (`#E8E8EA` on the deck,
-`#0C0C0E` on paper), which drops the second neutral rather than flattening the
-checker into a solid block.
+The identity is the **only chromatic family in the product**: a luminance
+decay ramp — face `#E8E8EA`, then echoes `#FFC940` → `#F23B3F` → `#3D5AF5`,
+each one frame older — over cards `#0C0C0E` and `#131315`. The ramp's order
+never changes, and the decay colours belong to the drawn artwork alone: they
+are never UI signals, never text, never chrome, and never a Pack colour. There
+are no one-ink cuts — every surface carries the full stack. The title card
+holds no keyline or border; it separates from the deck by sitting one surface
+step above it, this document's own elevation language.
 
-Lockups run mark, then logotype, on one baseline. The mark alone is the favicon,
-the app icon, and the editor's home link; it is proven down to 16px, and the
-logotype down to a 15px cap. Every chrome bar stands the mark on the same
-pixel — 15px in, in a 52px bar — so it never shifts as you move between the
-listing and a composition. Keep clear space equal to a quarter of the mark's
-height. Never re-typeset, rotate, stretch, re-space, or shadow either form. Full
-use rules and the generated legibility proof:
+Chrome lockups run mark, then flat logotype, on one baseline. The mark alone is
+the favicon, the app icon, and the editor's home link; it is proven down to
+16px, and the logotype down to a 15px cap. Every chrome bar stands the mark on
+the same pixel — 15px in, in a 52px bar — so it never shifts as you move
+between the listing and a composition. Keep clear space equal to a quarter of
+the top card's height. Never re-typeset, rotate, stretch, or re-space the
+letterforms, and never reorder the ramp or fan any other element. Full use
+rules and the generated legibility proof:
 [`docs/identity/README.md`](docs/identity/README.md).
 
 ## Layout

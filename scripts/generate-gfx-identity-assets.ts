@@ -3,7 +3,8 @@
 // hand-edited — a hand edit is lost on the next run.
 //
 // Anything else in the asset directory is pruned, so a renamed or retired cut
-// cannot linger and be imported by a surface that should no longer have it.
+// cannot linger and be imported by a surface that should no longer have it —
+// the retired Quarter's one-ink cuts are removed by exactly this rule.
 //
 // Usage: node --experimental-strip-types scripts/generate-gfx-identity-assets.ts
 
@@ -12,10 +13,9 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-	GFX_IDENTITY_PALETTES,
 	renderGfxIdentityLogotypeSvg,
 	renderGfxIdentityMarkSvg,
-	type GfxIdentityPalette
+	renderGfxIdentityTitleCardSvg
 } from '../src/lib/identity/gfx-identity-geometry.ts';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,41 +25,14 @@ export const GFX_IDENTITY_ASSET_DIRECTORY = 'src/lib/assets/identity';
 
 interface IdentityAssetPlan {
 	readonly fileName: string;
-	readonly palette: GfxIdentityPalette;
-	readonly emit: (palette: GfxIdentityPalette) => string;
+	readonly emit: () => string;
 }
 
 const ASSET_PLANS: readonly IdentityAssetPlan[] = [
-	{
-		fileName: 'gfx-mark.svg',
-		palette: GFX_IDENTITY_PALETTES.deck,
-		emit: renderGfxIdentityMarkSvg
-	},
-	{
-		fileName: 'gfx-mark-mono-dark.svg',
-		palette: GFX_IDENTITY_PALETTES.monoDark,
-		emit: renderGfxIdentityMarkSvg
-	},
-	{
-		fileName: 'gfx-mark-mono-light.svg',
-		palette: GFX_IDENTITY_PALETTES.monoLight,
-		emit: renderGfxIdentityMarkSvg
-	},
-	{
-		fileName: 'gfx-logotype.svg',
-		palette: GFX_IDENTITY_PALETTES.deck,
-		emit: renderGfxIdentityLogotypeSvg
-	},
-	{
-		fileName: 'gfx-logotype-mono-dark.svg',
-		palette: GFX_IDENTITY_PALETTES.monoDark,
-		emit: renderGfxIdentityLogotypeSvg
-	},
-	{
-		fileName: 'gfx-logotype-mono-light.svg',
-		palette: GFX_IDENTITY_PALETTES.monoLight,
-		emit: renderGfxIdentityLogotypeSvg
-	}
+	{ fileName: 'gfx-mark.svg', emit: renderGfxIdentityMarkSvg },
+	{ fileName: 'gfx-logotype.svg', emit: renderGfxIdentityLogotypeSvg },
+	{ fileName: 'gfx-title-card.svg', emit: () => renderGfxIdentityTitleCardSvg({ lit: false }) },
+	{ fileName: 'gfx-title-card-lit.svg', emit: () => renderGfxIdentityTitleCardSvg({ lit: true }) }
 ];
 
 const assetRoot = join(repositoryRoot, GFX_IDENTITY_ASSET_DIRECTORY);
@@ -68,7 +41,7 @@ mkdirSync(assetRoot, { recursive: true });
 const written: string[] = [];
 for (const plan of ASSET_PLANS) {
 	const target = join(assetRoot, plan.fileName);
-	writeFileSync(target, plan.emit(plan.palette), 'utf8');
+	writeFileSync(target, plan.emit(), 'utf8');
 	written.push(relative(repositoryRoot, target));
 }
 
