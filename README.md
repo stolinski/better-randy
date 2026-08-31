@@ -1,6 +1,7 @@
 # GFX
 
-**gfx.computer** — a motion-graphics engine on a web stack.
+A motion-graphics engine on a web stack. It runs on your own machine — there is
+no hosted version, and `gfx.computer` is a reserved domain awaiting a docs site.
 
 GFX renders broadcast-quality motion pieces at native 4K: **transparent
 overlays** you composite over footage in an editor, and **full-frame** segments

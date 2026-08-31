@@ -10,7 +10,7 @@ users:
       tech: expert
       domain: novice
     context:
-      device: "coding agent (Claude Code) in this repo — terminal/CLI, editing JSON + TS/WGSL"
+      device: "coding agent (Claude Code) in this repo — terminal/CLI, editing JSON + TS/WGSL; or a browser agent calling the WebMCP tools the running app registers on document.modelContext (ADR-0054)"
       environment: "autonomous, epic-by-epic from dex; reads AGENTS.md/CLAUDE.md, briefs, aesthetic docs, CONTEXT.md; verified by a separate Critic sub-agent it never controls"
       frequency: "continuous within an epic"
       stakes: high
@@ -19,7 +19,8 @@ users:
       - "land engine/pipeline work that registers cleanly (no Identity Spec dimension unimplemented or unprobed)"
     cares_about:
       - "unambiguous declarative schema — everything expressible as JSON it can read and set"
-      - "GUI↔agent parity — no capability locked behind a GUI it can't drive"
+      - "GUI↔agent parity — no capability locked behind a GUI it can't drive, on either transport"
+      - "authoring as whole Operations with revisions and receipts, never simulated clicks or raw JSON-pointer patches"
       - "frame-determinism — preview and export produce the same pixels at the same time"
       - "discoverable registry vocabulary — knowing what Surfaces/Blocks/Annotations/Overlays/Effects exist"
       - "unfakeable failure signals — Critic probes + named observations, not prose"
@@ -77,6 +78,9 @@ swappable **Pack**, reflowing across horizontal (YouTube) and vertical
 
 Its defining architectural bet is **full parity between a GUI and agents**:
 anything one authoring surface can do, the other can, alone or collaborating.
+Parity is now two transports wide — an agent authors either from this repo or
+from inside the running app, calling the WebMCP tools it registers on
+`document.modelContext` ([ADR-0054](docs/adr/0054-webmcp-operation-transaction-and-security-contract.md)).
 That bet decides who the users are. Today the authoring that matters is done by
 an **AI agent** in this repo, building the reference corpus that proves the engine
 hits the bar — so the **dev-time repo agent is the primary user**. The

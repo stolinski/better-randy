@@ -50,6 +50,17 @@ matrix, so a new legacy surface owes a matrix row and a table row together.
 Records the ADR never rewrites — `docs/adr/`, `docs/history/`, `.dex/`, and the
 fixtures of the control plane removed on 2026-08-28 — are not scanned at all.
 
+## Release acceptance
+
+The checks above route one change. `pnpm seal:release-acceptance` asks the
+separate question — whether one commit was shown to pass everything at once —
+by binding every verifier's evidence file to a single release identity and
+refusing a stale or missing one. It is not in the table because it runs nothing
+itself and gates no lane; it reads what the producers already wrote. The release
+identity is a commit in this repository plus the image built from it, never a
+deployed URL, because public deployment is descoped and there is no origin to
+interrogate. See [`release-acceptance.md`](release-acceptance.md).
+
 ## Delivery factory
 
 `gfx-factory` — a `@swamp/software-factory` instance whose definition

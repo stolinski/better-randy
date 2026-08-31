@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (naming, compatibility, and public-session language ratified; the renames it governs are separate changes).**
+**Canon (naming, compatibility, and public-session language ratified; the renames it governs are separate changes).** **Amended 2026-08-31:** the body opens on the product going public as gfx.computer, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. The namespace decision is unaffected — GFX is the current name whether or not an origin is reachable — and the **Public demo session** stays the exact browser-scoped, no-account boundary the `public` runtime profile enforces, now exercised on a local production-shaped origin.
 
 Date: 2026-08-28
 

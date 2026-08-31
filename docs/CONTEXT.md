@@ -7,8 +7,8 @@ The shared language for GFX's preset engine, channel aesthetic, and agent workfl
 ### Product and namespace
 
 **GFX**:
-The current product and technical namespace, published at **gfx.computer**. Identifiers and protocol values spell it `gfx`; environment variables use the `GFX_` prefix. GFX names the product and the public origin — not a Layer, a Pack, or an engine concept, so nothing inside the composition model is renamed by it.
-_Avoid_: Supers (the legacy name — see below), GFX Computer as a product noun, gfx.computer as an identifier prefix.
+The current product and technical namespace, whose reserved domain is **gfx.computer**. Identifiers and protocol values spell it `gfx`; environment variables use the `GFX_` prefix. GFX names the product and the domain — not a Layer, a Pack, or an engine concept, so nothing inside the composition model is renamed by it. The product is local-first: public deployment was descoped on 2026-08-31 and the domain is reserved for a future docs site ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) status).
+_Avoid_: Supers (the legacy name — see below), GFX Computer as a product noun, gfx.computer as an identifier prefix, "the public origin" as a thing that exists.
 
 **Legacy Supers artifact**:
 Any value, file, or record that still spells the old product name — the `supers@1` composition schema id, a `supers-sync@1` marker receipt on an editor's Resolve timeline, a `supers@<sha>` Sentry release, a `SUPERS_*` environment variable. It is not a defect by itself; it is a value that owes exactly one **name disposition**. An occurrence inside a historical record is never a naming violation.
@@ -19,8 +19,8 @@ The single recorded classification every current or legacy name carries, fixed i
 _Avoid_: migration status, deprecation level, rename phase (a disposition is a standing classification, not a stage a name moves through).
 
 **Public demo session**:
-The browser-scoped, no-account working context a visitor has on gfx.computer. Its composition state lives only in that browser: never sent to the origin, never written to origin disk, never tied to an identity. There are no accounts, no server-side composition store, and no durable visitor content. Reloading continues the same session; clearing browser storage ends it and leaves nothing behind on our side.
-_Avoid_: account, workspace (the **Workspace** is the engine shell), project, cloud document, saved session.
+The browser-scoped, no-account working context a visitor has on a host running the `public` runtime profile — today a local production-shaped origin, since public deployment is descoped. Its composition state lives only in that browser: never sent to the origin, never written to origin disk, never tied to an identity. There are no accounts, no server-side composition store, and no durable visitor content. Reloading continues the same session; clearing browser storage ends it and leaves nothing behind on our side.
+_Avoid_: account, workspace (the **Workspace** is the engine shell), project, cloud document, saved session; also "the public site", which does not exist.
 
 **Export session**:
 The bounded server-side unit of work in [ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) — one private temp directory, one ffmpeg process, one single-shot download. It carries rendered frames, never composition JSON, and is destroyed on completion, failure, cancellation, idle expiry, and once the download drains. Where one render happens, not where a composition lives.
@@ -330,6 +330,7 @@ The named-observation format for advisory R-rule observations — pixel coordina
 ## Flagged ambiguities
 
 - **"Supers"** was simultaneously the product name, the technical prefix, and the composition schema id. Resolved: **GFX** is the current namespace, and every remaining `supers` spelling is a **Legacy Supers artifact** carrying one **name disposition** ([ADR-0053](adr/0053-gfx-namespace-and-legacy-supers-compatibility.md)). This glossary, the product copy, and the current guidance docs have been renamed; the `supers` spellings that remain in them are quoted protocol values, not prose.
+- **"public"** now means one thing only. It is the name of a runtime profile — `GFX_RUNTIME_PROFILE=public`, and with it the public export lane, the public surface inventory, and the public response headers — which says how strictly a host behaves, not who can reach it. It never means "deployed to the internet": public deployment was descoped on 2026-08-31 ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) status), GFX is local-first, and gfx.computer is a reserved domain awaiting a docs site. A doc that says GFX is live is wrong, not merely imprecise.
 - **"session"** meant both the visitor's browsing context and a server-side encode. Resolved: a **Public demo session** is browser-scoped and holds composition state; an **Export session** is server-side, holds rendered frames only, and destroys itself. They never share storage or lifetime.
 - **"annotation"** was historically used both for the broad layer category and for the hand-claiming subset. Resolved: **Annotation** is the Layer; **Mark** is the narrower hand-claiming subset.
 - **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), that sense is retired; the unit of authoring is a **Preset**. The word now has exactly one live meaning: a **WebMCP tool**, the registered `document.modelContext` entry that exposes one **Operation** ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)). A tool is the transport; the **Operation** is the decision.

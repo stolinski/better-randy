@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (contract ratified; the operation layer, the WebMCP controller, and the parity gate it governs are separate changes).**
+**Canon (contract ratified; the operation layer, the WebMCP controller, and the parity gate it governs are separate changes).** **Amended 2026-08-31:** the body opens on gfx.computer going public, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. Nothing in the operation, transaction, or security contract depends on that: a browser agent authors through `document.modelContext` on whichever origin serves the app, and §7's same-origin, top-level, secure-context registration rule is the same rule on a local origin.
 
 Date: 2026-08-28
 

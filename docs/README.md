@@ -17,6 +17,8 @@ Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks
 | [`user-composition-workflows.md`](user-composition-workflows.md) | User-composition interchange, validation, verification, and the CLI render/batch lane. | Importing/exporting compositions or automating renders. |
 | [`sentry-dev-flow.md`](sentry-dev-flow.md) | Sentry capture boundaries and the fix-broken-code loop. | Investigating runtime errors, traces, or export performance. |
 | [`production-serve-rollback-runbook.md`](production-serve-rollback-runbook.md) | Build the production image, serve the demo from it on a local production-shaped origin, confirm it with the two gates, and roll back to the previous release. | Serving or rolling back the production artifact. |
+| [`release-acceptance.md`](release-acceptance.md) | `pnpm seal:release-acceptance` — the evidence inventory every verifier needs a row in, why a seal fails, and the human aesthetic decisions that block it. | Claiming a release is accepted, or adding a verifier whose evidence should count. |
+| [`identity/`](identity/) | The ratified **Slate** brand mark — geometry, cuts, usage, and the legibility proof. | Touching a logo, favicon, masthead, or share card. |
 | [`ideas/`](ideas/) | Pre-design speculation — a thing that *might* be built someday. | Considering a new feature area not yet designed. |
 | [`history/`](history/) | Historical explorations and shipped design docs, kept for reference. | Tracing how a shipped design evolved. |
 | [`briefs/`](briefs/) | The in-flight build queue *(build-harness)* — one Brief per about-to-be-built Preset/Pipeline. | Starting/continuing the build of a specific thing. |
