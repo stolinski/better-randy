@@ -19,6 +19,9 @@ export default defineConfig(({ mode }) => ({
 	},
 	server: {
 		port: 7263,
+		// Bind every interface family: Caddy dials localhost per-family, and a
+		// fresh Node 25 vite otherwise listens on ::1 only — IPv4 dials then 502.
+		host: true,
 		allowedHosts: ['.robo.online']
 	}
 }));
