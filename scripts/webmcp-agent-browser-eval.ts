@@ -36,6 +36,8 @@ import {
 } from '../src/lib/platform/webmcp-operation-inventory.ts';
 
 import type { WebmcpOperationRow } from '../src/lib/platform/webmcp-operation-inventory.ts';
+import { hashWebmcpToolSchemaSurface } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
+import type { WebmcpRegisteredToolDescriptor } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
 
 const STANDARD_WEBMCP_PORT = 9225;
 const PAGE_ORIGIN = process.env.GFX_EVAL_ORIGIN ?? 'http://localhost:7263';
@@ -88,14 +90,6 @@ function toolNameFor(operationId: string): string {
 	const row = WEBMCP_OPERATION_INVENTORY.find((entry) => entry.id === operationId);
 	if (!row) throw new Error(`The inventory declares no ${operationId}`);
 	return row.toolName;
-}
-
-/** One registered tool as the measured Chrome surface reports it. */
-interface RegisteredToolDescriptor {
-	name: string;
-	description: string;
-	/** The measured surface hands the schema back as JSON text, not an object. */
-	inputSchema: string;
 }
 
 /** What one `executeTool` call returned, already unwrapped to the operation payload. */
@@ -194,12 +188,24 @@ const sleep = (milliseconds: number) =>
 	new Promise<void>((settle) => setTimeout(settle, milliseconds));
 
 /**
+ * Which build answered. The release seal binds every acceptance claim to one
+ * commit, so evidence that cannot say which build it measured is evidence the
+ * seal has to reject — recording it here is what keeps this eval bindable.
+ */
+async function readServedRelease(): Promise<string | null> {
+	const response = await fetch(`${PAGE_ORIGIN}/api/health`).catch(() => null);
+	if (!response || response.status !== 200) return null;
+	const body = (await response.json()) as { release?: unknown };
+	return typeof body.release === 'string' ? body.release : null;
+}
+
+/**
  * The tools `getTools()` reports, once the page has registered at least one. The
  * measured API's authority on what is registered is `getTools()`, so this eval
  * never reads the controller's own bookkeeping.
  */
-async function readRegisteredTools(page: CdpPage): Promise<RegisteredToolDescriptor[]> {
-	return page.evaluate<RegisteredToolDescriptor[]>(`(async () => {
+async function readRegisteredTools(page: CdpPage): Promise<WebmcpRegisteredToolDescriptor[]> {
+	return page.evaluate<WebmcpRegisteredToolDescriptor[]>(`(async () => {
 		const tools = Array.from(await document.modelContext.getTools());
 		return tools.map((tool) => ({
 			name: tool.name,
@@ -223,9 +229,9 @@ async function readRegisteredTools(page: CdpPage): Promise<RegisteredToolDescrip
 async function awaitRegistration(
 	page: CdpPage,
 	required: ReadonlySet<string>
-): Promise<RegisteredToolDescriptor[]> {
+): Promise<WebmcpRegisteredToolDescriptor[]> {
 	const deadline = Date.now() + REGISTRATION_TIMEOUT_MS;
-	let tools: RegisteredToolDescriptor[] = [];
+	let tools: WebmcpRegisteredToolDescriptor[] = [];
 	let missing: string[] = [...required];
 	while (Date.now() < deadline) {
 		const ready = await page.evaluate<boolean>(
@@ -494,12 +500,20 @@ check(
 	`deleting the eval composition refused: ${String(deleted.payload.message)}`
 );
 
+const release = await readServedRelease();
+check(release !== null, 'the measured origin did not report a release at /api/health');
+
 const evidence = {
 	schemaVersion: 1,
 	generatedAt: new Date().toISOString(),
 	probe: 'webmcp-agent-eval',
 	origin: PAGE_ORIGIN,
+	release,
 	harness,
+	// The schemas an agent was actually offered, not the ones the inventory says
+	// it should have been. A build that renamed one argument is a different
+	// authoring surface, and receipts taken against the older one are stale.
+	toolSchemaDigest: await hashWebmcpToolSchemaSurface(openPageTools),
 	inventory: {
 		rows: WEBMCP_OPERATION_INVENTORY.length,
 		agentTools: AGENT_TOOL_ROWS.length,

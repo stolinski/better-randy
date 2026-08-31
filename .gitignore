@@ -28,6 +28,11 @@ vite.config.ts.timestamp-*
 # Critique captures — session-local screenshot evidence, regenerable
 /.tmp-critique
 
+# Release acceptance manifest — the seal's own output. A committed copy would
+# always name its parent commit, so it is regenerated per run instead
+# (see docs/release-acceptance.md)
+/docs/release-acceptance-manifest.json
+
 .test-snapshots
 
 # User compositions — local-only, never committed (ADR-0032)

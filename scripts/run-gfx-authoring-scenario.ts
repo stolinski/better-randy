@@ -892,18 +892,29 @@ function launchSanctionedChrome(port: number, mode: 'standard-webmcp' | 'standar
 	}
 }
 
-async function assertOriginAnswers(): Promise<void> {
+/**
+ * Confirm a build is answering, and record which one. The release seal binds
+ * every acceptance claim to one commit, so a scenario that cannot name the build
+ * it authored against produces receipts, captures and exports the seal has to
+ * reject rather than trust.
+ */
+async function readAnsweringOriginRelease(): Promise<string> {
 	const response = await fetch(`${ORIGIN}/api/health`).catch(() => null);
 	if (!response || response.status !== 200) {
 		throw new Error(
 			`No build is answering at ${ORIGIN}; serve one, or point GFX_SCENARIO_ORIGIN at the origin to measure.`
 		);
 	}
+	const body = (await response.json()) as { release?: unknown };
+	if (typeof body.release !== 'string') {
+		throw new Error(`The build at ${ORIGIN} answers /api/health without naming its release.`);
+	}
+	return body.release;
 }
 
 // --- the run ----------------------------------------------------------------
 
-await assertOriginAnswers();
+const release = await readAnsweringOriginRelease();
 launchSanctionedChrome(STANDARD_WEBMCP_PORT, 'standard-webmcp');
 
 const downloadDirectory = await mkdtemp(join(tmpdir(), 'gfx-authoring-scenario-'));
@@ -911,7 +922,8 @@ const evidence: Record<string, unknown> = {
 	schemaVersion: 1,
 	measuredAt: new Date().toISOString(),
 	probe: 'gfx-authoring-scenario',
-	origin: ORIGIN
+	origin: ORIGIN,
+	release
 };
 const negatives: Record<string, unknown> = {};
 
@@ -927,7 +939,7 @@ try {
 	startPhase('harness');
 	await page.navigate(`${ORIGIN}/`);
 	await awaitRegisteredOperations(page, ALWAYS_REGISTERED_OPERATION_IDS);
-	const harness = await page.evaluate<{
+	const capabilities = await page.evaluate<{
 		modelContext: boolean;
 		secureContext: boolean;
 		canvasDrawElement: boolean;
@@ -937,6 +949,12 @@ try {
 		canvasDrawElement:
 			typeof GPUQueue === 'function' && 'copyElementImageToTexture' in GPUQueue.prototype
 	})`);
+	// Which Chrome drew these pixels and encoded these files. The captures and
+	// exports below are only comparable against a run on the same browser build.
+	const version = (await (
+		await fetch(`http://localhost:${STANDARD_WEBMCP_PORT}/json/version`)
+	).json()) as Record<string, string>;
+	const harness = { browser: version.Browser, ...capabilities };
 	evidence.harness = harness;
 	expect(
 		'the-scenario-runs-in-a-supported-webmcp-browser-without-the-canvas-flag',
@@ -1601,7 +1619,10 @@ try {
 	// did not make ineligible alone. It has to: the document never gives a tool
 	// name back, so a registration ended on the way out of a route is a tool an
 	// agent goes on seeing and can no longer call.
-	const heldOperations = await awaitRegisteredOperations(page, ['session.inspect', 'session.clear']);
+	const heldOperations = await awaitRegisteredOperations(page, [
+		'session.inspect',
+		'session.clear'
+	]);
 	evidence.registrationAfterRouteChange = { registered: [...heldOperations].sort() };
 	const heldSession = await callWebmcpOperation(page, 'session.inspect');
 	const heldEntries = (heldSession.payload.entries ?? []) as { slug?: string }[];

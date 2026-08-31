@@ -40,7 +40,8 @@
 		"verify:export-decode:public-matrix": "node --experimental-strip-types scripts/probe-public-export-decode-matrix.ts",
 		"verify:production-image": "node --experimental-strip-types scripts/verify-production-image.ts",
 		"verify:production-demo": "node --experimental-strip-types scripts/verify-production-demo-serving.ts",
-		"verify:authoring-scenario": "node --experimental-strip-types scripts/run-gfx-authoring-scenario.ts"
+		"verify:authoring-scenario": "node --experimental-strip-types scripts/run-gfx-authoring-scenario.ts",
+		"seal:release-acceptance": "node --experimental-strip-types scripts/seal-release-acceptance-manifest.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
