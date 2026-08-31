@@ -28,7 +28,7 @@ The repo's tokens, verbatim. These are the channel colors — deviate only insid
 | Shadow | `#050504` | The stepped shadow stack |
 | Accent | `#ffd54a` | THE yellow: chips, separators, active cues, focus |
 | Success | `#3dd816` | Positive marks, live/on-air cues |
-| Danger | `#c43d3c` | Negative marks, alerts, the pulse dot |
+| Danger | `#ff474e` | Negative marks, alerts, the pulse dot |
 | Text | `#f7f6f2` | Primary ink on dark |
 | Byline | `#c9c6bc` | Secondary text on cards |
 | Muted | `#8a8883` | Tertiary/chrome labels |
@@ -67,7 +67,7 @@ The signature construction, from the repo (values ×2 for the 4K frame):
 ## Chrome Vocabulary
 
 - **Chip / tag:** `#ffd54a` plate, `#0a0a09` ink, Space Mono 700 uppercase `.08em`, square-ish with the system radius, `2px #0a0a09` divider when butted against content. (The ticker tag is the canonical chip.)
-- **Pulse dot:** `#c43d3c` circle with an opacity/box-shadow pulse — the "live" cue.
+- **Pulse dot:** `#ff474e` circle with an opacity/box-shadow pulse — the "live" cue.
 - **Separator:** the yellow diamond `◆` between ticker items.
 - **Bars/tickers:** full-width flex bars on the card construction (border + stepped shadow), content scrolling linear.
 

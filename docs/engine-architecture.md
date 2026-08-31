@@ -142,7 +142,7 @@ The shell out of which any engine change is verified.
 
 ### Browser checks
 
-The dev server already runs at `http://localhost:7263` — never start a new one. Use the chrome-devtools MCP; that browser carries the required CanvasDrawElement feature flag, so the HTML-in-Canvas path runs to completion and pixel checks are automatable. For "is this preset done?", the **Critic** drives verification — see [`critic.md`](critic.md).
+The dev server already runs at `http://localhost:7263` — never start a new one. Rendering needs a Chrome launched with `--enable-blink-features=CanvasDrawElement`; an unflagged browser is hard-gated to a full-screen notice instead of a render. Start or confirm that harness with `scripts/launch-cdp-chrome.sh` (canvas 9223, agent 9229, standard-webmcp 9225, standard 9227) and drive it with the scripted runners — `scripts/cdp-*.mjs`, `scripts/run-gfx-render-matrix.mjs`, `scripts/run-gfx-layout-contract-matrix.mjs`, and the `scripts/probe-*` family. A verification or matrix pass never runs through the `chrome-devtools` MCP browser, which is for interactive human inspection only; a sweep that is not reproducible as one script invocation is not verification evidence. For an optional adversarial reading of a finished Preset, see [`critic.md`](critic.md).
 
 ## The five Layers
 
