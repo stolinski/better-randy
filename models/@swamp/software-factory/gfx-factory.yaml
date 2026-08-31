@@ -23,7 +23,10 @@ globalArguments:
           modelIdOrName: gfx-agent
           methodName: invokeAndParse
           inputs:
-            cwd: /Users/scotttolinski/Sites/properties/gfx-computer
+            # Dispatch from the worktrees' parent, never the primary checkout:
+            # a probe server inheriting the primary's cwd once served — and a
+            # clear test destroyed — the real user-composition store (dpqjz38j).
+            cwd: /Users/scotttolinski/Sites/properties
             tags: { lane: factory, workItem: '${{ self.workItem }}' }
             prompt: |
               You are the GFX Delivery implementation agent for one Dex work item.
