@@ -138,5 +138,4 @@ If the Workspace reports **"Export requests must come from this origin"**, the b
 
 - [`CONTEXT.md`](CONTEXT.md) — what Preset, Layer, Pack, and Pipeline actually mean here.
 - [`preset-format.md`](preset-format.md) — the composition JSON, if you want to write one by hand.
-- [`engine-architecture.md`](engine-architecture.md) — how a frame is actually built.
 - [`packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) — the look one Pack supplies, and how a Pack is put together.

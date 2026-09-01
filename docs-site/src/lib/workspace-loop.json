@@ -1,0 +1,12 @@
+{
+	"presetSlug": "docu-timeline-build",
+	"presetName": "Docu timeline build — the road to ES modules",
+	"durationSeconds": 8,
+	"fps": 30,
+	"compositionWidth": 3840,
+	"compositionHeight": 2160,
+	"videoWidth": 1600,
+	"videoHeight": 1000,
+	"video": "/gfx-workspace.mp4",
+	"poster": "/gfx-workspace.webp"
+}

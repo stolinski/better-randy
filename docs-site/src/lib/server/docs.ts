@@ -1,7 +1,8 @@
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve, posix } from 'node:path';
 
 import MarkdownIt from 'markdown-it';
+import type Token from 'markdown-it/lib/token.mjs';
 import anchor from 'markdown-it-anchor';
 import Shiki from '@shikijs/markdown-it';
 import type { BundledLanguage } from 'shiki';
@@ -10,32 +11,46 @@ import type { BundledLanguage } from 'shiki';
 const PLAINTEXT = 'txt' as unknown as BundledLanguage;
 
 const DOCS_DIR = resolve(process.cwd(), '..', 'docs');
-const REPO_BLOB = 'https://github.com/stolinski/better-randy/blob/main';
 
 /** docs/aesthetic.md is a redirect stub — every link to it should land on the real doc. */
 const LINK_ALIASES: Record<string, string> = {
 	'aesthetic.md': 'packs/syntax/aesthetic.md'
 };
 
-const TITLE_OVERRIDES: Record<string, string> = {
-	'README.md': 'Overview',
-	'getting-started.md': 'Getting started',
-	'CONTEXT.md': 'Glossary',
-	'roadmap.md': 'Roadmap',
-	'adr/README.md': 'ADR index',
-	'briefs/README.md': 'Writing a Brief',
-	'packs/syntax/aesthetic.md': 'Syntax',
-	'packs/crt-terminal/aesthetic.md': 'CRT Terminal',
-	'packs/editorial-mono/aesthetic.md': 'Editorial Mono',
-	'packs/clean-light/aesthetic.md': 'Clean Light'
-};
+interface PublishedDoc {
+	file: string;
+	title: string;
+	section: string;
+}
+
+/**
+ * The published set, in reading order. gfx.computer is for someone using GFX —
+ * running it, authoring a Preset, picking a Pack. The repo's other docs exist to
+ * build the software: ADRs, Briefs, the roadmap, the rubrics, the Critic
+ * protocol, the identity spec, `ideas/`, and the engine blueprint with its file
+ * layout and internals are development surfaces and have no URL here — links to
+ * them de-link at render time. Publishing a page means adding a row; there is no
+ * directory walk that could publish one by accident.
+ */
+const PUBLISHED_DOCS: readonly PublishedDoc[] = [
+	{ file: 'README.md', title: 'Overview', section: 'Start' },
+	{ file: 'getting-started.md', title: 'Getting started', section: 'Start' },
+	{ file: 'CONTEXT.md', title: 'Glossary', section: 'Start' },
+	// Interim: the format reference stands in until the authoring guides land.
+	{ file: 'preset-format.md', title: 'Preset format', section: 'Authoring' },
+	{ file: 'packs/syntax/aesthetic.md', title: 'Syntax', section: 'Packs' },
+	{ file: 'packs/crt-terminal/aesthetic.md', title: 'CRT Terminal', section: 'Packs' },
+	{ file: 'packs/editorial-mono/aesthetic.md', title: 'Editorial Mono', section: 'Packs' },
+	{ file: 'packs/clean-light/aesthetic.md', title: 'Clean Light', section: 'Packs' }
+];
+
+const PUBLISHED_FILES = new Set(PUBLISHED_DOCS.map((doc) => doc.file));
 
 export interface DocMeta {
 	file: string;
 	href: string;
 	title: string;
 	section: string;
-	badge?: string;
 }
 
 export interface NavSection {
@@ -64,99 +79,73 @@ export interface SearchEntry {
 	text: string;
 }
 
-function listDir(dir: string, filter: (name: string) => boolean = () => true): string[] {
-	const abs = resolve(DOCS_DIR, dir);
-	if (!existsSync(abs)) return [];
-	return readdirSync(abs)
-		.filter((name) => name.endsWith('.md') && filter(name))
-		.sort()
-		.map((name) => posix.join(dir, name));
-}
-
 function fileToHref(file: string): string {
 	if (file === 'README.md') return '/overview';
 	if (file.endsWith('/README.md')) return '/' + posix.dirname(file);
 	return '/' + file.replace(/\.md$/, '');
 }
 
-function readTitle(file: string): string {
-	const override = TITLE_OVERRIDES[file];
-	if (override) return override;
-	const src = readFileSync(resolve(DOCS_DIR, file), 'utf-8');
-	const match = src.match(/^#\s+(.+)$/m);
-	const raw = match ? match[1].replace(/[*`]/g, '').trim() : file;
-	// nav titles stay short: drop ADR-number and Supers prefixes, then the "— subtitle" tail
-	return raw
-		.replace(/^ADR-\d+\s*[—:]\s*/, '')
-		.replace(/^Supers\s+/, '')
-		.replace(/\s*[—:]\s+.*$/, '');
+function toMeta(doc: PublishedDoc): DocMeta {
+	return { file: doc.file, href: fileToHref(doc.file), title: doc.title, section: doc.section };
 }
 
+/** Sections come from the allowlist's own order — consecutive rows sharing a label. */
 function buildNav(): NavSection[] {
-	const adrs = listDir('adr', (n) => n !== 'README.md');
-	const briefs = listDir('briefs', (n) => n !== 'README.md');
-	const ideas = listDir('ideas');
-	const packs = ['packs/syntax', 'packs/crt-terminal', 'packs/editorial-mono', 'packs/clean-light']
-		.flatMap((dir) => listDir(dir));
-
-	const plan: Array<{ label: string; files: string[] }> = [
-		{ label: 'Start', files: ['README.md', 'getting-started.md', 'CONTEXT.md', 'roadmap.md'] },
-		{ label: 'Engine', files: ['engine-architecture.md', 'html-in-canvas-typegpu.md'] },
-		{ label: 'Authoring', files: ['preset-format.md', 'briefs/README.md', ...briefs] },
-		{ label: 'Quality', files: ['quality-rubric.md', 'animation-rubric.md', 'critic.md'] },
-		{ label: 'Packs', files: packs },
-		{ label: 'Ideas', files: ideas },
-		{ label: 'Decisions', files: ['adr/README.md', ...adrs] }
-	];
-
-	return plan.map(({ label, files }) => ({
-		label,
-		items: files
-			.filter((file) => existsSync(resolve(DOCS_DIR, file)))
-			.map((file) => {
-				const adrNum = file.match(/^adr\/(\d{4})-/)?.[1];
-				return {
-					file,
-					href: fileToHref(file),
-					title: readTitle(file),
-					section: label,
-					...(adrNum ? { badge: adrNum } : {})
-				};
-			})
-	}));
+	const sections: NavSection[] = [];
+	for (const doc of PUBLISHED_DOCS) {
+		const open = sections.at(-1);
+		if (open?.label === doc.section) open.items.push(toMeta(doc));
+		else sections.push({ label: doc.section, items: [toMeta(doc)] });
+	}
+	return sections;
 }
 
-/** Every renderable doc, nav-listed or not (e.g. critic-captures, the aesthetic stub). */
-function listAllFiles(): string[] {
-	const walk = (dir: string): string[] => {
-		const abs = resolve(DOCS_DIR, dir);
-		return readdirSync(abs, { withFileTypes: true }).flatMap((entry) => {
-			const rel = dir ? posix.join(dir, entry.name) : entry.name;
-			if (entry.isDirectory()) return entry.name === 'inspo' ? [] : walk(rel);
-			return entry.name.endsWith('.md') ? [rel] : [];
-		});
-	};
-	return walk('');
-}
+/**
+ * Where a docs link lands. The repo is private, so a link either resolves to a
+ * page this site publishes or it carries no anchor at all — never a
+ * github.com fallback. (Link rot is the third case, and it throws.)
+ */
+type DocLinkResolution = { kind: 'page'; href: string } | { kind: 'delink' };
 
-function rewriteHref(href: string, currentFile: string): string {
-	if (/^(https?:|mailto:|#)/.test(href)) return href;
+/**
+ * Resolves one markdown link against the published doc set. Three outcomes, and
+ * the private repo is never one of them: a target on the allowlist becomes a
+ * site link; a target that exists in the repo but is not published — an ADR, a
+ * Brief, the schema JSON, anything above `docs/` — renders as plain text; and a
+ * target that exists nowhere is link rot, which throws and fails the build (this
+ * runs only during prerender, so the throw always surfaces there).
+ */
+function resolveDocLink(href: string, currentFile: string): DocLinkResolution {
+	if (/^(https?:|mailto:|#)/.test(href)) return { kind: 'page', href };
 	const [path, hash] = href.split('#');
 	const suffix = hash ? '#' + hash : '';
 	const dir = posix.dirname(currentFile);
 	let target = posix.normalize(posix.join(dir === '.' ? '' : dir, path));
-	if (target.startsWith('..')) {
-		const repoPath = posix.normalize(posix.join('docs', dir === '.' ? '' : dir, path));
-		return repoPath.startsWith('..') ? href : `${REPO_BLOB}/${repoPath}${suffix}`;
-	}
+	// escapes docs/ — ../src/…, ../AGENTS.md — so no page exists to link to
+	if (target.startsWith('..')) return { kind: 'delink' };
 	target = LINK_ALIASES[target] ?? target;
-	if (target.endsWith('.md')) {
-		// stale links in historical ADRs point at deleted docs — send those to GitHub, not a 404
-		if (!existsSync(resolve(DOCS_DIR, target))) return `${REPO_BLOB}/docs/${target}`;
-		return fileToHref(target) + suffix;
+	// a directory link stands for that directory's README
+	const file = target.endsWith('.md') ? target : posix.join(target, 'README.md');
+	if (PUBLISHED_FILES.has(file)) return { kind: 'page', href: fileToHref(file) + suffix };
+	if (existsSync(resolve(DOCS_DIR, target))) return { kind: 'delink' };
+	throw new Error(
+		`docs link rot: docs/${currentFile} links to "${href}", but docs/${target} does not exist. ` +
+			`Point it at a live doc or de-link it — the private repo is never a fallback.`
+	);
+}
+
+/**
+ * `link_close` tokens whose `link_open` de-linked, mapped to the markup that
+ * closes what the open rule emitted. markdown-it never nests links, so a
+ * link_open's match is simply the next link_close.
+ */
+const DELINKED_LINK_CLOSE = new WeakMap<Token, string>();
+
+function findLinkCloseIndex(tokens: Token[], idx: number): number {
+	for (let i = idx + 1; i < tokens.length; i += 1) {
+		if (tokens[i].type === 'link_close') return i;
 	}
-	if (existsSync(resolve(DOCS_DIR, target, 'README.md'))) return fileToHref(posix.join(target, 'README.md'));
-	return `${REPO_BLOB}/docs/${target}${suffix}`;
+	return -1;
 }
 
 let enginePromise: Promise<MarkdownIt> | null = null;
@@ -181,7 +170,11 @@ function getEngine(): Promise<MarkdownIt> {
 					.trim()
 					.replace(/[^\w\s-]/g, '')
 					.replace(/\s/g, '-'),
-			permalink: anchor.permalink.linkInsideHeader({ symbol: '#', class: 'h-anchor', placement: 'after' })
+			permalink: anchor.permalink.linkInsideHeader({
+				symbol: '#',
+				class: 'h-anchor',
+				placement: 'after'
+			})
 		});
 
 		md.renderer.rules.table_open = () => '<div class="table-wrap"><table>';
@@ -190,18 +183,52 @@ function getEngine(): Promise<MarkdownIt> {
 		const defaultLinkOpen =
 			md.renderer.rules.link_open ??
 			((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+		const defaultLinkClose =
+			md.renderer.rules.link_close ??
+			((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 		md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
 			const token = tokens[idx];
 			const href = token.attrGet('href');
 			if (href) {
-				const rewritten = rewriteHref(href, env.file as string);
-				token.attrSet('href', rewritten);
-				if (/^https?:/.test(rewritten)) {
+				const resolution = resolveDocLink(href, env.file as string);
+				if (resolution.kind === 'delink') {
+					// the link text stands in for the anchor as inline code; text that is
+					// already `code` keeps its own tags rather than nesting a second pair
+					const closeIdx = findLinkCloseIndex(tokens, idx);
+					const wrap = !(closeIdx === idx + 2 && tokens[idx + 1].type === 'code_inline');
+					if (closeIdx >= 0) DELINKED_LINK_CLOSE.set(tokens[closeIdx], wrap ? '</code>' : '');
+					return wrap ? '<code>' : '';
+				}
+				token.attrSet('href', resolution.href);
+				if (/^https?:/.test(resolution.href)) {
 					token.attrSet('target', '_blank');
 					token.attrSet('rel', 'noopener');
 				}
 			}
 			return defaultLinkOpen(tokens, idx, options, env, self);
+		};
+		md.renderer.rules.link_close = (tokens, idx, options, env, self) => {
+			const delinked = DELINKED_LINK_CLOSE.get(tokens[idx]);
+			if (delinked !== undefined) return delinked;
+			return defaultLinkClose(tokens, idx, options, env, self);
+		};
+
+		const defaultImage =
+			md.renderer.rules.image ??
+			((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+		md.renderer.rules.image = (tokens, idx, options, env, self) => {
+			const token = tokens[idx];
+			const src = token.attrGet('src');
+			if (src) {
+				const resolution = resolveDocLink(src, env.file as string);
+				// captures live in the repo but this site publishes no docs assets, so an
+				// unresolvable image leaves its caption behind rather than a broken <img>
+				if (resolution.kind === 'delink') {
+					return md.utils.escapeHtml(self.renderInlineAsText(token.children ?? [], options, env));
+				}
+				token.attrSet('src', resolution.href);
+			}
+			return defaultImage(tokens, idx, options, env, self);
 		};
 		return md;
 	})();
@@ -225,43 +252,35 @@ function extractHeadings(html: string): DocHeading[] {
 	return headings;
 }
 
-function flattenNav(nav: NavSection[]): DocMeta[] {
-	return nav.flatMap((section) => section.items);
-}
-
 export function getNav(): NavSection[] {
 	return buildNav();
 }
 
 export function getAllHrefs(): string[] {
-	return listAllFiles().map(fileToHref);
+	return PUBLISHED_DOCS.map((doc) => fileToHref(doc.file));
 }
 
 export async function getDoc(slug: string): Promise<DocPage | null> {
 	const href = '/' + slug;
-	const file = listAllFiles().find((f) => fileToHref(f) === href);
-	if (!file) return null;
+	const index = PUBLISHED_DOCS.findIndex((doc) => fileToHref(doc.file) === href);
+	if (index < 0) return null;
 
+	const meta = toMeta(PUBLISHED_DOCS[index]);
 	const md = await getEngine();
-	const src = readFileSync(resolve(DOCS_DIR, file), 'utf-8');
-	const html = md.render(src, { file });
-
-	const nav = buildNav();
-	const flat = flattenNav(nav);
-	const index = flat.findIndex((item) => item.href === href);
-	const meta = index >= 0 ? flat[index] : { file, href, title: readTitle(file), section: '' };
+	const src = readFileSync(resolve(DOCS_DIR, meta.file), 'utf-8');
+	const html = md.render(src, { file: meta.file });
 
 	return {
 		meta,
 		html,
 		headings: extractHeadings(html),
-		prev: index > 0 ? flat[index - 1] : null,
-		next: index >= 0 && index < flat.length - 1 ? flat[index + 1] : null
+		prev: index > 0 ? toMeta(PUBLISHED_DOCS[index - 1]) : null,
+		next: index < PUBLISHED_DOCS.length - 1 ? toMeta(PUBLISHED_DOCS[index + 1]) : null
 	};
 }
 
 export function getSearchIndex(): SearchEntry[] {
-	return flattenNav(buildNav()).map((item) => {
+	return PUBLISHED_DOCS.map(toMeta).map((item) => {
 		const src = readFileSync(resolve(DOCS_DIR, item.file), 'utf-8');
 		const text = src
 			.replace(/```[\s\S]*?```/g, ' ')

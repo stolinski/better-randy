@@ -26,6 +26,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"gen:identity": "node --experimental-strip-types scripts/generate-gfx-identity-assets.ts",
 		"gen:sounds": "node scripts/gen-foley-sounds.mjs",
+		"capture:workspace-loop": "node --experimental-strip-types scripts/cdp-capture-workspace-loop.ts",
 		"refresh:google-fonts": "node scripts/refresh-google-fonts-catalog.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && npm run lint && npm run check:discoverability && npm run check:names && npm run check:spawn-hygiene",
 		"check:discoverability": "node scripts/check-discoverability.mjs",

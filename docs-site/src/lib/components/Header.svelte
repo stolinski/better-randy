@@ -40,9 +40,6 @@
 			Search
 			<kbd>⌘K</kbd>
 		</button>
-		<a class="gh" href="https://github.com/stolinski/better-randy" target="_blank" rel="noopener">
-			GitHub
-		</a>
 	</nav>
 </header>
 
@@ -127,17 +124,6 @@
 		border: 1px solid var(--line-soft);
 		border-radius: 3px;
 		padding: 0.05rem 0.3rem;
-	}
-
-	.gh {
-		font-size: 0.8125rem;
-		color: var(--muted);
-		text-decoration: none;
-		transition: color 120ms;
-	}
-
-	.gh:hover {
-		color: var(--text);
 	}
 
 	@media (max-width: 56rem) {

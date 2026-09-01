@@ -11,13 +11,9 @@ const config = {
 			$identity: '../src/lib/assets/identity'
 		},
 		prerender: {
-			handleHttpError: ({ status, path, referrer, message }) => {
-				if (status === 404) {
-					console.warn(`docs link rot: ${path} (linked from ${referrer})`);
-					return;
-				}
-				throw new Error(message);
-			},
+			// No handleHttpError override on purpose: every docs link is resolved at
+			// build time (src/lib/server/docs.ts), so an internal 404 here is link rot
+			// and must fail the build — which is SvelteKit's default.
 			handleMissingId: ({ path, id }) => {
 				console.warn(`missing anchor: #${id} on ${path}`);
 			}

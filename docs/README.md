@@ -1,30 +1,61 @@
-# GFX docs index
+# GFX
 
-Entry point is [`../AGENTS.md`](../AGENTS.md) (auto-loaded; `CLAUDE.md` symlinks to it) — north star, binding rules, dispatcher. Each doc below has one purpose; don't load docs that don't apply to the task.
+GFX is a motion-graphics engine built on a web stack — WebGPU through TypeGPU, live
+HTML composited into the canvas, GSAP for timing. It renders two kinds of piece at
+native 4K: **transparent overlays** you composite over footage in an edit, and
+**full-frame segments** — bumpers, title cards, stat beats — that stand on their own.
 
-| Doc | Purpose | Load when |
-|---|---|---|
-| [`engine-architecture.md`](engine-architecture.md) | **The current-state blueprint** — data model, pipeline registry (live contents), render path, the Pack appearance system, output/orientation, and an honest "designed, not built" section. | Building or understanding how the engine works today; adding a Layer/Pipeline type. |
-| [`CONTEXT.md`](CONTEXT.md) | Glossary of project terms (Preset, Layer, Surface, Pack, Role, Pipeline, Critic, …). | A term is ambiguous, or you're about to use one yourself. |
-| [`preset-format.md`](preset-format.md) | The `gfx@1` Preset JSON format. Companion: [`preset-format.schema.json`](preset-format.schema.json) (machine-readable). | Authoring or validating a Preset. |
-| [`packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md) | The **Syntax** channel aesthetic: palette, type, surface vocabulary, collage system, motion vocabulary, anti-aesthetic. *(A different Pack carries different appearance.)* | Authoring for channel-fit; picking palette/type/chrome. |
-| [`quality-rubric.md`](quality-rubric.md) · [`animation-rubric.md`](animation-rubric.md) | The craft floor: R/Q-rules (render + composition) and G-rules (motion). Aesthetic-neutral. | Verifying a Preset; spawning the Critic. |
-| [`critic.md`](critic.md) | The adversarial observation protocol — advisory, never a gate *(build-harness — see [ADR-0001](adr/0001-critic-sub-agent-verification.md))*. | Running the Critic / acting on its findings. |
-| [`html-in-canvas-typegpu.md`](html-in-canvas-typegpu.md) | The WebGPU + WICG HTML-in-Canvas pattern, TypeGPU shape, WGSL pitfalls. | Building or fixing a Pipeline that mixes HTML-in-Canvas with shaders. |
-| [`adr/`](adr/) | Architecture Decision Records — the *why*. Start at the [**ADR index**](adr/README.md) (status + supersession chains). | Wondering why something is the way it is. |
-| [`roadmap.md`](roadmap.md) | **The single backlog** — designed/wanted/building, one entry per item with status. Absorbed the old `todos/` + `quality-roadmap`. | Looking for what's planned, or what's designed-but-unbuilt. |
-| [`project-control-plane.md`](project-control-plane.md) | The lean control plane — deterministic checks, the planning-drift audit, the `gfx-factory`, and the `sentry-autofix` lane. | Understanding how repo checks, planning audits, and automation fit together. |
-| [`user-composition-workflows.md`](user-composition-workflows.md) | User-composition interchange, validation, verification, and the CLI render/batch lane. | Importing/exporting compositions or automating renders. |
-| [`sentry-dev-flow.md`](sentry-dev-flow.md) | Sentry capture boundaries and the fix-broken-code loop. | Investigating runtime errors, traces, or export performance. |
-| [`production-serve-rollback-runbook.md`](production-serve-rollback-runbook.md) | Build the production image, serve the demo from it on a local production-shaped origin, confirm it with the two gates, and roll back to the previous release. | Serving or rolling back the production artifact. |
-| [`release-acceptance.md`](release-acceptance.md) | `pnpm seal:release-acceptance` — the evidence inventory every verifier needs a row in, why a seal fails, and the human aesthetic decisions that block it. | Claiming a release is accepted, or adding a verifier whose evidence should count. |
-| [`identity/`](identity/) | The ratified **Slate** brand mark — geometry, cuts, usage, and the legibility proof. | Touching a logo, favicon, masthead, or share card. |
-| [`ideas/`](ideas/) | Pre-design speculation — a thing that *might* be built someday. | Considering a new feature area not yet designed. |
-| [`history/`](history/) | Historical explorations and shipped design docs, kept for reference. | Tracing how a shipped design evolved. |
-| [`briefs/`](briefs/) | The in-flight build queue *(build-harness)* — one Brief per about-to-be-built Preset/Pipeline. | Starting/continuing the build of a specific thing. |
-| [`inspo/`](inspo/) | Channel reference images (`newspaper/`, `pullquote/`, `website/`). | Calibrating channel-fit; resolving an `aesthetic-miss`. |
-| [`critic-captures/`](critic-captures/) | Archived Critic investigation reports (cinematic audit, fade-bug forensics). | Following a roadmap/ADR pointer into a past investigation. |
+It is local-first. There is no service to sign into: you run the engine on your own
+machine, and the pieces you make stay there.
 
-**Maturity flow:** an idea graduates `ideas/` → `roadmap.md` (designed/wanted) → `briefs/` (about to build) → built → `adr/` (decided + true); historical explorations land in `history/`. The glossary, blueprint, and rubrics describe the present; the roadmap describes the future; the ADRs explain the past.
+Start at [Getting started](getting-started.md) — a clean clone to a frame on screen to
+an exported file.
 
-> `docs/aesthetic.md` is a redirect stub kept only so older references resolve — the real channel aesthetic is [`packs/syntax/aesthetic.md`](packs/syntax/aesthetic.md). Don't bind new work to the stub.
+## How a piece is put together
+
+A composition is a **Preset**: one JSON document in the `gfx@1` format. A Preset stacks
+five **Layers**, each drawn by a **Pipeline** from a registry.
+
+| Layer | What it draws |
+| --- | --- |
+| Surface | The scene the piece lives on — paper, a web document, an iMessage thread. |
+| Block | Content primitives — quotes, stats, timelines, diagrams, charts. |
+| Annotation | Hand-drawn marks — circles, underlines, arrows, highlights. |
+| Overlay | Chrome above the content — tape, badges, lower-third framing. |
+| Effect | Full-frame WGSL passes — grain, depth, light, bloom. |
+
+What a piece *says* lives in the Preset. What it *looks like* does not: appearance comes
+from a **Pack** — palette, type, texture, motion feel — that swaps underneath the same
+composition. The engine is general; the look is not.
+
+Overlays render transparent by default. A composition that declares a background fill
+becomes a full-frame piece instead, which changes how it is classified and encoded on
+the way out.
+
+## One composition, both shapes
+
+Every Preset renders horizontal (3840×2160, for YouTube) and vertical (2160×3840, for
+TikTok and Reels), at native resolution with each platform's safe areas respected.
+Switching orientation reflows the same piece rather than opening a second copy of it.
+*How* a piece reflows is a design decision; *whether* it does is not.
+
+Animation is driven from an explicit frame timestamp, never from wall-clock time, so a
+scrubbed preview and an exported file show the same pixels at the same moment.
+
+## Where to go next
+
+- [Getting started](getting-started.md) — what to install, how to run the engine, and
+  the one Chrome flag that stands between you and a rendered frame.
+- [Glossary](CONTEXT.md) — Preset, Layer, Pack, Role, Pipeline, and the rest of the
+  vocabulary, defined once.
+- [Preset format](preset-format.md) — the `gfx@1` JSON contract, field by field.
+
+## Packs
+
+Four Packs ship with the engine. Each documents its own palette, type system, surface
+vocabulary, motion feel, and the things it refuses to do.
+
+- [Syntax](packs/syntax/aesthetic.md) — the house channel aesthetic.
+- [CRT Terminal](packs/crt-terminal/aesthetic.md) — phosphor, scanlines, glow.
+- [Editorial Mono](packs/editorial-mono/aesthetic.md) — print-desk restraint.
+- [Clean Light](packs/clean-light/aesthetic.md) — bright, plain, unfussy.

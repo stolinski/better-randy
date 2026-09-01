@@ -65,6 +65,7 @@ Always read the doc named here for the task type. Skipping the dispatched doc is
 | Serving the production artifact locally, or rolling one back                      | [`docs/production-serve-rollback-runbook.md`](docs/production-serve-rollback-runbook.md) — build, serve, confirm with `pnpm verify:production-image` and `pnpm verify:production-demo`, roll back and read the release identity out of `/api/health`                              |
 | Investigating runtime errors, traces, or export performance                       | [`docs/sentry-dev-flow.md`](docs/sentry-dev-flow.md) — Sentry capture boundaries and the fix-broken-code loop                                                                                                                                                                     |
 | Claiming a release is accepted, or adding a verifier whose evidence counts        | [`docs/release-acceptance.md`](docs/release-acceptance.md) — `pnpm seal:release-acceptance`, the evidence inventory every artifact needs a row in, and the two human aesthetic decisions                                                                                          |
+| Refreshing the app loop on gfx.computer's home page (the Workspace UI changed)    | `pnpm capture:workspace-loop [preset-slug]` (`scripts/cdp-capture-workspace-loop.ts`) — starts its own jailed dev server and the sanctioned CanvasDrawElement Chrome, steps the composition frame by frame, then rewrites `gfx-workspace.mp4`, its poster, and `workspace-loop.json`; needs ffmpeg on `PATH` |
 
 ## Repo layout
 

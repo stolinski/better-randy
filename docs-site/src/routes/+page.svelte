@@ -1,5 +1,11 @@
 <script lang="ts">
 	import gfxLogotype from '$identity/gfx-logotype.svg';
+	// The loop the hero plays and what it is, written by `pnpm capture:workspace-loop`
+	// alongside the video and its poster, so the page never states a runtime or a
+	// frame size the recording does not have.
+	import workspaceLoop from '$lib/workspace-loop.json';
+
+	const runtime = `${Math.floor(workspaceLoop.durationSeconds / 60)}:${(workspaceLoop.durationSeconds % 60).toFixed(2).padStart(5, '0')}`;
 
 	const layers = [
 		{ name: 'Surface', blurb: 'The scene a piece lives on — paper, web document, iMessage.' },
@@ -11,9 +17,9 @@
 
 	const doors = [
 		{
-			href: '/engine-architecture',
-			title: 'Engine',
-			blurb: 'The data model, pipeline registry, render path, and Pack appearance system.'
+			href: '/overview',
+			title: 'Overview',
+			blurb: 'What GFX renders, how a piece is put together, and what it takes to run one.'
 		},
 		{
 			href: '/preset-format',
@@ -21,9 +27,10 @@
 			blurb: 'The gfx@1 Preset JSON format — compositions authored by GUI and agents alike.'
 		},
 		{
-			href: '/quality-rubric',
-			title: 'Quality',
-			blurb: 'The craft floor: render, composition, and motion rubrics every piece must pass.'
+			href: '/packs/syntax/aesthetic',
+			title: 'Packs',
+			blurb:
+				'Appearance is swappable — palette, type, texture, and motion feel, supplied by a Pack.'
 		}
 	];
 </script>
@@ -42,22 +49,38 @@
 			<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i
 				class="corner br"
 			></i>
-			<div class="playhead"></div>
+			<video
+				class="app"
+				width={workspaceLoop.videoWidth}
+				height={workspaceLoop.videoHeight}
+				poster={workspaceLoop.poster}
+				aria-label="The GFX Workspace playing {workspaceLoop.presetName}: the piece builds on the canvas, the composition inspector reads it back, and the playhead crosses one timeline track per layer."
+				autoplay
+				loop
+				muted
+				playsinline
+			>
+				<!-- `media` leaves the loop unselected where reduced motion was asked
+				     for, so that visitor gets the poster — a frame of this same
+				     recording — held still. -->
+				<source
+					src={workspaceLoop.video}
+					type="video/mp4"
+					media="(prefers-reduced-motion: no-preference)"
+				/>
+			</video>
+			<div class="strip">
+				<span>{runtime}</span>
+				<span>{workspaceLoop.compositionWidth} × {workspaceLoop.compositionHeight}</span>
+				<span>gfx@1</span>
+			</div>
 			<h1>Broadcast&#8209;grade motion graphics, on&nbsp;a&nbsp;web&nbsp;stack.</h1>
 			<p class="sub">
 				GFX is an opinionated motion-graphics engine — TypeGPU, HTML&#8209;in&#8209;Canvas, GSAP —
 				that renders transparent overlays and full-frame pieces at native 4K, authored with full
 				parity by a GUI and by agents over one composition model.
 			</p>
-			<div class="cta">
-				<a class="primary" href="/overview">Read the docs</a>
-				<a class="secondary" href="/engine-architecture">Engine architecture</a>
-			</div>
-			<div class="strip">
-				<span>00:00:04:12</span>
-				<span>3840×2160 · α</span>
-				<span>gfx@1</span>
-			</div>
+			<a class="cta" href="/getting-started">Get started</a>
 		</div>
 	</section>
 
@@ -86,7 +109,6 @@
 
 	<footer>
 		<img class="footer-logotype" src={gfxLogotype} alt="GFX" width="38" height="15" />
-		<a href="https://github.com/stolinski/better-randy" target="_blank" rel="noopener">GitHub</a>
 	</footer>
 </main>
 
@@ -97,16 +119,15 @@
 		padding: 0 1.5rem;
 	}
 
-	/* ————— hero: a broadcast monitor with safe-area brackets ————— */
+	/* ————— hero: the app playing, inside safe-area brackets ————— */
 
 	.hero {
-		padding: 4.5rem 0 3rem;
+		padding: 2.5rem 0 1.5rem;
 	}
 
 	.frame {
 		position: relative;
-		padding: 4.5rem 3.5rem 3.75rem;
-		overflow: hidden;
+		padding: 2.5rem 3.5rem 3.75rem;
 	}
 
 	.corner {
@@ -144,30 +165,14 @@
 		border-right-width: 1px;
 	}
 
-	.playhead {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		left: 0;
-		width: 1px;
-		background: linear-gradient(
-			to bottom,
-			transparent,
-			color-mix(in srgb, var(--signal-y) 45%, transparent) 30%,
-			color-mix(in srgb, var(--signal-y) 45%, transparent) 70%,
-			transparent
-		);
-		animation: sweep 14s linear infinite;
-		pointer-events: none;
-	}
-
-	@keyframes sweep {
-		from {
-			translate: 0 0;
-		}
-		to {
-			translate: min(68rem, calc(100vw - 3rem)) 0;
-		}
+	/* The loop leads, so the headline reads as a caption under the running app. */
+	.app {
+		display: block;
+		inline-size: 100%;
+		block-size: auto;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		background: var(--panel);
 	}
 
 	h1 {
@@ -176,7 +181,7 @@
 		font-weight: 680;
 		letter-spacing: -0.022em;
 		line-height: 1.04;
-		margin: 0;
+		margin: 2.5rem 0 0;
 		max-width: 17ch;
 		text-wrap: balance;
 	}
@@ -190,45 +195,26 @@
 	}
 
 	.cta {
-		display: flex;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
-	.cta a {
+		display: inline-block;
 		font-size: 0.875rem;
 		font-weight: 600;
 		text-decoration: none;
 		border-radius: 6px;
 		padding: 0.625rem 1.125rem;
-		transition:
-			background 120ms,
-			border-color 120ms;
-	}
-
-	.primary {
 		background: var(--signal-y);
 		color: #111;
+		transition: background 120ms;
 	}
 
-	.primary:hover {
+	.cta:hover {
 		background: color-mix(in srgb, var(--signal-y) 88%, #fff);
-	}
-
-	.secondary {
-		color: var(--text);
-		border: 1px solid var(--line);
-	}
-
-	.secondary:hover {
-		border-color: var(--muted);
 	}
 
 	.strip {
 		display: flex;
 		justify-content: space-between;
 		gap: 1rem;
-		margin-top: 3.5rem;
+		margin-top: 0.75rem;
 		font-family: var(--mono);
 		font-size: 0.6875rem;
 		letter-spacing: 0.08em;
@@ -331,26 +317,12 @@
 	}
 
 	footer {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
 		padding: 1.5rem 0 2rem;
 		border-top: 1px solid var(--line-soft);
-		font-size: 0.8125rem;
-		color: var(--faint);
 	}
 
 	.footer-logotype {
 		display: block;
-	}
-
-	footer a {
-		color: var(--muted);
-		text-decoration: none;
-	}
-
-	footer a:hover {
-		color: var(--text);
 	}
 
 	@media (max-width: 56rem) {

@@ -4,9 +4,6 @@
 	let { data } = $props();
 
 	const doc = $derived(data.doc);
-	const sourceUrl = $derived(
-		`https://github.com/stolinski/better-randy/blob/main/docs/${doc.meta.file}`
-	);
 </script>
 
 <svelte:head>
@@ -16,8 +13,8 @@
 <main>
 	<article>
 		<p class="kicker">
-			{#if doc.meta.section}<span>{doc.meta.section}</span>{/if}
-			<a href={sourceUrl} target="_blank" rel="noopener">docs/{doc.meta.file}</a>
+			{#if doc.meta.section}<span class="section">{doc.meta.section}</span>{/if}
+			<span class="source">docs/{doc.meta.file}</span>
 		</p>
 		<div class="prose">
 			<!-- eslint-disable-next-line svelte/no-at-html-tags — HTML is rendered from the repo's own markdown -->
@@ -67,19 +64,14 @@
 		margin: 0 0 1.25rem;
 	}
 
-	.kicker span {
+	.kicker .section {
 		color: var(--signal-y);
 	}
 
-	.kicker a {
+	.kicker .source {
 		color: var(--faint);
-		text-decoration: none;
 		text-transform: none;
 		letter-spacing: 0.02em;
-	}
-
-	.kicker a:hover {
-		color: var(--muted);
 	}
 
 	footer {

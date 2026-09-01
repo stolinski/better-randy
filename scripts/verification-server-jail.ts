@@ -75,7 +75,11 @@ export async function createVerificationServerJail(label: string): Promise<Verif
 			GFX_EXPORT_TEMPORARY_DIRECTORY: exportTemporaryDirectory
 		},
 		dispose: async (): Promise<void> => {
-			await rm(root, { recursive: true, force: true });
+			// Chrome keeps flushing its profile for a moment after it stops answering
+			// on the debug port, so a jail holding a browser profile can still be
+			// refilled while it is being removed. Retry rather than fail a run whose
+			// work is already written.
+			await rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 		}
 	};
 }

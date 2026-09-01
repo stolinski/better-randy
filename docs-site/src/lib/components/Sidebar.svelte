@@ -23,7 +23,6 @@
 								aria-current={page.url.pathname === item.href ? 'page' : undefined}
 								onclick={close}
 							>
-								{#if item.badge}<span class="badge">{item.badge}</span>{/if}
 								{item.title}
 							</a>
 						</li>
@@ -97,13 +96,6 @@
 		background: var(--panel);
 		border-left-color: var(--signal-y);
 		border-radius: 0 5px 5px 0;
-	}
-
-	.badge {
-		font-family: var(--mono);
-		font-size: 0.6563rem;
-		color: var(--faint);
-		flex-shrink: 0;
 	}
 
 	.scrim {
