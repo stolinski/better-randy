@@ -17,8 +17,8 @@ A **work item is a Dex task id** (e.g. `xsly7zza`). Pick candidates with
 
 ## The machine
 
-`implement → verify → (aesthetic-review when visual) → integrate → done`,
-with rework loop-backs into `implement`. Run `swamp model method run
+`implement → verify → (aesthetic-review when visual) → integrate → serve →
+done`, with rework loop-backs into `implement`. Run `swamp model method run
 gfx-factory describe` for the Mermaid when in doubt.
 
 - **implement** — dispatches `gfx-agent` (`invokeAndParse`), which does all
@@ -45,9 +45,9 @@ gfx-factory describe` for the Mermaid when in doubt.
   judges in two minutes; they approve via the `aesthetic-approval` gate, and
   a rejection records their verbatim reason. Non-visual work ships with no
   human gate. To serve the worktree: `pnpm build && pnpm preview` inside it
-  (port 4173) and capture via the CDP harness — the "never start a dev
-  server" rule protects the long-running `:7263` primary instance, not a
-  throwaway worktree preview.
+  (port 4173) and capture via the CDP harness — the serving rule protects
+  the supervised `:7263` production serve and the `:4173` review route, not
+  a throwaway worktree preview on another port.
 - **integrate** — `gfx-integration-git.cherry_pick` of the work item's
   commit onto `main` in the primary checkout. A real content conflict routes
   back to implement (the agent rebases and recommits). Unrelated dirty files
@@ -55,6 +55,13 @@ gfx-factory describe` for the Mermaid when in doubt.
   *uncommitted primary-checkout edits to the same files being landed*, stop —
   that is a genuine collision with the human's in-progress work: tell them
   and let them decide; do not loop the rework transition on it.
+- **serve** — `gfx-verify.rebuild_and_smoke` rebuilds the primary checkout's
+  production artifact (`pnpm build`), restarts the supervised `gfx` project
+  through `local-dev-control`, and smokes `https://gfx.robo.online`: HTTP
+  200, a `<title>`, `/api/health` 200, and the `gfx-release` meta equal to
+  `gfx@<main HEAD>` — so the prod URL never silently serves stale main. A
+  smoke failure is operational, not implementation: the run stays in `serve`
+  with failed evidence for the human; there is no rework loop-back from here.
 
 ## Driving loop (per work item)
 

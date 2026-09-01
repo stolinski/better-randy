@@ -20,6 +20,12 @@
  * runs against whatever the worktree contains — a dirty primary checkout or
  * unrelated local state is never an admission failure here.
  *
+ * `rebuild_and_smoke` is the Factory's post-integration `serve` seam: after a
+ * cherry-pick lands on main it rebuilds the primary checkout's production
+ * artifact, restarts the supervised `gfx` project through `local-dev-control`,
+ * and proves the live origin serves the landed commit (status, title, and the
+ * `gfx-release` meta) — so gfx.robo.online never silently serves stale main.
+ *
  * @module
  */
 import { z } from "npm:zod@4";
@@ -43,6 +49,12 @@ const RunChecksArgumentsSchema = z.object({
 	suites: z.array(SuiteNameSchema).min(1).optional(),
 });
 
+const RebuildAndSmokeArgumentsSchema = z.object({
+	repoPath: z.string().min(1),
+	projectName: z.string().min(1).regex(/^[a-z0-9-]+$/),
+	originUrl: z.string().url(),
+});
+
 const SuiteOutcomeSchema = z.object({
 	name: SuiteNameSchema,
 	exitCode: z.number(),
@@ -58,6 +70,22 @@ const VerificationSchema = z.object({
 	suites: z.array(SuiteOutcomeSchema),
 	failedSuites: z.array(SuiteNameSchema),
 	passed: z.boolean(),
+});
+
+const ServingSmokeSchema = z.object({
+	ranAt: z.string(),
+	repoPath: z.string(),
+	projectName: z.string(),
+	originUrl: z.string(),
+	landedSha: z.string(),
+	buildMs: z.number(),
+	restarted: z.boolean(),
+	httpStatus: z.number().nullable(),
+	healthStatus: z.number().nullable(),
+	title: z.string().nullable(),
+	servedRelease: z.string().nullable(),
+	passed: z.boolean(),
+	failure: z.string().nullable(),
 });
 
 type SuitePlan = { name: VerificationSuiteName; command: string[] };
@@ -168,6 +196,23 @@ export function deriveVerificationSuites(
 	return plans;
 }
 
+/**
+ * The `<title>` of a served app shell, for the post-integration smoke.
+ * Exported for its colocated test.
+ */
+export function extractHtmlTitle(html: string): string | null {
+	return /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? null;
+}
+
+/**
+ * The `gfx-release` meta of a served app shell — the release identity a
+ * browser can read back after a deploy or rollback (ADR-0052). Exported for
+ * its colocated test.
+ */
+export function extractServedReleaseMeta(html: string): string | null {
+	return /<meta\s+name="gfx-release"\s+content="([^"]*)"/.exec(html)?.[1] || null;
+}
+
 type MethodContext = {
 	repoDir: string;
 	logger: { info: (msg: string, props?: Record<string, unknown>) => void };
@@ -185,13 +230,20 @@ type MethodContext = {
 /** Model definition for the GFX deterministic verification runner. */
 export const model = {
 	type: "@gfx/verify",
-	version: "2026.08.28.2",
+	version: "2026.09.01.1",
 	globalArguments: GlobalArgsSchema,
 	resources: {
 		verification: {
 			description:
 				"Per-suite check outcome for one labelled verification run (instances: verification-<label>)",
 			schema: VerificationSchema,
+			lifetime: "infinite",
+			garbageCollection: 25,
+		},
+		serving: {
+			description:
+				"Post-integration rebuild + live-serve smoke outcome for one supervised project (instances: serving-<projectName>)",
+			schema: ServingSmokeSchema,
 			lifetime: "infinite",
 			garbageCollection: 25,
 		},
@@ -311,6 +363,175 @@ export const model = {
 					);
 				}
 				return { dataHandles };
+			},
+		},
+		rebuild_and_smoke: {
+			description:
+				"Rebuild the primary checkout's production artifact, restart its supervised local-dev project, and smoke the live origin (status, title, gfx-release meta) against the landed commit",
+			arguments: RebuildAndSmokeArgumentsSchema,
+			execute: async (
+				args: z.infer<typeof RebuildAndSmokeArgumentsSchema>,
+				context: MethodContext,
+			) => {
+				try {
+					await Deno.stat(`${args.repoPath}/package.json`);
+				} catch {
+					throw new TypeError(
+						`repoPath is not a checkout root (no package.json): ${args.repoPath}`,
+					);
+				}
+
+				const smoke: z.infer<typeof ServingSmokeSchema> = {
+					ranAt: new Date().toISOString(),
+					repoPath: args.repoPath,
+					projectName: args.projectName,
+					originUrl: args.originUrl,
+					landedSha: "",
+					buildMs: 0,
+					restarted: false,
+					httpStatus: null,
+					healthStatus: null,
+					title: null,
+					servedRelease: null,
+					passed: false,
+					failure: null,
+				};
+				const failureTails: string[] = [];
+
+				const runStep = async (
+					label: string,
+					command: string[],
+				): Promise<{ code: number; stdout: string; stderr: string }> => {
+					const startedAt = Date.now();
+					const { code, stdout, stderr } = await new Deno.Command(command[0], {
+						args: command.slice(1),
+						cwd: args.repoPath,
+						stdout: "piped",
+						stderr: "piped",
+					}).output();
+					context.logger.info("serve smoke {step}: exit {code} in {ms}ms", {
+						step: label,
+						code,
+						ms: Date.now() - startedAt,
+					});
+					const decoded = {
+						code,
+						stdout: new TextDecoder().decode(stdout),
+						stderr: new TextDecoder().decode(stderr),
+					};
+					if (code !== 0) {
+						failureTails.push(
+							`=== ${label} (exit ${code}) ===\n${decoded.stdout.slice(-2000)}\n${decoded.stderr.slice(-2000)}`,
+						);
+					}
+					return decoded;
+				};
+
+				const record = async (failure: string | null) => {
+					smoke.failure = failure;
+					smoke.passed = failure === null;
+					const dataHandles = [
+						await context.writeResource(
+							"serving",
+							`serving-${args.projectName}`,
+							smoke,
+						),
+					];
+					if (failureTails.length > 0) {
+						const logWriter = context.createFileWriter(
+							"log",
+							`log-serving-${args.projectName}`,
+						);
+						dataHandles.push(
+							await logWriter.writeText(failureTails.join("\n\n")),
+						);
+					}
+					if (failure !== null) {
+						throw new Error(
+							`serve smoke failed for ${args.projectName}: ${failure} (details in serving-${args.projectName})`,
+						);
+					}
+					return { dataHandles };
+				};
+
+				const revParse = await runStep("rev-parse", [
+					"git",
+					"rev-parse",
+					"HEAD",
+				]);
+				if (revParse.code !== 0) return record("git rev-parse HEAD failed");
+				smoke.landedSha = revParse.stdout.trim();
+
+				const buildStartedAt = Date.now();
+				const build = await runStep("build", ["pnpm", "run", "build"]);
+				smoke.buildMs = Date.now() - buildStartedAt;
+				if (build.code !== 0) return record("pnpm build failed");
+
+				// local-dev-control's restart contract fails when the project's port
+				// does not become reachable again, so a zero exit means the new
+				// artifact is what answers the port.
+				const restart = await runStep("restart", [
+					"swamp-local",
+					"model",
+					"method",
+					"run",
+					"local-dev-control",
+					"restart",
+					"--input",
+					`name=${args.projectName}`,
+				]);
+				if (restart.code !== 0) return record("supervised restart failed");
+				smoke.restarted = true;
+
+				let shellHtml: string | null = null;
+				for (let attempt = 0; attempt < 5 && shellHtml === null; attempt++) {
+					if (attempt > 0) {
+						await new Promise((settle) => setTimeout(settle, 2000));
+					}
+					try {
+						const response = await fetch(args.originUrl, {
+							signal: AbortSignal.timeout(15_000),
+						});
+						smoke.httpStatus = response.status;
+						const body = await response.text();
+						if (response.status === 200) shellHtml = body;
+					} catch {
+						smoke.httpStatus = null;
+					}
+				}
+				if (shellHtml === null) {
+					return record(
+						`the origin did not answer 200 (last status: ${smoke.httpStatus})`,
+					);
+				}
+
+				smoke.title = extractHtmlTitle(shellHtml);
+				smoke.servedRelease = extractServedReleaseMeta(shellHtml);
+				try {
+					const health = await fetch(`${args.originUrl}/api/health`, {
+						signal: AbortSignal.timeout(15_000),
+					});
+					smoke.healthStatus = health.status;
+					await health.body?.cancel();
+				} catch {
+					smoke.healthStatus = null;
+				}
+
+				if (smoke.title === null || smoke.title.length === 0) {
+					return record("the served app shell carries no <title>");
+				}
+				const expectedRelease = `gfx@${smoke.landedSha}`;
+				if (smoke.servedRelease !== expectedRelease) {
+					return record(
+						`served gfx-release is ${smoke.servedRelease ?? "absent"}, expected ${expectedRelease}`,
+					);
+				}
+				if (smoke.healthStatus !== 200) {
+					return record(
+						`/api/health answered ${smoke.healthStatus ?? "nothing"}, expected 200`,
+					);
+				}
+				return record(null);
 			},
 		},
 	},

@@ -1,8 +1,14 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 
-import { deriveVerificationSuites, model } from "./gfx-verify.ts";
+import {
+	deriveVerificationSuites,
+	extractHtmlTitle,
+	extractServedReleaseMeta,
+	model,
+} from "./gfx-verify.ts";
 
 const runChecks = model.methods.run_checks;
+const rebuildAndSmoke = model.methods.rebuild_and_smoke;
 
 function silentContext() {
 	return {
@@ -118,6 +124,70 @@ Deno.test("run_checks fails fast when worktreePath is not a checkout root", asyn
 		TypeError,
 		"not a checkout root",
 	);
+});
+
+Deno.test("extractHtmlTitle reads the app shell title", () => {
+	assertEquals(
+		extractHtmlTitle("<html><head><title>GFX — chapter-card</title></head>"),
+		"GFX — chapter-card",
+	);
+	assertEquals(extractHtmlTitle("<html><head></head><body></body>"), null);
+});
+
+Deno.test("extractServedReleaseMeta reads the gfx-release meta", () => {
+	assertEquals(
+		extractServedReleaseMeta(
+			'<meta name="gfx-release" content="gfx@08c3b6dd6fd6a25d0cc450c0acfe0fed92c3d7f7" />',
+		),
+		"gfx@08c3b6dd6fd6a25d0cc450c0acfe0fed92c3d7f7",
+	);
+	// An unsubstituted or empty placeholder is an absent release, not "".
+	assertEquals(
+		extractServedReleaseMeta('<meta name="gfx-release" content="" />'),
+		null,
+	);
+	assertEquals(extractServedReleaseMeta("<head></head>"), null);
+});
+
+Deno.test("rebuild_and_smoke arguments reject a path-unsafe project name", () => {
+	const result = rebuildAndSmoke.arguments.safeParse({
+		repoPath: "/tmp/somewhere",
+		projectName: "../gfx",
+		originUrl: "https://gfx.robo.online",
+	});
+	assertEquals(result.success, false);
+});
+
+Deno.test("rebuild_and_smoke fails fast when repoPath is not a checkout root", async () => {
+	const args = rebuildAndSmoke.arguments.parse({
+		repoPath: "/tmp/definitely-not-a-checkout-root",
+		projectName: "gfx",
+		originUrl: "https://gfx.robo.online",
+	});
+	await assertRejects(
+		() => rebuildAndSmoke.execute(args, silentContext()),
+		TypeError,
+		"not a checkout root",
+	);
+});
+
+Deno.test("serving resource schema accepts a recorded smoke outcome", () => {
+	const smoke = model.resources.serving.schema.parse({
+		ranAt: new Date().toISOString(),
+		repoPath: "/tmp/checkout",
+		projectName: "gfx",
+		originUrl: "https://gfx.robo.online",
+		landedSha: "08c3b6dd6fd6a25d0cc450c0acfe0fed92c3d7f7",
+		buildMs: 42_000,
+		restarted: true,
+		httpStatus: 200,
+		healthStatus: 200,
+		title: "GFX",
+		servedRelease: "gfx@08c3b6dd6fd6a25d0cc450c0acfe0fed92c3d7f7",
+		passed: true,
+		failure: null,
+	});
+	assertEquals(smoke.passed, true);
 });
 
 Deno.test("verification resource schema accepts a recorded outcome", () => {

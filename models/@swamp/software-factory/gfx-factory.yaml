@@ -192,13 +192,36 @@ globalArguments:
         resultEvidence: integrate-run
       transitions:
         - name: finish
-          to: done
+          to: serve
           gates:
             - { type: evidence-recorded, config: { name: integrate-run, requireField: { status: succeeded } } }
         - name: conflict
           to: implement
           gates:
             - { type: evidence-recorded, config: { name: integrate-run, requireField: { status: failed } } }
+
+    # gfx.robo.online serves the production build of main (am620r1o): every
+    # integration rebuilds the primary artifact, restarts the supervised serve,
+    # and smokes the live origin against the landed commit — the absent check
+    # behind the Aug 31 outage (dpqjz38j). A smoke failure is operational, not
+    # implementation: the run stays here with failed evidence for the human.
+    - id: serve
+      description: Rebuild the primary artifact and prove gfx.robo.online serves the landed commit.
+      work:
+        mode: method
+        method:
+          modelIdOrName: gfx-verify
+          methodName: rebuild_and_smoke
+          inputs:
+            repoPath: /Users/scotttolinski/Sites/properties/gfx-computer
+            projectName: gfx
+            originUrl: https://gfx.robo.online
+        resultEvidence: serve-run
+      transitions:
+        - name: finish
+          to: done
+          gates:
+            - { type: evidence-recorded, config: { name: serve-run, requireField: { status: succeeded } } }
 
     - id: done
       terminal: true

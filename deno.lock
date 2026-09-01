@@ -37,7 +37,7 @@
         "npm:@fontsource/space-grotesk@^5.2.10",
         "npm:@fontsource/space-mono@^5.2.9",
         "npm:@sentry/sveltekit@^10.67.0",
-        "npm:@sveltejs/adapter-cloudflare@^7.2.9",
+        "npm:@sveltejs/adapter-node@^5.5.7",
         "npm:@sveltejs/kit@^2.69.2",
         "npm:@sveltejs/vite-plugin-svelte@^7.2.0",
         "npm:@types/node@^26.1.1",
@@ -61,7 +61,6 @@
         "npm:vite@^8.1.4",
         "npm:vitest@4.1",
         "npm:wgpu-matrix@^3.4.2",
-        "npm:wrangler@^4.110.0",
         "npm:zod@^4.4.3"
       ]
     }
