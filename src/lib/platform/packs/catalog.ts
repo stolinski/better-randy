@@ -73,6 +73,11 @@ const PACK_CATALOG_ENTRIES = {
 		humanRatifiedAt: '2026-08-19',
 		verificationBundleId: '6153d4518407af5aaa7ea982ff2a2619a6ea8913941552d136b39c83959e3dc8',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
+	},
+	// Promoted from the `sentry` User Pack (ADR-0055 drafting lane, playbook
+	// § 7); draft until Scott ratifies its Calibration Trio.
+	sentry: {
+		status: 'draft'
 	}
 } satisfies Readonly<Record<PackCatalogSlug, PackCatalogMetadata>>;
 

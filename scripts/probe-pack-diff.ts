@@ -121,6 +121,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { PNG } from 'pngjs';
 
+import { readGfxEnvironmentValue } from '../src/lib/utils/legacy-supers-compatibility.ts';
+
 // The Pack manifests transitively import @fontsource side-effect stylesheets
 // (`packs/syntax/fonts.ts`), which Node/tsx cannot load — stub `.css` modules
 // so the registry is importable outside Vite (same pattern as verify-presets).
@@ -136,6 +138,9 @@ registerHooks({
 const scriptPath = fileURLToPath(import.meta.url);
 const here = dirname(scriptPath);
 const repoRoot = resolve(here, '..');
+// The serve under measurement: the supervised production origin by default;
+// a worktree's own jailed preview when authoring a pack that has not landed.
+const BASE_URL = readGfxEnvironmentValue(process.env, 'GFX_BASE_URL') ?? 'http://localhost:7263';
 const presetDir = resolve(repoRoot, 'src/lib/presets');
 const packSourceDir = resolve(repoRoot, 'src/lib/packs');
 const identityRegistryModulePath = resolve(
@@ -1375,7 +1380,7 @@ async function runJob(job: CaptureJob): Promise<PresetReportEntry> {
 	if (!scan) {
 		throw new Error(`Preset "${job.slug}" disappeared between scan and run`);
 	}
-	const url = `http://localhost:7263/p/${job.slug}`;
+	const url = `${BASE_URL}/p/${job.slug}`;
 	await session.send('Page.navigate', { url });
 	await sleep(1800);
 	await waitReady(session, job.slug);

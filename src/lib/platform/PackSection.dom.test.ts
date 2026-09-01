@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { packState } from './engine-state.svelte';
+import { getAuthoringPackOption } from './packs/catalog';
 import { getPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { userPackAuthoring } from './user-pack-authoring.svelte';
 import { unregisterLoadedUserPack } from './user-pack-runtime.svelte';
@@ -111,7 +112,7 @@ describe('Pack control (ADR-0055)', () => {
 		const stored = await screen.findByRole('option', { name: 'My brand · User' });
 		const options = screen.getAllByRole('option').map((option) => option.textContent);
 		expect(options.slice(0, Object.keys(PACK_REGISTRY).length)).toEqual(
-			Object.values(PACK_REGISTRY).map((pack) => pack.label)
+			Object.keys(PACK_REGISTRY).map((slug) => getAuthoringPackOption(slug).label)
 		);
 		expect(options.at(-1)).toBe(stored.textContent);
 	});

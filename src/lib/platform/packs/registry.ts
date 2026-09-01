@@ -12,12 +12,14 @@ import { syntaxPack } from '$lib/packs/syntax/manifest';
 import { editorialMonoPack } from '$lib/packs/editorial-mono/manifest';
 import { crtTerminalPack } from '$lib/packs/crt-terminal/manifest';
 import { cleanLightPack } from '$lib/packs/clean-light/manifest';
+import { sentryPack } from '$lib/packs/sentry/manifest';
 
 export const PACK_REGISTRY_SLUGS = [
 	'syntax',
 	'editorial-mono',
 	'crt-terminal',
-	'clean-light'
+	'clean-light',
+	'sentry'
 ] as const;
 export type PackRegistrySlug = (typeof PACK_REGISTRY_SLUGS)[number];
 
@@ -25,7 +27,8 @@ export const PACK_REGISTRY: Readonly<Record<string, PackManifest>> = {
 	syntax: syntaxPack,
 	'editorial-mono': editorialMonoPack,
 	'crt-terminal': crtTerminalPack,
-	'clean-light': cleanLightPack
+	'clean-light': cleanLightPack,
+	sentry: sentryPack
 };
 
 /**
