@@ -1,10 +1,10 @@
 # Project control plane
 
 How GFX keeps code, planning state, and automation honest. The control
-plane is deliberately small: deterministic repo checks, one planning-drift
-audit, one Delivery factory, and one scheduled Sentry repair lane. Behavior
-lives in stage definitions, prompts, and plain scripts — not in bespoke
-extension code.
+plane is deliberately small: direct work in isolated linked worktrees,
+deterministic repo checks, one planning-drift audit, an optional Delivery
+factory, and one scheduled Sentry repair lane. Behavior lives in instructions,
+stage definitions, prompts, and plain scripts — not in bespoke extension code.
 
 ## Deterministic checks
 
@@ -22,8 +22,8 @@ never an admission or verification concern):
 | `pnpm audit:planning`   | planning-state drift audit (below)                                  |
 
 CI (`.github/workflows/quality.yml`) runs exactly these plus build and the
-browser render test — the local factory and CI cannot disagree about what
-"green" means.
+browser render test. Direct delivery, factory-assisted delivery, and CI share
+these commands, so the meaning of "green" does not depend on who ran the work.
 
 ## Planning-drift audit
 
@@ -35,6 +35,15 @@ Briefs that outlived their work, open Dex tasks describing shipped work,
 blocker contradictions, and co-equal strategic ready leaves. Gating findings
 exit 1; advisories never gate. The `gfx-planning` skill runs it at the end
 of every planning pass.
+
+## Documentation and planning sync
+
+Documentation updates are part of implementation, not a follow-up request. Every
+delivery path uses the dispatcher in `AGENTS.md` to identify the governing docs
+and updates affected reference docs, ADRs, Briefs, roadmap entries, and Dex state
+in the same change. `pnpm audit:planning` and the structural checks catch the
+machine-checkable drift; the implementing agent must also resolve narrative
+documentation impact before reporting the change as complete.
 
 ## Name-disposition check
 
@@ -61,18 +70,22 @@ identity is a commit in this repository plus the image built from it, never a
 deployed URL, because public deployment is descoped and there is no origin to
 interrogate. See [`release-acceptance.md`](release-acceptance.md).
 
-## Delivery factory
+## Direct and factory-assisted delivery
 
-`gfx-factory` — a `@swamp/software-factory` instance whose definition
-lives in `models/@swamp/software-factory/gfx-factory.yaml` (~6 stages).
-Work items are Dex task ids; implementation happens in isolated worktrees
-from `main`; `gfx-verify.run_checks` (the one custom extension model,
-`extensions/models/gfx-verify.ts`) runs suites derived deterministically
-from the change's `filesChanged` — swamp-only changes run no app suites,
-and preset verification runs `--affected`, never `--all`;
-human approval gates only visual changes; integration is a serialized
-cherry-pick onto `main` via `gfx-integration-git`. Drive it with the
-`gfx-factory` skill.
+Direct delivery with the user is the default. Implementation happens in an
+isolated linked worktree; affected docs travel with the implementation;
+`gfx-verify.run_checks` runs the relevant deterministic suites; human approval
+gates only visual changes; and integration onto `main` stays serialized.
+
+`gfx-factory` is the optional unattended, queued, or batch lane. It is a
+`@swamp/software-factory` instance whose definition lives in
+`models/@swamp/software-factory/gfx-factory.yaml` (~6 stages). Its work items are
+Dex task ids, and it applies the same completion contract as direct delivery.
+The `gfx-verify.run_checks` implementation in `extensions/models/gfx-verify.ts`
+derives suites from `filesChanged` — swamp-only changes run no app suites, and
+preset verification runs `--affected`, never `--all`. Factory integration is a
+serialized cherry-pick onto `main` via `gfx-integration-git`. Use the
+`gfx-factory` skill only when the user opts into this lane.
 
 ## Sentry repair lane
 
