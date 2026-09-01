@@ -251,3 +251,36 @@ describe('Chart semantic validation boundary', () => {
 		);
 	});
 });
+
+describe('Pack semantic validation (ADR-0055 two-source chain)', () => {
+	function packPreset(pack: string): Preset {
+		return {
+			schema: 'gfx@1',
+			name: 'Pack under test',
+			pack,
+			kind: 'fixture',
+			state: createDefaultEngineState()
+		};
+	}
+
+	it('keeps deliverable validation registry-only by default', () => {
+		assert.deepEqual(validatePresetSemantics(packPreset('syntax')), []);
+		const issues = validatePresetSemantics(packPreset('my-brand'));
+		assert.equal(issues.length, 1);
+		assert.deepEqual(issues[0].path, ['pack']);
+		assert.match(issues[0].message, /Unknown Pack "my-brand"\. Registered Packs: syntax/);
+	});
+
+	it('accepts any well-formed User Pack slug for stored documents', () => {
+		assert.deepEqual(validatePresetSemantics(packPreset('my-brand'), { packScope: 'stored' }), []);
+		const issues = validatePresetSemantics(packPreset('Not A Slug'), { packScope: 'stored' });
+		assert.equal(issues.length, 1);
+		assert.match(issues[0].message, /nor a valid User Pack slug/);
+	});
+
+	it('accepts only loaded User Packs for the open document and drafts', () => {
+		const issues = validatePresetSemantics(packPreset('my-brand'), { packScope: 'runtime' });
+		assert.equal(issues.length, 1);
+		assert.match(issues[0].message, /not loaded from the User Pack store/);
+	});
+});

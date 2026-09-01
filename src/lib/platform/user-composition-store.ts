@@ -124,7 +124,7 @@ function parseUserCompositionMetaList(value: unknown): UserCompositionMeta[] {
 function parseUserComposition(value: unknown, slug: string): Preset | null {
 	if (value === null) return null;
 	try {
-		return parsePreset(value);
+		return parsePreset(value, { packScope: 'stored' });
 	} catch (cause) {
 		throw new TypeError(`Failed to load User composition "${slug}": invalid response`, { cause });
 	}

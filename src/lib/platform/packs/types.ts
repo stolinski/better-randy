@@ -18,6 +18,9 @@
 
 export type PackRoleKind = 'style' | 'pipeline' | 'chrome';
 
+/** Lowercase kebab-case: the one slug alphabet built-in and user packs share. */
+export const PACK_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 /**
  * The mandatory core vocabulary (ADR-0024): the seven bare core Roles every
  * registered Pack MUST supply, so the specific → core fallback chain always

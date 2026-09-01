@@ -1,11 +1,57 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import blankPresetJson from '$lib/presets/blank.json';
+
+// The User Pack store an agent binds through: one stored pack, nothing else.
+// Loaded lazily inside the factory so the registry it copies from is ready.
+const storeMocks = vi.hoisted(() => ({
+	async userPackDocument(slug: string) {
+		const { PACK_REGISTRY } = await import('./packs/registry');
+		return {
+			manifest: { ...PACK_REGISTRY['clean-light'], slug, label: 'My brand' },
+			forkedFrom: 'clean-light',
+			savedAt: '2026-09-01T12:00:00.000Z',
+			contentHash: 'a'.repeat(64),
+			fontFaces: []
+		};
+	}
+}));
+vi.mock('./user-pack-store', () => ({
+	userPackStore: {
+		async listUserPacks() {
+			return [
+				{
+					slug: 'my-brand',
+					label: 'My brand',
+					description: '',
+					forkedFrom: 'clean-light',
+					savedAt: '2026-09-01T12:00:00.000Z',
+					contentHash: 'a'.repeat(64)
+				}
+			];
+		},
+		async loadUserPack(slug: string) {
+			return slug === 'my-brand' ? storeMocks.userPackDocument(slug) : null;
+		},
+		async forkUserPack() {
+			throw new Error('not under test');
+		},
+		async saveUserPack() {
+			throw new Error('not under test');
+		},
+		async deleteUserPack() {
+			throw new Error('not under test');
+		}
+	}
+}));
 
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
-import { runAddCompositionEffectOperation, runSetCompositionSurfaceOperation } from './composition-layer-operations';
+import {
+	runAddCompositionEffectOperation,
+	runSetCompositionSurfaceOperation
+} from './composition-layer-operations';
 import { runSetCompositionBackgroundOperation } from './composition-transport-operations';
 import {
 	runSetCompositionBackdropVisibilityOperation,
@@ -68,7 +114,9 @@ describe('composition Pack', () => {
 
 	it('loads the Effect renderers a full-frame piece takes from the new Pack chrome', async () => {
 		expect(chromeEffectTypes(CHROME_PACK_SLUG).length).toBeGreaterThan(0);
-		expectApplied(await runSetCompositionBackgroundOperation({ expectedRevision: 0, fill: 'pack' }));
+		expectApplied(
+			await runSetCompositionBackgroundOperation({ expectedRevision: 0, fill: 'pack' })
+		);
 
 		expectApplied(
 			await runSetCompositionPackOperation({ expectedRevision: 1, packSlug: CHROME_PACK_SLUG })
@@ -79,15 +127,27 @@ describe('composition Pack', () => {
 		}
 	});
 
-	it('refuses a Pack the registry does not hold and names the ones it does', async () => {
+	it('refuses a Pack neither the registry nor the store holds, naming both kinds of alternative', async () => {
 		const failure = expectFailed(
 			await runSetCompositionPackOperation({ expectedRevision: 0, packSlug: 'not-a-pack' })
 		);
 
 		expect(failure.code).toBe('unsupported_variant');
 		expect(failure.rejected).toBe('not-a-pack');
+		expect(failure.message).toMatch(/User Pack store holds nothing/);
 		expect(failure.alternatives).toContain('syntax');
+		expect(failure.alternatives).toContain('my-brand');
 		expect(packState.slug).toBe('syntax');
+	});
+
+	it('binds a User Pack the store holds, loading it into the runtime first (ADR-0055)', async () => {
+		const changed = expectApplied(
+			await runSetCompositionPackOperation({ expectedRevision: 0, packSlug: 'my-brand' })
+		);
+
+		expect(changed).toEqual(['/pack']);
+		expect(packState.slug).toBe('my-brand');
+		expect(getPack('my-brand').label).toBe('My brand');
 	});
 
 	it('refuses a stale revision and leaves the Pack bound where it was', async () => {

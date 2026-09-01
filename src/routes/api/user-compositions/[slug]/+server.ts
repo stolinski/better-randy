@@ -96,7 +96,7 @@ async function readUserCompositionWirePreset(
 
 	const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
 	if (!result.success) error(500, `Corrupt preset data: ${result.error.message}`);
-	const semanticIssues = validatePresetSemantics(result.data);
+	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
 	if (semanticIssues.length > 0) {
 		error(500, `Corrupt preset data:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
@@ -151,7 +151,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 	const result = PresetIngressSchema.safeParse(body);
 	if (!result.success) error(400, `Invalid preset: ${result.error.message}`);
-	const semanticIssues = validatePresetSemantics(result.data);
+	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
 	if (semanticIssues.length > 0) {
 		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}

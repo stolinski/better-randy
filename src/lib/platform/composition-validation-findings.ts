@@ -85,7 +85,10 @@ export function describeCompositionSchemaFindings(
 export function collectCompositionSemanticFindings(
 	document: Preset
 ): readonly CompositionValidationFinding[] {
-	return validatePresetSemantics(document, { resolvePreset: getPresetBySlug }).map((issue) => ({
+	return validatePresetSemantics(document, {
+		resolvePreset: getPresetBySlug,
+		packScope: 'runtime'
+	}).map((issue) => ({
 		source: 'semantic' as const,
 		rule: null,
 		severity: 'error' as const,

@@ -1,7 +1,8 @@
 import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { assertOriginUserPackStoreServed } from '$lib/platform/origin-composition-routes.server';
-import { PACK_SLUG_PATTERN, formatPackValidationIssues } from '$lib/platform/packs/validation';
+import { PACK_SLUG_PATTERN } from '$lib/platform/packs/types';
+import { formatPackValidationIssues } from '$lib/platform/packs/validation';
 import { parsePackManifestWire } from '$lib/platform/user-pack-store';
 import {
 	moveUserPackToTrash,

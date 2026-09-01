@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterAll, beforeAll, describe, it, vi } from 'vitest';
 
 import { PACK_REGISTRY } from './packs/registry.ts';
+import { registerRuntimeUserPack, unregisterRuntimeUserPack } from './user-pack-runtime.svelte.ts';
 
 const loadedSpecs: string[] = [];
 const fakeFontSet = {
@@ -14,11 +15,10 @@ const fakeFontSet = {
 };
 
 let fontsReady: typeof import('./fonts.ts').fontsReady;
-let setActivePackFontDeclarations: typeof import('./fonts.ts').setActivePackFontDeclarations;
 
 beforeAll(async () => {
 	vi.stubGlobal('document', { fonts: fakeFontSet });
-	({ fontsReady, setActivePackFontDeclarations } = await import('./fonts.ts'));
+	({ fontsReady } = await import('./fonts.ts'));
 });
 
 afterAll(() => {
@@ -36,9 +36,13 @@ describe('fontsReady', () => {
 		assert.ok(loadedSpecs.includes('normal 400 1em "JetBrains Mono"'));
 	});
 
-	it('gates on a dynamically declared active pack face without repeating the built-in sweep', async () => {
+	it('gates on a User Pack loaded into the runtime without repeating the built-in sweep', async () => {
 		loadedSpecs.length = 0;
-		setActivePackFontDeclarations([{ family: 'My Brand Face', weights: [500, 700] }]);
+		registerRuntimeUserPack({
+			...PACK_REGISTRY['clean-light'],
+			slug: 'my-brand',
+			fonts: [{ family: 'My Brand Face', weights: [500, 700] }]
+		});
 		await fontsReady();
 		assert.deepEqual(loadedSpecs, [
 			'normal 500 1em "My Brand Face"',
@@ -46,14 +50,23 @@ describe('fontsReady', () => {
 		]);
 	});
 
-	it('re-arms on every call as the active pack changes', async () => {
+	it('re-arms on every call as packs load and unload', async () => {
 		loadedSpecs.length = 0;
-		setActivePackFontDeclarations([{ family: 'Another Face', style: 'italic' }]);
+		registerRuntimeUserPack({
+			...PACK_REGISTRY['clean-light'],
+			slug: 'other-brand',
+			fonts: [{ family: 'Another Face', style: 'italic' }]
+		});
 		await fontsReady();
-		assert.deepEqual(loadedSpecs, ['italic 400 1em "Another Face"']);
+		assert.deepEqual(loadedSpecs, [
+			'normal 500 1em "My Brand Face"',
+			'normal 700 1em "My Brand Face"',
+			'italic 400 1em "Another Face"'
+		]);
 
 		loadedSpecs.length = 0;
-		setActivePackFontDeclarations([]);
+		unregisterRuntimeUserPack('my-brand');
+		unregisterRuntimeUserPack('other-brand');
 		await fontsReady();
 		assert.deepEqual(loadedSpecs, []);
 	});

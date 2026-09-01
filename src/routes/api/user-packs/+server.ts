@@ -2,7 +2,8 @@ import { json, error, type RequestHandler } from '@sveltejs/kit';
 
 import { assertOriginUserPackStoreServed } from '$lib/platform/origin-composition-routes.server';
 import { PACK_REGISTRY_SLUGS } from '$lib/platform/packs/registry';
-import { PACK_SLUG_PATTERN, formatPackValidationIssues } from '$lib/platform/packs/validation';
+import { PACK_SLUG_PATTERN } from '$lib/platform/packs/types';
+import { formatPackValidationIssues } from '$lib/platform/packs/validation';
 import {
 	forkedManifestFromBuiltin,
 	listStoredUserPacks,

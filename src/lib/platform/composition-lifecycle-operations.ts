@@ -46,6 +46,7 @@ import { moveCompositionWorkspaceFocus } from './composition-workspace-focus';
 import { PresetIngressSchema, readCompositionLegacyUpgrades } from './preset-ingress';
 import { isUserCompositionNotHeldError } from './user-composition-store-errors';
 import { userCompositionStore } from './user-composition-store';
+import { ensurePackLoaded } from './user-pack-runtime';
 
 import type {
 	BoundedCompositionFindings,
@@ -86,9 +87,7 @@ export interface CompositionLifecycleReceipt {
 	focus: WebmcpOperationFocusTarget;
 }
 
-export type CompositionLifecycleOutcome =
-	| CompositionLifecycleReceipt
-	| CompositionOperationFailure;
+export type CompositionLifecycleOutcome = CompositionLifecycleReceipt | CompositionOperationFailure;
 
 export interface CreateCompositionFromStarterRequest {
 	starterSlug: string;
@@ -366,6 +365,10 @@ export async function runImportCompositionJsonOperation(
 		);
 	}
 
+	// ADR-0055: an imported document may name a User Pack the store holds but
+	// this engine has not loaded; load it first so the semantic check judges the
+	// document against both pack sources, and an absent one fails at `/pack`.
+	await ensurePackLoaded(parsed.data.pack);
 	const semanticFindings = collectCompositionSemanticFindings(parsed.data);
 	if (semanticFindings.length > 0) {
 		return refuseCompositionOperation(

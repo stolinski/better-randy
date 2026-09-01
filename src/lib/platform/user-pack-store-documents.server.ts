@@ -16,12 +16,8 @@ import { join } from 'node:path';
 
 import { canonicalizeDeterministicRenderValue } from './deterministic-render-registry-fingerprint';
 import { PACK_REGISTRY } from './packs/registry';
-import type { PackManifest } from './packs/types';
-import {
-	PACK_SLUG_PATTERN,
-	validateUserPackManifest,
-	type PackValidationIssue
-} from './packs/validation';
+import { PACK_SLUG_PATTERN, type PackManifest } from './packs/types';
+import { validateUserPackManifest, type PackValidationIssue } from './packs/validation';
 import { writeUserCompositionFileAtomically } from './user-composition-file-write.server';
 import { trashTimestamp } from './user-composition-trash.server';
 import {

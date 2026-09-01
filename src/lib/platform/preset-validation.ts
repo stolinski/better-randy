@@ -2,7 +2,8 @@ import type { z } from 'zod';
 
 import { validateChartGroupSemantics } from './chart-validation';
 import type { Preset } from './engine-schema';
-import { PACK_REGISTRY } from './packs/registry';
+import { findPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
+import { PACK_SLUG_PATTERN } from './packs/types';
 import {
 	getEffectDefinition,
 	getOverlayDefinition,
@@ -25,6 +26,18 @@ export interface PresetSemanticIssue {
 
 export interface PresetSemanticValidationOptions {
 	resolvePreset?: (slug: string) => Preset | null;
+	/**
+	 * Which `pack` slugs pass (ADR-0055):
+	 * - `registry` (default): PACK_REGISTRY alone — every deliverable gate.
+	 * - `runtime`: the registry plus the User Packs loaded into this engine — the
+	 *   open document and any draft an operation is about to apply, which loads
+	 *   the pack through `ensurePackLoaded` first.
+	 * - `stored`: the registry plus any well-formed User Pack slug — the
+	 *   composition store's own documents, which must stay loadable when the
+	 *   pack they name is gone so the author can rebind rather than lose them;
+	 *   the absent pack fails at resolution, with its slug named.
+	 */
+	packScope?: 'registry' | 'runtime' | 'stored';
 }
 
 function appendSchemaIssues(
@@ -122,13 +135,26 @@ function validateMediaSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 	}
 }
 
-function validatePackSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
-	if (!(preset.pack in PACK_REGISTRY)) {
-		issues.push({
-			path: ['pack'],
-			message: `Unknown Pack "${preset.pack}". Registered Packs: ${Object.keys(PACK_REGISTRY).join(', ')}`
-		});
-	}
+function validatePackSemantics(
+	preset: Preset,
+	options: PresetSemanticValidationOptions,
+	issues: PresetSemanticIssue[]
+): void {
+	if (preset.pack in PACK_REGISTRY) return;
+	const scope = options.packScope ?? 'registry';
+	if (scope === 'stored' && PACK_SLUG_PATTERN.test(preset.pack)) return;
+	if (scope === 'runtime' && findPack(preset.pack) !== null) return;
+	const registered = Object.keys(PACK_REGISTRY).join(', ');
+	const loaded = listRuntimeUserPacks().map((pack) => pack.slug);
+	issues.push({
+		path: ['pack'],
+		message:
+			scope === 'stored'
+				? `Pack "${preset.pack}" is neither a registered Pack (${registered}) nor a valid User Pack slug`
+				: scope === 'runtime'
+					? `Pack "${preset.pack}" is not a registered Pack (${registered}) and is not loaded from the User Pack store${loaded.length > 0 ? ` (loaded: ${loaded.join(', ')})` : ''}`
+					: `Unknown Pack "${preset.pack}". Registered Packs: ${registered}`
+	});
 }
 
 function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[]): void {
@@ -319,7 +345,7 @@ export function validatePresetSemantics(
 ): readonly PresetSemanticIssue[] {
 	const issues: PresetSemanticIssue[] = [];
 
-	validatePackSemantics(preset, issues);
+	validatePackSemantics(preset, options, issues);
 	validateMediaSemantics(preset, issues);
 	validateSurfaceSemantics(preset, issues);
 	const overlayIds = validateOverlaySemantics(preset, issues);

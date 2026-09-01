@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { engineState, packState, addEffect, removeEffect } from './engine-state.svelte';
 	import type { Effect } from './engine-schema';
-	import { PACK_REGISTRY } from './packs/registry';
+	import { getPack } from './packs/registry';
 	import { getEffectDefinition } from './pipelines/definition-registry';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
@@ -51,8 +51,8 @@
 	<div
 		class="layer-row"
 		title={override
-			? `Overriding the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack's chrome — × restores the pack default`
-			: `${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack chrome (opaque pieces) — edits become a composition override`}
+			? `Overriding the ${getPack(packState.slug).label} pack's chrome — × restores the pack default`
+			: `${getPack(packState.slug).label} pack chrome (opaque pieces) — edits become a composition override`}
 	>
 		<span class="layer-row__label">{definition.label}</span>
 		<span class="layer-row__pack-tag">{override ? 'pack · overridden' : 'pack'}</span>

@@ -13,7 +13,7 @@ import {
 	packRolePayload,
 	validatePackRoleContractRegistry
 } from './role-contract-registry';
-import type { PackFont, PackManifest } from './types';
+import { PACK_SLUG_PATTERN, type PackFont, type PackManifest } from './types';
 
 export interface PackValidationIssue {
 	pack: string;
@@ -41,8 +41,6 @@ export interface PackValidationIssue {
 	message: string;
 }
 
-/** Lowercase kebab-case, the one slug alphabet built-in and user packs share. */
-export const PACK_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FONT_ROLE_KEYS = ['font-treatment', 'font-label-treatment'] as const;
 
 function firstFontFamily(value: string): string {

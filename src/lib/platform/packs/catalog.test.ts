@@ -16,7 +16,7 @@ import {
 	validatePackCatalogBundleFreshness,
 	validatePackCatalogRegistry
 } from './catalog-validation';
-import { PACK_REGISTRY } from './registry';
+import { installRuntimePackSource, PACK_REGISTRY } from './registry';
 
 const TRIO_PRESET_VALUES = CALIBRATION_TRIO_FRAME_SPECS.map(({ presetSlug }, index) => ({
 	id: presetSlug,
@@ -57,18 +57,44 @@ describe('Pack catalog registry', () => {
 		expect(listCatalogPacks({})).toEqual([]);
 		expect(listAuthoringPacks()).toHaveLength(Object.keys(PACK_REGISTRY).length);
 		expect(
-			listAuthoringPacks().every((entry) =>
-				entry.catalogStatus === 'draft'
-					? entry.label.endsWith('· Draft')
-					: entry.label === entry.pack.label
+			listAuthoringPacks().every(
+				(entry) =>
+					entry.source === 'catalog' &&
+					(entry.catalogStatus === 'draft'
+						? entry.label.endsWith('· Draft')
+						: entry.label === entry.pack.label)
 			)
 		).toBe(true);
 		const syntaxOption = getAuthoringPackOption('syntax');
-		expect(syntaxOption.label).toBe(
-			syntaxOption.catalogStatus === 'draft' ? 'Syntax · Draft' : 'Syntax'
-		);
+		expect(
+			syntaxOption.source === 'catalog' && syntaxOption.catalogStatus === 'draft'
+				? 'Syntax · Draft'
+				: 'Syntax'
+		).toBe(syntaxOption.label);
 		expect(isPackCatalogReady('syntax', {})).toBe(false);
 		expect(isPackCatalogReady('unknown', {})).toBe(false);
+	});
+
+	it('lists a loaded User Pack after the catalog, labelled by provenance and never admitted (ADR-0055)', () => {
+		const userPack = { ...PACK_REGISTRY['clean-light'], slug: 'my-brand', label: 'My brand' };
+		installRuntimePackSource({
+			read: (slug) => (slug === 'my-brand' ? userPack : undefined),
+			list: () => [userPack]
+		});
+		try {
+			const option = getAuthoringPackOption('my-brand');
+			expect(option.source).toBe('user');
+			expect(option.label).toBe('My brand · User');
+			expect(
+				listAuthoringPacks()
+					.map((entry) => entry.slug)
+					.at(-1)
+			).toBe('my-brand');
+			expect(listCatalogPacks({})).toEqual([]);
+			expect(isPackCatalogReady('my-brand', {})).toBe(false);
+		} finally {
+			installRuntimePackSource({ read: () => undefined, list: () => [] });
+		}
 	});
 
 	it('admits only ratified entries with an exact current verification bundle ID', () => {

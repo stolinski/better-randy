@@ -10,11 +10,10 @@
  * rasterizes OS-fallback glyphs. The engine knows nothing about which
  * typefaces a channel uses; that is Pack data.
  */
-import { PACK_REGISTRY } from './packs/registry';
+import { listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import type { PackFont } from './packs/types';
 
 let builtinFacesReady: Promise<void> | null = null;
-let activePackFonts: readonly PackFont[] = [];
 
 function loadDeclaredFaces(fonts: readonly PackFont[]): Promise<unknown> {
 	const loads: Promise<unknown>[] = [];
@@ -39,28 +38,20 @@ function loadBuiltinPackFaces(): Promise<void> {
 }
 
 /**
- * Declare the active Pack's typefaces so `fontsReady()` gates on them too.
- * Built-in packs are already covered by the registry sweep; this is how a User
- * Pack — whose faces exist only after `registerUserPackFontFaces` — joins the
- * gate. Pass an empty list when a built-in pack is active again.
- */
-export function setActivePackFontDeclarations(fonts: readonly PackFont[]): void {
-	activePackFonts = fonts;
-}
-
-/**
- * Resolves once every built-in Pack's declared typefaces and the active Pack's
- * declared typefaces are loaded. The built-in sweep is memoized; the active
- * pack's faces are re-checked on every call, because the active pack can
- * change between one capture and the next. Safe to await from both the preview
- * paint path and export.
+ * Resolves once every built-in Pack's declared typefaces and every loaded User
+ * Pack's declared typefaces are loaded. The built-in sweep is memoized; the
+ * User Packs are re-swept on every call, because a pack can load between one
+ * capture and the next. Safe to await from both the preview paint path and
+ * export — the two share this gate, which is what keeps preview and export on
+ * the same glyphs.
  */
 export function fontsReady(): Promise<void> {
 	if (typeof document === 'undefined' || !('fonts' in document)) {
 		return Promise.resolve();
 	}
 	builtinFacesReady ??= loadBuiltinPackFaces();
-	return Promise.all([builtinFacesReady, loadDeclaredFaces(activePackFonts)])
+	const userPackFonts = listRuntimeUserPacks().flatMap((pack) => pack.fonts ?? []);
+	return Promise.all([builtinFacesReady, loadDeclaredFaces(userPackFonts)])
 		.then(() => document.fonts.ready)
 		.then(() => undefined);
 }

@@ -1,0 +1,28 @@
+{
+	"probe": "user-pack-render",
+	"origin": "http://localhost:7321",
+	"measurements": {
+		"packSlug": "probe-brand",
+		"seededContentHash": "e4605ae8ff238d525ea0c63d7b495d08c045e45b28fea965f99637c8f6a94c7c",
+		"servedFontFaces": 6,
+		"canvasRect": {
+			"x": 33,
+			"y": 145,
+			"width": 782,
+			"height": 439
+		},
+		"packControlValue": "probe-brand",
+		"fieldSample": {
+			"r": 255,
+			"g": 0,
+			"b": 255
+		},
+		"fontState": {
+			"geistLoaded": true,
+			"cachedFaces": 8
+		},
+		"cacheRequests": 6,
+		"thirdPartyFontRequests": []
+	},
+	"failures": []
+}

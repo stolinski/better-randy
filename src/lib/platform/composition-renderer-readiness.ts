@@ -14,8 +14,9 @@
  */
 import { collectPresetRendererRequirements } from './pipelines/preset-renderer-requirements';
 import { compositionEditHistory } from './composition-edit-history';
-import { getPack } from './packs/registry';
+import { getPack, UnknownPackError } from './packs/registry';
 import { getPresetBySlug } from './preset-catalog';
+import { ensurePackLoaded } from './user-pack-runtime';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 import {
 	refuseCompositionOperation,
@@ -31,6 +32,11 @@ import type { WebmcpOperationRow } from './webmcp-operation-inventory';
  * document this browser could not draw.
  */
 export async function ensureCompositionRenderersLoaded(document: Preset): Promise<void> {
+	// ADR-0055: a User Pack lives in the store until it is loaded; resolve it
+	// before the requirements read its chrome, and fail closed on an absent one.
+	if ((await ensurePackLoaded(document.pack)).kind === 'missing') {
+		throw new UnknownPackError(document.pack);
+	}
 	const bundle = await pipelineRendererRuntime.resolve(
 		collectPresetRendererRequirements(document, {
 			pack: getPack(document.pack),

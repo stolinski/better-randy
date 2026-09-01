@@ -3,6 +3,7 @@
 
 	import { engineState, packState } from './engine-state.svelte';
 	import { getPack, PACK_REGISTRY } from './packs/registry';
+	import { ensurePackLoaded } from './user-pack-runtime';
 	import { getAuthoringPackOption, listAuthoringPacks } from './packs/catalog';
 	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
@@ -23,7 +24,9 @@
 	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
-	const packOptions = listAuthoringPacks();
+	// Derived, not init-once: a User Pack loaded into the runtime joins the list
+	// the moment it does (ADR-0055).
+	const packOptions = $derived(listAuthoringPacks());
 	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => rendererChangeGuard.dispose());
 
@@ -44,13 +47,17 @@
 		const select = event.currentTarget as HTMLSelectElement;
 		const slug = select.value;
 		const previousSlug = packState.slug;
-		const pack = PACK_REGISTRY[slug];
-		if (!pack || slug === previousSlug) {
-			select.value = previousSlug;
-			return;
-		}
+		if (slug === previousSlug) return;
 		const generation = rendererChangeGuard.begin();
 		try {
+			const resolution = await ensurePackLoaded(slug);
+			if (!rendererChangeGuard.isCurrent(generation)) return;
+			if (resolution.kind === 'missing') {
+				select.value = previousSlug;
+				console.error('Pack is not available.', { pack: slug, reason: resolution.message });
+				return;
+			}
+			const pack = getPack(slug);
 			if (
 				engineState.backgroundFill &&
 				!(await ensurePackChromeEffectRenderers(pack, generation))
@@ -225,7 +232,7 @@
 				{#if engineState.backgroundFill === 'pack'}
 					<span
 						class="fill-pack-tag"
-						title={`The ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack's field — editing the colour becomes a composition override`}
+						title={`The ${getPack(packState.slug).label} pack's field — editing the colour becomes a composition override`}
 						>pack</span
 					>
 				{:else}

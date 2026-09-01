@@ -2,7 +2,7 @@
 	import { onDestroy } from 'svelte';
 
 	import { engineState, packState, addEffect } from './engine-state.svelte';
-	import { PACK_REGISTRY } from './packs/registry';
+	import { getPack } from './packs/registry';
 	import { PIPELINE_DEFINITION_REGISTRY } from './pipelines/definition-registry';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import AddMenu from './AddMenu.svelte';
@@ -23,7 +23,7 @@
 
 	const packChromeEffects = $derived.by(() => {
 		if (!engineState.backgroundFill) return [];
-		const role = PACK_REGISTRY[packState.slug]?.roles['chrome'];
+		const role = getPack(packState.slug).roles['chrome'];
 		return role && role.kind === 'chrome' ? role.effects : [];
 	});
 	const packChromeTypes = $derived(new Set(packChromeEffects.map((entry) => entry.type)));

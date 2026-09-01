@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { packState, removeEffect } from './engine-state.svelte';
 	import type { Effect } from './engine-schema';
-	import { PACK_REGISTRY } from './packs/registry';
+	import { getPack } from './packs/registry';
 	import { getEffectDefinition } from './pipelines/definition-registry';
 	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 
@@ -15,14 +15,14 @@
 
 	const definition = $derived(getEffectDefinition(effect.type));
 	const renderer = $derived(pipelineRendererRuntime.current().effects.get(effect.type) ?? null);
-	const packInert = $derived(definition?.isPackInert?.(PACK_REGISTRY[packState.slug]) ?? false);
+	const packInert = $derived(definition?.isPackInert?.(getPack(packState.slug)) ?? false);
 </script>
 
 {#if renderer && definition}
 	<div
 		class="layer-row"
 		title={packInert
-			? `Inert under the ${PACK_REGISTRY[packState.slug]?.label ?? packState.slug} pack — the authored effect travels with the composition and applies under packs that keep it`
+			? `Inert under the ${getPack(packState.slug).label} pack — the authored effect travels with the composition and applies under packs that keep it`
 			: undefined}
 	>
 		<span class="layer-row__label">{definition.label}</span>

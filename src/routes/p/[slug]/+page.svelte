@@ -18,6 +18,7 @@
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
+	import { ensurePackLoaded } from '$lib/platform/user-pack-runtime';
 	import { isUserCompositionNotHeldError } from '$lib/platform/user-composition-store-errors';
 	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
 	import Workspace from '$lib/platform/Workspace.svelte';
@@ -110,6 +111,16 @@
 		}
 
 		try {
+			// ADR-0055: a User Pack is loaded from the store before anything reads
+			// it; one the store no longer holds fails here, with the slug named, and
+			// nothing substitutes another look.
+			const packResolution = await ensurePackLoaded(preset.pack);
+			if (!isCurrentLoad()) return;
+			if (packResolution.kind === 'missing') {
+				resolutionStatus = 'error';
+				rendererLoadError = packResolution.message;
+				return;
+			}
 			const requirements = collectPresetRendererRequirements(preset, {
 				pack: getPack(preset.pack),
 				resolvePack: getPack,

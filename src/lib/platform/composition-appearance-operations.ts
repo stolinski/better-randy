@@ -27,7 +27,10 @@
  *   Surface's own `backgroundVisibility` — how much of what is behind the
  *   Surface shows through it — is dressing, and is written here.
  */
-import { ANNOTATION_MARK_STYLES, type AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
+import {
+	ANNOTATION_MARK_STYLES,
+	type AnnotationMarkStyle
+} from '../annotations/annotation-mark-styles';
 import { compositionEditHistory } from './composition-edit-history';
 import { describeCompositionSchemaFindings } from './composition-validation-findings';
 import { packState } from './engine-state.svelte';
@@ -40,7 +43,9 @@ import {
 	type MarksState,
 	type Stage
 } from './engine-schema';
-import { getPack, PACK_REGISTRY } from './packs/registry';
+import { getPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
+import { ensurePackLoaded } from './user-pack-runtime';
+import { userPackStore } from './user-pack-store';
 import { isRecord } from '../utils/object';
 import {
 	getEffectDefinition,
@@ -120,9 +125,24 @@ export interface SetCompositionBackdropVisibilityRequest {
 	visibility: number;
 }
 
-/** The Packs a composition can bind to, derived from the live registry. */
+/**
+ * The Packs a composition can bind to right now: the live registry plus every
+ * User Pack loaded into this engine (ADR-0055). Store packs not yet loaded join
+ * through `listBindablePackSlugs`, which asks the store.
+ */
 export function listRegisteredPackSlugs(): readonly string[] {
-	return Object.keys(PACK_REGISTRY);
+	return [...Object.keys(PACK_REGISTRY), ...listRuntimeUserPacks().map((pack) => pack.slug)];
+}
+
+/** Registered plus stored: the alternatives a refused pack binding names. */
+export async function listBindablePackSlugs(): Promise<readonly string[]> {
+	const slugs = new Set(listRegisteredPackSlugs());
+	try {
+		for (const meta of await userPackStore.listUserPacks()) slugs.add(meta.slug);
+	} catch (cause) {
+		console.error('Failed to list User Packs for the pack alternatives.', cause);
+	}
+	return [...slugs];
 }
 
 /** The stages the engine composites on, derived from the live stage registry. */
@@ -183,13 +203,16 @@ export async function runSetCompositionPackOperation(
 	const refusal = refuseUnlessCompositionEditable(row);
 	if (refusal) return refusal;
 
-	if (!Object.hasOwn(PACK_REGISTRY, request.packSlug)) {
+	// Built-ins first, then the User Pack store (ADR-0055); an absent slug is
+	// refused with the packs that would have worked, never substituted.
+	const packResolution = await ensurePackLoaded(request.packSlug);
+	if (packResolution.kind === 'missing') {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'unsupported_variant',
-			`"${request.packSlug}" is not a Pack this engine registers.`,
-			{ rejected: request.packSlug, alternatives: listRegisteredPackSlugs() }
+			packResolution.message,
+			{ rejected: request.packSlug, alternatives: await listBindablePackSlugs() }
 		);
 	}
 

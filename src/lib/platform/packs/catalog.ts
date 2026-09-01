@@ -1,5 +1,5 @@
 import type { PackManifest } from './types';
-import { PACK_REGISTRY, type PackRegistrySlug } from './registry';
+import { findPack, listRuntimeUserPacks, PACK_REGISTRY, type PackRegistrySlug } from './registry';
 
 export const CALIBRATION_TRIO_FRAME_SPECS = [
 	{
@@ -80,12 +80,23 @@ const PACK_CATALOG_ENTRIES = {
 export const PACK_CATALOG_REGISTRY: Readonly<Record<PackCatalogSlug, PackCatalogMetadata>> =
 	PACK_CATALOG_ENTRIES;
 
-export interface AuthoringPackOption {
+export interface CatalogAuthoringPackOption {
+	source: 'catalog';
 	slug: PackCatalogSlug;
 	pack: PackManifest;
 	catalogStatus: PackCatalogMetadata['status'];
 	label: string;
 }
+
+/** A User Pack loaded into this engine (ADR-0055): bindable, labelled by provenance, never catalog. */
+export interface UserAuthoringPackOption {
+	source: 'user';
+	slug: string;
+	pack: PackManifest;
+	label: string;
+}
+
+export type AuthoringPackOption = CatalogAuthoringPackOption | UserAuthoringPackOption;
 
 export interface CatalogPackEntry {
 	slug: PackCatalogSlug;
@@ -93,23 +104,35 @@ export interface CatalogPackEntry {
 	metadata: RatifiedPackCatalogMetadata;
 }
 
-export function getAuthoringPackOption(slug: string): AuthoringPackOption {
-	if (!Object.hasOwn(PACK_REGISTRY, slug)) {
-		throw new Error(`Unknown authoring Pack "${slug}".`);
-	}
-	const packSlug = slug as PackCatalogSlug;
-	const pack = PACK_REGISTRY[packSlug];
-	const catalogStatus = PACK_CATALOG_REGISTRY[packSlug].status;
-	return {
-		slug: packSlug,
-		pack,
-		catalogStatus,
-		label: catalogStatus === 'draft' ? `${pack.label} · Draft` : pack.label
-	};
+function userAuthoringPackOption(pack: PackManifest): UserAuthoringPackOption {
+	return { source: 'user', slug: pack.slug, pack, label: `${pack.label} · User` };
 }
 
+/** Built-ins first, then the User Packs loaded into this engine — the same order `getPack` resolves in. */
+export function getAuthoringPackOption(slug: string): AuthoringPackOption {
+	if (Object.hasOwn(PACK_REGISTRY, slug)) {
+		const packSlug = slug as PackCatalogSlug;
+		const pack = PACK_REGISTRY[packSlug];
+		const catalogStatus = PACK_CATALOG_REGISTRY[packSlug].status;
+		return {
+			source: 'catalog',
+			slug: packSlug,
+			pack,
+			catalogStatus,
+			label: catalogStatus === 'draft' ? `${pack.label} · Draft` : pack.label
+		};
+	}
+	const userPack = findPack(slug);
+	if (userPack === null) throw new Error(`Unknown authoring Pack "${slug}".`);
+	return userAuthoringPackOption(userPack);
+}
+
+/** Every Pack a composition can bind to right now: the catalog, then the loaded User Packs. */
 export function listAuthoringPacks(): readonly AuthoringPackOption[] {
-	return Object.keys(PACK_REGISTRY).map(getAuthoringPackOption);
+	return [
+		...Object.keys(PACK_REGISTRY).map(getAuthoringPackOption),
+		...listRuntimeUserPacks().map(userAuthoringPackOption)
+	];
 }
 
 export type CurrentPackCatalogBundleIds = Readonly<Record<string, string | undefined>>;
@@ -146,9 +169,9 @@ export function selectCurrentPackCatalogEntries<TPack, TSlug extends string>(
 export function listCatalogPacks(
 	currentBundleIds: CurrentPackCatalogBundleIds
 ): readonly CatalogPackEntry[] {
-	const candidates = (
-		Object.entries(PACK_REGISTRY) as [PackCatalogSlug, PackManifest][]
-	).map(([slug, pack]) => ({ slug, pack, metadata: PACK_CATALOG_REGISTRY[slug] }));
+	const candidates = (Object.entries(PACK_REGISTRY) as [PackCatalogSlug, PackManifest][]).map(
+		([slug, pack]) => ({ slug, pack, metadata: PACK_CATALOG_REGISTRY[slug] })
+	);
 	return selectCurrentPackCatalogEntries(candidates, currentBundleIds);
 }
 
@@ -158,8 +181,5 @@ export function isPackCatalogReady(
 ): boolean {
 	if (!Object.hasOwn(PACK_REGISTRY, slug)) return false;
 	const metadata = PACK_CATALOG_REGISTRY[slug as PackCatalogSlug];
-	return (
-		metadata.status === 'ratified' &&
-		currentBundleIds[slug] === metadata.verificationBundleId
-	);
+	return metadata.status === 'ratified' && currentBundleIds[slug] === metadata.verificationBundleId;
 }

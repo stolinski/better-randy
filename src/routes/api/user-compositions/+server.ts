@@ -78,7 +78,7 @@ export const GET: RequestHandler = async (event) => {
 			if (!isStoredUserComposition(storedUserComposition)) continue;
 			const result = PresetIngressSchema.safeParse(storedUserComposition.preset);
 			if (!result.success) continue;
-			if (validatePresetSemantics(result.data).length > 0) continue;
+			if (validatePresetSemantics(result.data, { packScope: 'stored' }).length > 0) continue;
 			const cardMetadata = {
 				slug: userCompositionSlug,
 				name: result.data.name,
@@ -138,7 +138,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!result.success) {
 		error(400, `Invalid preset: ${result.error.message}`);
 	}
-	const semanticIssues = validatePresetSemantics(result.data);
+	const semanticIssues = validatePresetSemantics(result.data, { packScope: 'stored' });
 	if (semanticIssues.length > 0) {
 		error(400, `Invalid preset:\n${formatPresetSemanticIssues(semanticIssues)}`);
 	}
