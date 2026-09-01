@@ -1,10 +1,11 @@
 {
 	"schemaVersion": 1,
-	"generatedAt": "2026-08-29T17:55:02.169Z",
+	"generatedAt": "2026-09-01T21:57:00.809Z",
 	"probe": "webmcp-agent-eval",
-	"origin": "http://localhost:7266",
+	"origin": "http://localhost:7263",
+	"release": "gfx@f58a6b924907227d79f031b563188e81803e60ec",
 	"harness": {
-		"browser": "Chrome/152.0.7977.64",
+		"browser": "Chrome/152.0.7977.65",
 		"protocolVersion": "1.3",
 		"modelContext": true,
 		"modelContextMembers": [
@@ -15,11 +16,12 @@
 			"registerTool"
 		],
 		"secureContext": true,
-		"canvasDrawElement": false
+		"canvasDrawElement": true
 	},
+	"toolSchemaDigest": "02695b7d814a6f0f819b49480a533c091d42ddaa6528c4d918cd633ecc3836c4",
 	"inventory": {
-		"rows": 78,
-		"agentTools": 76,
+		"rows": 83,
+		"agentTools": 81,
 		"internalOnly": ["verification.render-frame", "verification.inspect-readable-text"]
 	},
 	"coldPage": {
@@ -30,12 +32,14 @@
 			"gfx_composition_create_from_starter",
 			"gfx_composition_import_json",
 			"gfx_composition_open",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
 			"gfx_session_inspect"
 		],
 		"ceiling": 9
 	},
 	"openComposition": {
-		"slug": "untitled",
+		"slug": "untitled-3",
 		"registered": [
 			"gfx_appearance_set_backdrop_visibility",
 			"gfx_appearance_set_mark_defaults",
@@ -103,6 +107,7 @@
 		"contentTrust": { "inspect": "untrusted", "exportJson": "untrusted" }
 	},
 	"framedDocument": {
+		"frameRefusedByPolicy": false,
 		"framedContextExposed": true,
 		"toolsOwnedByFrame": [],
 		"toolsOwnedByTopDocument": 42

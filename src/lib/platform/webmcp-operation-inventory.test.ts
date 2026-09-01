@@ -197,6 +197,8 @@ describe('WebMCP operation inventory', () => {
 			'composition-editable',
 			'forked-from-starter',
 			'session-composition-present',
+			'user-pack-store-served',
+			'user-pack-present',
 			'undo-available',
 			'redo-available',
 			'overlay-present',

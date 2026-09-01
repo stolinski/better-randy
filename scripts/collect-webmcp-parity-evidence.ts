@@ -31,7 +31,8 @@ import { WEBMCP_OPERATION_INVENTORY } from '../src/lib/platform/webmcp-operation
 import type { WebmcpParityEvidence } from '../src/lib/platform/webmcp-operation-parity.ts';
 
 /** The operation layer: every composition operation module, tests excluded. */
-const OPERATION_MODULE_PATTERN = /^composition-.*(?<!\.test)\.ts$/;
+/** Operation modules: the composition families, and the User Pack store operations (ADR-0055). */
+const OPERATION_MODULE_PATTERN = /^(?:composition|user-pack)-.*(?<!\.test)\.ts$/;
 
 /** The WebMCP tool layer: one module per operation family. */
 const TOOL_MODULE_PATTERN = /^webmcp-.*-tools\.ts$/;

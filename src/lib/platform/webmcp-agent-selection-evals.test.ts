@@ -20,6 +20,33 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The origin's User Pack store with one pack, so every pack tool has a state to be reached in.
+vi.mock('./user-pack-store', async (importOriginal) => ({
+	...(await importOriginal<typeof import('./user-pack-store')>()),
+	userPackStore: {
+		listUserPacks: vi.fn(async () => [
+			{
+				slug: 'my-brand',
+				label: 'My brand',
+				description: '',
+				forkedFrom: 'clean-light',
+				savedAt: '2026-09-01T12:00:00.000Z',
+				contentHash: 'a'.repeat(64)
+			}
+		]),
+		loadUserPack: vi.fn(async () => null),
+		forkUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		}),
+		saveUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		}),
+		deleteUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		})
+	}
+}));
+
 import {
 	WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS,
 	WEBMCP_OPERATION_FAMILIES,
@@ -284,6 +311,27 @@ function rankToolsForPrompt(prompt: string): readonly RankedTool[] {
  * use — because that is the vocabulary the tool text has to be legible in.
  */
 const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] = [
+	{
+		prompt: 'Inspect the User Pack store: which packs it holds and their contentHash revisions.',
+		toolName: 'gfx_appearance_inspect_user_pack_store'
+	},
+	{
+		prompt: 'Fork the clean-light built-in Pack into the store as a new editable User Pack.',
+		toolName: 'gfx_appearance_fork_user_pack'
+	},
+	{
+		prompt: 'Save these role and font changes to my User Pack against the contentHash I read.',
+		toolName: 'gfx_appearance_save_user_pack'
+	},
+	{
+		prompt: 'Delete the User Pack named sentry from the store; it can go to trash.',
+		toolName: 'gfx_appearance_delete_user_pack'
+	},
+	{
+		prompt:
+			'Check this User Pack manifest for the issues a save would refuse with, without storing it.',
+		toolName: 'gfx_appearance_validate_user_pack'
+	},
 	{
 		prompt: 'Which Overlay types and Packs does this engine ship? List the registered vocabulary.',
 		toolName: 'gfx_capability_inspect_vocabulary'

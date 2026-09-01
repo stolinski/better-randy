@@ -24,18 +24,23 @@ import {
 	readOpenCompositionSlug
 } from './composition-operation-preflight';
 import { transitionState } from './engine-state.svelte';
+import { parseCompositionSessionStoreConfig } from './public-runtime-contract';
 import { userCompositionStore } from './user-composition-store';
+import { userPackStore } from './user-pack-store';
 
 import type { EngineState, Preset } from './engine-schema';
+import { env } from '$env/dynamic/public';
+
 import type { WebmcpOperationPrecondition } from './webmcp-operation-inventory';
 
-/** The one precondition only the session store can answer. */
-export type WebmcpSessionPreconditionName = 'session-composition-present';
+/** The preconditions only a store can answer: the browser session catalog and the origin's User Pack store. */
+export type WebmcpStorePreconditionName =
+	'session-composition-present' | 'user-pack-store-served' | 'user-pack-present';
 
-/** Every precondition the open composition answers without touching the store. */
+/** Every precondition the open composition answers without touching a store. */
 export type WebmcpCompositionPreconditionName = Exclude<
 	WebmcpOperationPrecondition,
-	WebmcpSessionPreconditionName
+	WebmcpStorePreconditionName
 >;
 
 export type WebmcpCompositionPreconditions = Readonly<
@@ -164,9 +169,43 @@ export async function readWebmcpSessionCompositionPresence(): Promise<boolean> {
 	}
 }
 
+/** What the origin's User Pack store can say about itself (ADR-0055). */
+export interface WebmcpUserPackPreconditions {
+	/** This build serves the disk-backed store at all; a browser-scoped session never does. */
+	served: boolean;
+	/** The store holds at least one pack to save or delete. */
+	present: boolean;
+}
+
+/**
+ * Whether this build serves the User Pack store, and whether it holds a pack.
+ * A browser-scoped session has no pack store, so its tools are absent rather
+ * than present-and-refusing; an unreachable store answers no for the same
+ * reason the session catalog does.
+ */
+export async function readWebmcpUserPackPreconditions(): Promise<WebmcpUserPackPreconditions> {
+	if (parseCompositionSessionStoreConfig(env).kind !== 'origin') {
+		return { served: false, present: false };
+	}
+	try {
+		return { served: true, present: (await userPackStore.listUserPacks()).length > 0 };
+	} catch (error) {
+		console.error('WebMCP registration could not read the User Pack store', error);
+		return { served: false, present: false };
+	}
+}
+
 export function completeWebmcpRegistrationState(
 	composition: WebmcpCompositionPreconditions,
-	sessionCompositionPresent: boolean
+	sessionCompositionPresent: boolean,
+	userPacks: WebmcpUserPackPreconditions = { served: false, present: false }
 ): WebmcpRegistrationState {
-	return { ...composition, 'session-composition-present': sessionCompositionPresent };
+	// Pack authoring dresses an open composition, so a cold page keeps its short menu.
+	const open = composition['composition-open'];
+	return {
+		...composition,
+		'session-composition-present': sessionCompositionPresent,
+		'user-pack-store-served': open && userPacks.served,
+		'user-pack-present': open && userPacks.present
+	};
 }

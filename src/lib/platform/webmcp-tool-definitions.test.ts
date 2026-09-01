@@ -4,6 +4,24 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The origin's User Pack store, empty: pack tools stay absent until a pack exists.
+vi.mock('./user-pack-store', async (importOriginal) => ({
+	...(await importOriginal<typeof import('./user-pack-store')>()),
+	userPackStore: {
+		listUserPacks: vi.fn(async () => []),
+		loadUserPack: vi.fn(async () => null),
+		forkUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		}),
+		saveUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		}),
+		deleteUserPack: vi.fn(async () => {
+			throw new Error('not under test');
+		})
+	}
+}));
+
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { applyPreset } from './preset';

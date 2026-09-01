@@ -18,7 +18,7 @@
 import { z } from 'zod';
 
 import type { PackFont, PackManifest, PackRole } from './packs/types';
-import { formatPackValidationIssues, type PackValidationIssue } from './packs/validation';
+import type { PackValidationIssue } from './packs/validation';
 import { UserPackFontFaceSchema, type UserPackFontFace } from './user-pack-font-faces';
 import {
 	UserPackNotHeldError,
@@ -318,8 +318,3 @@ export const originUserPackStore: UserPackStore = {
 
 /** The one store the GUI and every WebMCP operation share. */
 export const userPackStore: UserPackStore = originUserPackStore;
-
-/** One line per issue, for a message a human or an agent can act on. */
-export function describeUserPackIssues(issues: readonly PackValidationIssue[]): string {
-	return formatPackValidationIssues(issues);
-}

@@ -59,6 +59,8 @@ export type WebmcpOperationPrecondition =
 	| 'composition-editable'
 	| 'forked-from-starter'
 	| 'session-composition-present'
+	| 'user-pack-store-served'
+	| 'user-pack-present'
 	| 'undo-available'
 	| 'redo-available'
 	| 'overlay-present'
@@ -1168,7 +1170,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'appearance',
 		toolName: 'gfx_appearance_set_pack',
 		summary:
-			'Bind the composition to a registered Pack. Every Pack-resolved Role re-dresses; no composition content changes.',
+			'Bind the composition to a registered Pack or a User Pack from the store. Every Pack-resolved Role re-dresses; no composition content changes.',
 		effect: 'write',
 		writes: ['/pack'],
 		precondition: 'composition-editable',
@@ -1178,6 +1180,90 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['composition-root'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/RootInspector.svelte'
+	},
+	// User Packs (ADR-0055): store documents, not the open composition. Their
+	// revision is the document contentHash a save or delete must name; the two
+	// store-answered preconditions keep every row off a browser-scoped host and
+	// off a cold page.
+	{
+		id: 'appearance.inspect-user-pack-store',
+		family: 'appearance',
+		toolName: 'gfx_appearance_inspect_user_pack_store',
+		summary:
+			'Inspect the User Pack store: every pack it holds with its label and revision (contentHash), and which one the open composition wears.',
+		effect: 'read',
+		writes: [],
+		precondition: 'user-pack-store-served',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: [],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/PackSection.svelte'
+	},
+	{
+		id: 'appearance.fork-user-pack',
+		family: 'appearance',
+		toolName: 'gfx_appearance_fork_user_pack',
+		summary:
+			'Fork a built-in Pack into the store as a new editable User Pack (its cores, chrome, and fonts). The composition stays bound where it is.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'user-pack-store-served',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/PackSection.svelte'
+	},
+	{
+		id: 'appearance.save-user-pack',
+		family: 'appearance',
+		toolName: 'gfx_appearance_save_user_pack',
+		summary:
+			'Save a User Pack against the contentHash you read: a whole manifest, or label, description, role, and font changes. Validated and font-materialized, or refused with the issues named.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'user-pack-present',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/UserPackEditor.svelte'
+	},
+	{
+		id: 'appearance.delete-user-pack',
+		family: 'appearance',
+		toolName: 'gfx_appearance_delete_user_pack',
+		summary:
+			'Delete a User Pack from the store against the contentHash you read; it goes to trash. Refused while the open composition wears it.',
+		effect: 'lifecycle',
+		writes: [],
+		precondition: 'user-pack-present',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: ['composition-root'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/UserPackEditor.svelte'
+	},
+	{
+		id: 'appearance.validate-user-pack',
+		family: 'appearance',
+		toolName: 'gfx_appearance_validate_user_pack',
+		summary:
+			'Check a User Pack manifest without storing it: the structural, Google Fonts catalog, and no-shadowing issues a save would refuse with.',
+		effect: 'read',
+		writes: [],
+		precondition: 'user-pack-store-served',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: [],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/UserPackEditor.svelte'
 	},
 	{
 		id: 'appearance.set-typography',

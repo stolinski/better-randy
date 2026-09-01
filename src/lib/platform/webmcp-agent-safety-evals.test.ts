@@ -27,6 +27,65 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The origin's User Pack store as an agent would find it: in memory, with the
+// rules the origin enforces that these evals push on.
+const packStoreFake = vi.hoisted(() => {
+	const documents = new Map<string, import('./user-pack-store').UserPackDocument>();
+	let revision = 0;
+	const hash = (): string => (revision += 1).toString(16).padStart(64, '0');
+	return {
+		documents,
+		reset(): void {
+			documents.clear();
+		},
+		async listUserPacks() {
+			return [...documents.entries()].map(([slug, document]) => ({
+				slug,
+				label: document.manifest.label,
+				description: document.manifest.description,
+				forkedFrom: document.forkedFrom,
+				savedAt: document.savedAt,
+				contentHash: document.contentHash
+			}));
+		},
+		async loadUserPack(slug: string) {
+			return documents.get(slug) ?? null;
+		},
+		async forkUserPack(slug: string, builtinSlug: string, options?: { label?: string }) {
+			const { PACK_REGISTRY } = await import('./packs/registry');
+			const builtin = PACK_REGISTRY[builtinSlug];
+			const document = {
+				manifest: { ...structuredClone(builtin), slug, label: options?.label ?? builtin.label },
+				forkedFrom: builtinSlug,
+				savedAt: '2026-09-01T12:00:00.000Z',
+				contentHash: hash(),
+				fontFaces: []
+			};
+			documents.set(slug, document);
+			return document;
+		},
+		async saveUserPack(slug: string, manifest: import('./packs/types').PackManifest) {
+			const held = documents.get(slug);
+			const document = {
+				manifest,
+				forkedFrom: held?.forkedFrom ?? null,
+				savedAt: '2026-09-01T12:00:01.000Z',
+				contentHash: hash(),
+				fontFaces: held?.fontFaces ?? []
+			};
+			documents.set(slug, document);
+			return document;
+		},
+		async deleteUserPack(slug: string) {
+			documents.delete(slug);
+		}
+	};
+});
+vi.mock('./user-pack-store', async (importOriginal) => ({
+	...(await importOriginal<typeof import('./user-pack-store')>()),
+	userPackStore: packStoreFake
+}));
+
 import blankPresetJson from '$lib/presets/blank.json';
 
 import { applyPreset } from './preset';
@@ -43,6 +102,8 @@ import { readWebmcpToolExposure, WebmcpToolController } from './webmcp-tool-cont
 import { timelineHandle } from './timeline-handle.svelte';
 import { userCompositionStore } from './user-composition-store';
 import { WEBMCP_OPERATION_INVENTORY } from './webmcp-operation-inventory';
+import { PACK_CATALOG_REGISTRY } from './packs/catalog';
+import { PACK_REGISTRY } from './packs/registry';
 
 import type {
 	WebmcpExposureView,
@@ -557,6 +618,80 @@ describe('WebMCP authoring without an interface', () => {
 				focus.target
 			);
 			await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		}
+	});
+});
+
+describe('User Pack tools stay off the catalog (ADR-0055)', () => {
+	beforeEach(() => {
+		packStoreFake.reset();
+		openEditableComposition();
+	});
+
+	it('refuses to edit or delete a built-in and forks only the catalog, leaving the registry byte-identical', async () => {
+		await packStoreFake.forkUserPack('my-brand', 'clean-light', { label: 'My brand' });
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		const before = JSON.stringify(PACK_REGISTRY.syntax);
+
+		const save = readPayload(
+			await host.call(rowFor('appearance.save-user-pack').toolName, {
+				slug: 'syntax',
+				expectedContentHash: 'a'.repeat(64),
+				label: 'Hijacked'
+			})
+		);
+		expect(save.code).toBe('unsupported_variant');
+		const removal = readPayload(
+			await host.call(rowFor('appearance.delete-user-pack').toolName, {
+				slug: 'syntax',
+				expectedContentHash: 'a'.repeat(64)
+			})
+		);
+		expect(removal.code).toBe('unsupported_variant');
+		const forkOfFork = readPayload(
+			await host.call(rowFor('appearance.fork-user-pack').toolName, { builtinSlug: 'my-brand' })
+		);
+		expect(forkOfFork.code).toBe('unsupported_variant');
+
+		expect(JSON.stringify(PACK_REGISTRY.syntax)).toBe(before);
+		expect(packStoreFake.documents.has('syntax')).toBe(false);
+	});
+
+	it('never lets a User Pack take a catalog slug or claim a catalog status, and offers no pack tool on a cold page', async () => {
+		const host = new FakeModelContext();
+		const controller = startController(host);
+		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		const catalogBefore = Object.keys(PACK_CATALOG_REGISTRY);
+
+		const shadow = readPayload(
+			await host.call(rowFor('appearance.fork-user-pack').toolName, {
+				builtinSlug: 'clean-light',
+				slug: 'syntax'
+			})
+		);
+		expect(shadow.code).toBe('unsupported_variant');
+		const forked = readPayload(
+			await host.call(rowFor('appearance.fork-user-pack').toolName, { builtinSlug: 'clean-light' })
+		);
+		expect(forked.status).toBe('applied');
+		expect(forked.slug).toBe('clean-light-copy');
+		expect('catalogStatus' in forked).toBe(false);
+		expect(Object.keys(PACK_CATALOG_REGISTRY)).toEqual(catalogBefore);
+
+		compositionMeta.userCompositionSlug = null;
+		compositionMeta.isUserComposition = false;
+		await controller.synchronize(readWebmcpCompositionPreconditions(), '/');
+		const coldTools = new Set(controller.registeredToolNames);
+		for (const id of [
+			'appearance.inspect-user-pack-store',
+			'appearance.fork-user-pack',
+			'appearance.save-user-pack',
+			'appearance.delete-user-pack',
+			'appearance.validate-user-pack'
+		]) {
+			expect(coldTools.has(rowFor(id).toolName), `${id} on a cold page`).toBe(false);
 		}
 	});
 });

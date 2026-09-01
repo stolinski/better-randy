@@ -28,6 +28,13 @@ import {
 	WebmcpArgumentError
 } from './webmcp-tool-arguments';
 import {
+	runDeleteUserPackOperation,
+	runForkUserPackOperation,
+	runInspectUserPackStoreOperation,
+	runSaveUserPackOperation,
+	runValidateUserPackOperation
+} from './user-pack-operations';
+import {
 	runSetCompositionBackdropVisibilityOperation,
 	runSetCompositionEffectParamsOperation,
 	runSetCompositionMarkDefaultsOperation,
@@ -40,13 +47,32 @@ import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpFractionProperty,
-	webmcpObservedRevisionProperty
+	webmcpObservedRevisionProperty,
+	WEBMCP_NO_ARGUMENTS_SCHEMA
 } from './webmcp-derived-tool-schemas';
 
 import type { CompositionMarkAppearancePatch } from './composition-appearance-operations';
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
+
+/** The revision a User Pack write names: the document's sha-256 contentHash, as listed or receipted. */
+function userPackRevisionProperty(): WebmcpSchemaProperty {
+	return {
+		type: 'string',
+		description:
+			'The contentHash you read for this User Pack (from the list or a previous receipt); the write applies against it or not at all.',
+		minLength: 64,
+		maxLength: 64
+	};
+}
+
+/** JSON text for a shape the pack contract owns; absent means "leave it as stored". */
+function readOptionalJsonArgument(args: unknown, name: string): unknown {
+	return readWebmcpOptionalStringArgument(args, name) === undefined
+		? undefined
+		: readWebmcpJsonArgument(args, name);
+}
 
 /** One mark style's dressing, or `null` to hand the style back to the Pack. */
 function markAppearanceProperty(style: string): WebmcpSchemaProperty {
@@ -171,10 +197,18 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 				type: 'object',
 				properties: {
 					expectedRevision: webmcpObservedRevisionProperty(),
-					packSlug: webmcpDerivedEnumProperty(
-						'pack-slug',
-						'The Pack to dress this composition in. No composition content changes.'
-					)
+					packSlug: {
+						description:
+							'The Pack to dress this composition in: a registered Pack, or a User Pack slug from gfx_appearance_inspect_user_pack_store. No composition content changes.',
+						oneOf: [
+							webmcpDerivedEnumProperty('pack-slug', 'A registered Pack.'),
+							{
+								type: 'string',
+								description: 'A User Pack slug the store holds.',
+								minLength: 1
+							}
+						]
+					}
 				},
 				required: ['expectedRevision', 'packSlug'],
 				additionalProperties: false
@@ -185,6 +219,129 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						packSlug: readWebmcpStringArgument(args, 'packSlug')
 					})
+				)
+		},
+		{
+			operationId: 'appearance.inspect-user-pack-store',
+			inputSchema: WEBMCP_NO_ARGUMENTS_SCHEMA,
+			run: () =>
+				runWebmcpToolOperation('appearance.inspect-user-pack-store', () =>
+					runInspectUserPackStoreOperation()
+				)
+		},
+		{
+			operationId: 'appearance.fork-user-pack',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					builtinSlug: webmcpDerivedEnumProperty(
+						'pack-slug',
+						'The built-in Pack to copy. Only the catalog can be forked.'
+					),
+					slug: {
+						type: 'string',
+						description:
+							'Lowercase kebab-case slug for the new User Pack. Absent, it is named after its built-in with a -copy suffix.',
+						minLength: 1
+					},
+					label: {
+						type: 'string',
+						description: 'The label shown in the Pack control.',
+						minLength: 1
+					},
+					description: { type: 'string', description: 'What this pack is for.' }
+				},
+				required: ['builtinSlug'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.fork-user-pack', () =>
+					runForkUserPackOperation({
+						builtinSlug: readWebmcpStringArgument(args, 'builtinSlug'),
+						slug: readWebmcpOptionalStringArgument(args, 'slug'),
+						label: readWebmcpOptionalStringArgument(args, 'label'),
+						description: readWebmcpOptionalStringArgument(args, 'description')
+					})
+				)
+		},
+		{
+			operationId: 'appearance.save-user-pack',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					slug: { type: 'string', description: 'Which User Pack to save.', minLength: 1 },
+					expectedContentHash: userPackRevisionProperty(),
+					document: {
+						type: 'string',
+						description:
+							'JSON text of a whole pack manifest ({ slug, label, description, roles, fonts }) replacing the stored one. Exclusive with the partial fields.'
+					},
+					label: { type: 'string', description: 'A new label.', minLength: 1 },
+					description: { type: 'string', description: 'A new description.' },
+					roles: {
+						type: 'string',
+						description:
+							'JSON text: an object from role name to { "kind": "style", "value": … } or { "kind": "chrome", "effects": [...] }, or null to drop that role. Roles not named stay as stored.'
+					},
+					fonts: {
+						type: 'string',
+						description:
+							'JSON text: the whole font declaration list, [{ "family", "weights"?, "style"? }], replacing the stored one. Google Fonts families only; cuts the family does not ship are refused.'
+					}
+				},
+				required: ['slug', 'expectedContentHash'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.save-user-pack', () =>
+					runSaveUserPackOperation({
+						slug: readWebmcpStringArgument(args, 'slug'),
+						expectedContentHash: readWebmcpStringArgument(args, 'expectedContentHash'),
+						document: readOptionalJsonArgument(args, 'document'),
+						label: readWebmcpOptionalStringArgument(args, 'label'),
+						description: readWebmcpOptionalStringArgument(args, 'description'),
+						roles: readOptionalJsonArgument(args, 'roles') as
+							Readonly<Record<string, unknown>> | undefined,
+						fonts: readOptionalJsonArgument(args, 'fonts')
+					})
+				)
+		},
+		{
+			operationId: 'appearance.delete-user-pack',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					slug: { type: 'string', description: 'Which User Pack to delete.', minLength: 1 },
+					expectedContentHash: userPackRevisionProperty()
+				},
+				required: ['slug', 'expectedContentHash'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.delete-user-pack', () =>
+					runDeleteUserPackOperation({
+						slug: readWebmcpStringArgument(args, 'slug'),
+						expectedContentHash: readWebmcpStringArgument(args, 'expectedContentHash')
+					})
+				)
+		},
+		{
+			operationId: 'appearance.validate-user-pack',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					document: {
+						type: 'string',
+						description:
+							'JSON text of the pack manifest to check ({ slug, label, description, roles, fonts }).'
+					}
+				},
+				required: ['document'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.validate-user-pack', () =>
+					runValidateUserPackOperation({ document: readWebmcpJsonArgument(args, 'document') })
 				)
 		},
 		{

@@ -16,7 +16,7 @@
  * surface.
  */
 
-import { hashDeterministicRenderValue } from './deterministic-render-registry-fingerprint';
+import { hashDeterministicRenderValue } from './deterministic-render-registry-fingerprint.ts';
 
 /** One registered tool as the measured Chrome surface reports it. */
 export interface WebmcpRegisteredToolDescriptor {

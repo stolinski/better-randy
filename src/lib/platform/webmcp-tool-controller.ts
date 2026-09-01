@@ -48,7 +48,8 @@
 import { readWebmcpSchemaDigest } from './webmcp-derived-tool-schemas';
 import {
 	completeWebmcpRegistrationState,
-	readWebmcpSessionCompositionPresence
+	readWebmcpSessionCompositionPresence,
+	readWebmcpUserPackPreconditions
 } from './webmcp-tool-preconditions';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
@@ -299,9 +300,14 @@ export class WebmcpToolController {
 		const removed: string[] = [];
 		this.#routeId = routeId;
 
+		const [sessionCompositionPresent, userPacks] = await Promise.all([
+			readWebmcpSessionCompositionPresence(),
+			readWebmcpUserPackPreconditions()
+		]);
 		const state = completeWebmcpRegistrationState(
 			composition,
-			await readWebmcpSessionCompositionPresence()
+			sessionCompositionPresent,
+			userPacks
 		);
 		if (this.#lifetime.aborted) {
 			this.#abortAll();
