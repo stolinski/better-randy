@@ -40,7 +40,7 @@ describe('validateUserPackFontClaims', () => {
 			{ family: 'Space Grotesk', weights: [350, 700] }
 		]);
 		assert.deepEqual(validateUserPackFontClaims(manifest, CATALOG), []);
-		assert.deepEqual(validateUserPackManifest(manifest, CATALOG), []);
+		assert.deepEqual(validateUserPackManifest(manifest, { catalog: CATALOG }), []);
 	});
 
 	it('refuses a synthesized cut and names the weight, style, and what the family ships', () => {
@@ -94,7 +94,9 @@ describe('validateUserPackManifest', () => {
 	it('composes the structural contract with the catalog check', () => {
 		const manifest = userPackWithFonts([{ family: 'Old Standard TT', weights: [500] }]);
 		manifest.roles['font-treatment'] = { kind: 'style', value: '"Undeclared Face", serif' };
-		const kinds = validateUserPackManifest(manifest, CATALOG).map((issue) => issue.kind);
+		const kinds = validateUserPackManifest(manifest, { catalog: CATALOG }).map(
+			(issue) => issue.kind
+		);
 		assert.ok(kinds.includes('undeclared-font-family'));
 		assert.ok(kinds.includes('unavailable-google-fonts-cut'));
 	});

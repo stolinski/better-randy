@@ -107,6 +107,12 @@ export const PUBLIC_SURFACE_INVENTORY: readonly PublicSurfaceRow[] = [
 			'The disk-backed User composition store. Excluded here by deployment profile; `assertOriginCompositionStoreServed` separately refuses it whenever this build serves the browser-scoped session store, which a development host can also be configured for.'
 	},
 	{
+		pathPrefix: '/api/user-packs',
+		exposure: 'development-only',
+		reason:
+			'The disk-backed User Pack store (ADR-0055): list, fork, save, and delete pack documents in origin app data. Same boundary as the composition store; `assertOriginUserPackStoreServed` refuses it under a browser-scoped session.'
+	},
+	{
 		pathPrefix: '/api/user-pack-fonts/',
 		exposure: 'development-only',
 		reason:

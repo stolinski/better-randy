@@ -25,6 +25,7 @@ describe('user pack store location', () => {
 		if (resolution.kind !== 'served') return;
 		assert.equal(resolution.location.packStoreDirectory, join(COMPOSITIONS, '..', 'packs'));
 		assert.equal(resolution.location.fontCacheDirectory, join(COMPOSITIONS, '..', 'fonts'));
+		assert.equal(resolution.location.trashDirectory, join(COMPOSITIONS, '..', 'trash', 'packs'));
 		assert.ok(!resolution.location.packStoreDirectory.includes('compositions'));
 		assert.equal(resolution.location.isVerificationRun, false);
 	});
@@ -58,6 +59,7 @@ describe('user pack store location', () => {
 			assertUserPackDeleteAuthorized({
 				packStoreDirectory: '/x/packs',
 				fontCacheDirectory: '/x/fonts',
+				trashDirectory: '/x/trash/packs',
 				isVerificationRun: false
 			})
 		);
@@ -66,6 +68,7 @@ describe('user pack store location', () => {
 				assertUserPackDeleteAuthorized({
 					packStoreDirectory: '/x/packs',
 					fontCacheDirectory: '/x/fonts',
+					trashDirectory: '/x/trash/packs',
 					isVerificationRun: true
 				}),
 			(value: unknown) => isHttpError(value, 403)

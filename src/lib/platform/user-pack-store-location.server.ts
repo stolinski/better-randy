@@ -26,6 +26,8 @@ export interface UserPackStoreLocation {
 	packStoreDirectory: string;
 	/** Hash-named woff2 bytes plus the index that maps font claims onto them. */
 	fontCacheDirectory: string;
+	/** Where deleted packs go. Deleting never destroys. */
+	trashDirectory: string;
 	isVerificationRun: boolean;
 }
 
@@ -39,6 +41,7 @@ export function userPackStoreLocationBeside(
 	return {
 		packStoreDirectory: join(composition.storeDirectory, '..', 'packs'),
 		fontCacheDirectory: join(composition.storeDirectory, '..', 'fonts'),
+		trashDirectory: join(composition.trashDirectory, 'packs'),
 		isVerificationRun: composition.isVerificationRun
 	};
 }

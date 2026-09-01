@@ -70,6 +70,7 @@ beforeEach(async () => {
 	location = {
 		packStoreDirectory: join(cacheRoot, 'packs'),
 		fontCacheDirectory: join(cacheRoot, 'fonts'),
+		trashDirectory: join(cacheRoot, 'trash', 'packs'),
 		isVerificationRun: true
 	};
 	byteVersion = 1;

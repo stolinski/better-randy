@@ -35,11 +35,14 @@ export interface PackValidationIssue {
 		| 'undeclared-font-family'
 		| 'invalid-chart-mark-fill'
 		| 'unknown-google-fonts-family'
-		| 'unavailable-google-fonts-cut';
+		| 'unavailable-google-fonts-cut'
+		| 'shadows-builtin-pack'
+		| 'font-materialization-failed';
 	message: string;
 }
 
-const PACK_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Lowercase kebab-case, the one slug alphabet built-in and user packs share. */
+export const PACK_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FONT_ROLE_KEYS = ['font-treatment', 'font-label-treatment'] as const;
 
 function firstFontFamily(value: string): string {
@@ -603,12 +606,18 @@ export function validateUserPackFontClaims(
  * catalog check above. Slug collision with `PACK_REGISTRY` is the store's rule
  * (it owns the registry view); this module stays registry-free.
  */
+export interface UserPackValidationOptions {
+	catalog?: GoogleFontsCatalog;
+	/** The slug the store addresses the document by; the manifest's own slug must match it. */
+	storeSlug?: string;
+}
+
 export function validateUserPackManifest(
 	manifest: PackManifest,
-	catalog: GoogleFontsCatalog = GOOGLE_FONTS_CATALOG
+	options: UserPackValidationOptions = {}
 ): readonly PackValidationIssue[] {
 	return [
-		...validatePackManifest(manifest.slug, manifest),
-		...validateUserPackFontClaims(manifest, catalog)
+		...validatePackManifest(options.storeSlug ?? manifest.slug, manifest),
+		...validateUserPackFontClaims(manifest, options.catalog ?? GOOGLE_FONTS_CATALOG)
 	];
 }
