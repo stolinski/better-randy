@@ -49,35 +49,42 @@ export interface RatifiedPackCatalogMetadata {
 export type PackCatalogMetadata = DraftPackCatalogMetadata | RatifiedPackCatalogMetadata;
 export type PackCatalogSlug = PackRegistrySlug;
 
+// Every stamp is dated 2026-09-01: registering `sentry` re-keyed the whole
+// runtime identity, so Scott re-ratified the four existing packs' Trios in
+// the same review that admitted Sentry (their 2026-08-19 stamps had already
+// drifted with engine work; see dex orskr0o4 for the freshness-gate gap).
 const PACK_CATALOG_ENTRIES = {
 	syntax: {
 		status: 'ratified',
-		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: '31cd28dcfcad4de3d5e6977b58c603b61e564944baafb0aa0bf0dd2a19c6b6c5',
+		humanRatifiedAt: '2026-09-01',
+		verificationBundleId: 'e1a305937ba7219de0af7e028c9c57bdc0fdb006d9f501253336259de29ea10f',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'editorial-mono': {
 		status: 'ratified',
-		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: '802da6bacf34890ea622b304ad189208e253026c67f7ea69d4a037ba91af6590',
+		humanRatifiedAt: '2026-09-01',
+		verificationBundleId: 'd83ea8e120518f1ad6d1d7e860f133a92fcf301041175594f58ec3ff394d4201',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'crt-terminal': {
 		status: 'ratified',
-		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: 'f7855f1a92edcafd541e44b43f2da8dd580921e0769333e9c754c3ee78d140d4',
+		humanRatifiedAt: '2026-09-01',
+		verificationBundleId: '692d7c0085a5fb024ce80ef3f50417caba355d4b0439984f530d3919e16564ad',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	'clean-light': {
 		status: 'ratified',
-		humanRatifiedAt: '2026-08-19',
-		verificationBundleId: '6153d4518407af5aaa7ea982ff2a2619a6ea8913941552d136b39c83959e3dc8',
+		humanRatifiedAt: '2026-09-01',
+		verificationBundleId: '9459e76ca0e5f86821a54f48aa3b5319b3d5e59a80c2e24a2dc7c2ed936517a9',
 		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	},
 	// Promoted from the `sentry` User Pack (ADR-0055 drafting lane, playbook
-	// § 7); draft until Scott ratifies its Calibration Trio.
+	// § 7) and ratified on its Calibration Trio the same day.
 	sentry: {
-		status: 'draft'
+		status: 'ratified',
+		humanRatifiedAt: '2026-09-01',
+		verificationBundleId: '7361b758378bdea487e6f0718281216f94fa43805ca4ec2bd91488ab3bbc474b',
+		calibrationTrio: CALIBRATION_TRIO_FRAME_SPECS
 	}
 } satisfies Readonly<Record<PackCatalogSlug, PackCatalogMetadata>>;
 
