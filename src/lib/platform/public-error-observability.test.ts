@@ -49,6 +49,38 @@ describe('describeErrorResponse', () => {
 		assert.equal(report.line, '[2026-08-30T00:00:00.000Z] 404 POST /api/export/sessions');
 	});
 
+	// GFX-COMPUTER-2C: an unready host filed a High-priority Sentry error for the
+	// readiness contract answering exactly as ADR-0052 specifies.
+	it('logs but never promotes the readiness 503', () => {
+		const report = describeErrorResponse({
+			...OBSERVATION,
+			profile: 'public',
+			status: 503,
+			method: 'GET',
+			pathname: '/api/health',
+			search: '',
+			body: '{"status":"unavailable","release":"gfx@6143cc6","checks":{"ffmpeg":"ok","temporaryDisk":"unavailable"}}'
+		});
+
+		assert.equal(report.diagnostic, null);
+		assert.ok(report.line.includes('503 GET /api/health'));
+		assert.ok(report.line.includes('"temporaryDisk":"unavailable"'));
+	});
+
+	it('still promotes a genuine failure from the readiness route', () => {
+		const report = describeErrorResponse({
+			...OBSERVATION,
+			profile: 'public',
+			status: 500,
+			method: 'GET',
+			pathname: '/api/health',
+			search: '',
+			body: 'Internal Error'
+		});
+
+		assert.equal(report.diagnostic?.body, 'Internal Error');
+	});
+
 	it('bounds what one failure can write', () => {
 		const report = describeErrorResponse({
 			...OBSERVATION,

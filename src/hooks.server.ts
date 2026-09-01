@@ -110,8 +110,9 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 		});
 		console.error(report.line);
 		if (report.diagnostic !== null) {
-			// Promote every resolved 5xx response; intentional error(...) never reaches
-			// handleError, while 4xx stays a log line only.
+			// Promote a resolved 5xx unless it is the route's designed answer (the
+			// readiness 503); intentional error(...) never reaches handleError, while
+			// 4xx stays a log line only.
 			Sentry.captureMessage(`${response.status} ${event.request.method} ${event.url.pathname}`, {
 				level: 'error',
 				extra: { ...report.diagnostic }
