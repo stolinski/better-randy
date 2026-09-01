@@ -58,7 +58,7 @@ gfx-factory describe` for the Mermaid when in doubt.
 - **serve** — `gfx-verify.rebuild_and_smoke` rebuilds the primary checkout's
   production artifact (`pnpm build`), restarts the supervised `gfx` project
   through `local-dev-control`, and smokes `https://gfx.robo.online`: HTTP
-  200, a `<title>`, `/api/health` 200, and the `gfx-release` meta equal to
+  200, `/api/health` 200, and the `gfx-release` meta equal to
   `gfx@<main HEAD>` — so the prod URL never silently serves stale main. A
   smoke failure is operational, not implementation: the run stays in `serve`
   with failed evidence for the human; there is no rework loop-back from here.

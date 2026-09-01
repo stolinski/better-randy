@@ -23,8 +23,9 @@
  * `rebuild_and_smoke` is the Factory's post-integration `serve` seam: after a
  * cherry-pick lands on main it rebuilds the primary checkout's production
  * artifact, restarts the supervised `gfx` project through `local-dev-control`,
- * and proves the live origin serves the landed commit (status, title, and the
- * `gfx-release` meta) — so gfx.robo.online never silently serves stale main.
+ * and proves the live origin serves the landed commit (status, `/api/health`,
+ * and the `gfx-release` meta; the client-rendered shell's title is recorded
+ * but not asserted) — so gfx.robo.online never silently serves stale main.
  *
  * @module
  */
@@ -230,7 +231,7 @@ type MethodContext = {
 /** Model definition for the GFX deterministic verification runner. */
 export const model = {
 	type: "@gfx/verify",
-	version: "2026.09.01.1",
+	version: "2026.09.01.2",
 	globalArguments: GlobalArgsSchema,
 	resources: {
 		verification: {
@@ -367,7 +368,7 @@ export const model = {
 		},
 		rebuild_and_smoke: {
 			description:
-				"Rebuild the primary checkout's production artifact, restart its supervised local-dev project, and smoke the live origin (status, title, gfx-release meta) against the landed commit",
+				"Rebuild the primary checkout's production artifact, restart its supervised local-dev project, and smoke the live origin (status, health, gfx-release meta) against the landed commit",
 			arguments: RebuildAndSmokeArgumentsSchema,
 			execute: async (
 				args: z.infer<typeof RebuildAndSmokeArgumentsSchema>,
@@ -505,6 +506,8 @@ export const model = {
 					);
 				}
 
+				// Recorded, not asserted: the app renders client-side, so the served
+				// shell legitimately carries no <title> until the browser runs it.
 				smoke.title = extractHtmlTitle(shellHtml);
 				smoke.servedRelease = extractServedReleaseMeta(shellHtml);
 				try {
@@ -517,9 +520,6 @@ export const model = {
 					smoke.healthStatus = null;
 				}
 
-				if (smoke.title === null || smoke.title.length === 0) {
-					return record("the served app shell carries no <title>");
-				}
 				const expectedRelease = `gfx@${smoke.landedSha}`;
 				if (smoke.servedRelease !== expectedRelease) {
 					return record(
