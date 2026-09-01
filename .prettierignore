@@ -7,3 +7,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Generated data: one family per line so a refresh diffs per family
+src/lib/platform/google-fonts-catalog.json

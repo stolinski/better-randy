@@ -1,3 +1,9 @@
+import {
+	GOOGLE_FONTS_CATALOG,
+	parseGoogleFontStyle,
+	resolveGoogleFontCut,
+	type GoogleFontsCatalog
+} from '../google-fonts-catalog';
 import { getEffectDefinition } from '../pipelines/definition-registry';
 import { validatePackCoreVocabulary } from '../pipelines/identity-registry';
 import { CHART_MARK_FILL_COLOR_ROLES, isChartMarkFillRoleValue } from './chart-mark-fill-contract';
@@ -27,7 +33,9 @@ export interface PackValidationIssue {
 		| 'duplicate-chrome-effect'
 		| 'invalid-font-declaration'
 		| 'undeclared-font-family'
-		| 'invalid-chart-mark-fill';
+		| 'invalid-chart-mark-fill'
+		| 'unknown-google-fonts-family'
+		| 'unavailable-google-fonts-cut';
 	message: string;
 }
 
@@ -527,4 +535,80 @@ export function formatPackValidationIssues(issues: readonly PackValidationIssue[
 	return issues
 		.map((issue) => `${issue.pack}.${issue.path.join('.') || '<root>'}: ${issue.message}`)
 		.join('\n');
+}
+
+function describeShippedWeights(
+	availableWeights: readonly number[],
+	weightAxis: { min: number; max: number } | null
+): string {
+	const parts: string[] = [];
+	if (weightAxis !== null) parts.push(`${weightAxis.min}–${weightAxis.max} (variable)`);
+	if (availableWeights.length > 0) parts.push(availableWeights.join(', '));
+	return parts.length > 0 ? `ships only weights ${parts.join('; ')}` : 'ships no cut in that style';
+}
+
+/**
+ * The catalog-aware font check a User Pack document must pass on save
+ * (ADR-0055): every `PackFont` claim resolves to a cut Google Fonts really
+ * ships — a named static file or a weight inside the family's `wght` axis —
+ * or the save is refused with the offending claim named. This is the runtime
+ * form of the playbook's never-synthesize law (docs/packs/authoring-playbook.md
+ * § 2.2). Built-in registry packs are exempt: `validatePackManifest` never
+ * calls this, because their fonts are `@fontsource`-bundled and boot-gated.
+ */
+export function validateUserPackFontClaims(
+	manifest: PackManifest,
+	catalog: GoogleFontsCatalog = GOOGLE_FONTS_CATALOG
+): readonly PackValidationIssue[] {
+	const issues: PackValidationIssue[] = [];
+	for (const [index, font] of (manifest.fonts ?? []).entries()) {
+		const style = parseGoogleFontStyle(font.style);
+		if (style === null) {
+			issues.push({
+				pack: manifest.slug,
+				path: ['fonts', index, 'style'],
+				kind: 'unavailable-google-fonts-cut',
+				message: `Pack font "${font.family}" claims style "${font.style}", but Google Fonts ships only normal and italic`
+			});
+			continue;
+		}
+		for (const [weightIndex, weight] of (font.weights ?? [400]).entries()) {
+			const resolution = resolveGoogleFontCut({ family: font.family, weight, style }, catalog);
+			if (resolution.kind === 'static' || resolution.kind === 'variable') continue;
+			const weightPath =
+				font.weights === undefined ? ['fonts', index] : ['fonts', index, 'weights', weightIndex];
+			if (resolution.kind === 'unknown-family') {
+				issues.push({
+					pack: manifest.slug,
+					path: ['fonts', index, 'family'],
+					kind: 'unknown-google-fonts-family',
+					message: `Pack font "${font.family}" is not a Google Fonts family; a user pack may only claim families in the vendored Google Fonts catalog`
+				});
+				break;
+			}
+			issues.push({
+				pack: manifest.slug,
+				path: weightPath,
+				kind: 'unavailable-google-fonts-cut',
+				message: `Pack font "${font.family}" claims weight ${weight} (${style}), but Google Fonts ${describeShippedWeights(resolution.availableWeights, resolution.weightAxis)} — never synthesize a cut`
+			});
+		}
+	}
+	return issues;
+}
+
+/**
+ * Everything a User Pack document must satisfy before it is stored: the same
+ * structural contract a built-in pack passes at boot, plus the Google Fonts
+ * catalog check above. Slug collision with `PACK_REGISTRY` is the store's rule
+ * (it owns the registry view); this module stays registry-free.
+ */
+export function validateUserPackManifest(
+	manifest: PackManifest,
+	catalog: GoogleFontsCatalog = GOOGLE_FONTS_CATALOG
+): readonly PackValidationIssue[] {
+	return [
+		...validatePackManifest(manifest.slug, manifest),
+		...validateUserPackFontClaims(manifest, catalog)
+	];
 }
