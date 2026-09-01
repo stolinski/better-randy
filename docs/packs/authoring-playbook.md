@@ -79,3 +79,12 @@ No human-ratified current bundle → the Pack remains renderable for authoring b
 - **Silent roles must stay byte-identical.** Form dress wraps `var(--suffix, <exact current value>)` in the pipeline — a pack with no claim must not move a pixel (the pixel-diff lock's inverse, checked by byte-compare on syntax).
 - **In-page pack flips fork compositions.** Swapping `packState` from the console requires the app's `?t=`-versioned module URL AND a `transitionState.capturing = true` bracket, or `/p/[slug]` autosave forks the composition into `user-compositions/`.
 - **Defensive values for ruled-out capabilities** (§ 2.7) — an aesthetic-doc prohibition is not a runtime guarantee.
+
+## 7 — Promotion lane (User Pack → catalog)
+
+A **User Pack** ([ADR-0055](../adr/0055-user-defined-packs.md), [`user-pack-workflows.md`](../user-pack-workflows.md)) is where a customer's look is drafted: fork a built-in in the Pack control, re-dress the cores and type live, iterate with no repo commit per tweak. It is renderable and selectable, and that is all it is. Promotion to the catalog is this playbook, not a button:
+
+1. **A User Pack is not evidence.** Nothing drafted in the store — its document, its renders, a review on gfx-review — counts toward ratification. The Calibration Trio judges a repo pack built through §§ 1–5, and the machine gates (§ 4) enumerate `PACK_REGISTRY` alone.
+2. **Rebuild it as a real pack.** Create `src/lib/packs/<slug>/` from a fresh intake (§ 1, real pixels of the reference, not the draft's swatches), extract the contract (§ 2) — the draft's cores are a starting claim, its fonts a starting voice, both re-verified against the source — then author the manifest, `@fontsource` registration, and aesthetic doc (§ 3). A fork carries only the built-in's cores, chrome, and fonts, so the per-Pipeline claims a catalog pack needs are authored here, not copied.
+3. **Slug collision is intentional.** The repo pack takes the slug; the User Pack of the same slug becomes unsaveable (the store refuses shadowing) and should be deleted from the Pack control once the catalog pack lands, so compositions rebind to the real thing.
+4. **Then the gates and the Trio** (§§ 4–5), and Scott's ratification, exactly as for any pack.

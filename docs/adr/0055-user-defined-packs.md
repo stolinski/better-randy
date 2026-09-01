@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built.** Ratified 2026-09-01 in planning with Scott. Amends the 2026-07-10 pack-catalog ruling ([`../roadmap.md`](../roadmap.md) § The pack catalog): "no runtime pack loading" no longer holds for **user-authored local packs**. It still holds for the catalog: catalog Packs ship in the one shared app bundle, and nothing here adds per-customer builds or licensing gates.
+**Canon (built 2026-09-01; amendments recorded below).** Ratified 2026-09-01 in planning with Scott and built the same day (epic `p4acg6e0`). Amends the 2026-07-10 pack-catalog ruling ([`../roadmap.md`](../roadmap.md) § The pack catalog): "no runtime pack loading" no longer holds for **user-authored local packs**. It still holds for the catalog: catalog Packs ship in the one shared app bundle, and nothing here adds per-customer builds or licensing gates.
 
 Date: 2026-09-01
 
@@ -48,7 +48,7 @@ A User Pack is renderable and selectable, and that is all:
 
 - It never enters `PACK_CATALOG_REGISTRY`, is never Calibration Trio ratification input, and never appears in the creator catalog. Catalog admission stays exactly the human-owned bar it is today.
 - Every deterministic deliverable gate stays scoped to `PACK_REGISTRY` built-ins: `verify-presets` pack gates, `probe-pack-diff`, calibration bundles, the layout-contract matrix. User packs are not deliverables and produce no verification evidence.
-- **ADR-0039's Pack-neutrality obligation is judged against catalog Packs only.** Deliverable Presets owe nothing to any User Pack; a User Pack in turn gets the fallback-floor *correctness* guarantee, and safe-area/layout obligations live with Presets and blank elements, not with packs. There is no aesthetic gate on a User Pack — the user's taste is the user's; any legibility signal is advisory, per the Critic's standing non-authority.
+- **ADR-0039's Pack-neutrality obligation is judged against catalog Packs only.** Deliverable Presets owe nothing to any User Pack; a User Pack in turn gets the fallback-floor _correctness_ guarantee, and safe-area/layout obligations live with Presets and blank elements, not with packs. There is no aesthetic gate on a User Pack — the user's taste is the user's; any legibility signal is advisory, per the Critic's standing non-authority.
 
 ### Promotion is the playbook, not a button
 
@@ -69,3 +69,14 @@ v1 assumes packs and compositions share a machine. The content hash recorded on 
 - ADR-0053's development-only disk-store surface list grows the user pack store and font cache.
 - The authoring playbook gains the promotion lane; `docs/user-composition-workflows.md` gains its pack sibling.
 - What would reject this design later: evidence that runtime-loaded packs leak into deliverable verification evidence, or that the drafting lane erodes the catalog bar. Both are guarded by the registry scoping above; if either guard fails in practice, revisit here.
+
+## Amendments at build (2026-09-01)
+
+Each was decided with Scott during implementation and is the form that shipped:
+
+- **File URLs resolve at save time, never in the snapshot.** The vendored Google Fonts catalog holds families, cuts, and axes only; the origin asks Google's CSS API for the current woff2 URLs when it materializes a claim, then pins the bytes by hash. Google versions and rotates those URLs, so a snapshotted one would fail saves for a font that still exists.
+- **A fork takes the built-in's cores, optional cores, chrome, and fonts — never its per-Pipeline overrides.** clean-light carries about a hundred such overrides and they beat the cores under ADR-0024, so a fork that copied them rendered as the built-in whatever its cores said. The drafting lane edits cores; a promoted pack authors its per-Pipeline claims in the repo.
+- **Preset semantic validation gained a `packScope`** (`registry` default for every deliverable gate; `runtime` for the open document and drafts; `stored` for the composition store's own documents), so a composition whose User Pack was deleted still loads for rebinding and fails at resolution with the slug named.
+- **Live preview beside the saved document.** The runtime keeps a preview manifest per slug while the author edits; a refused save restores the saved look on the render and keeps the draft in the editor with the issues named per role.
+- **The store and font cache sit beside the composition store** in app data and inherit its verification jail through the composition variables; no new environment variable.
+- **WebMCP rows** are `appearance.inspect-user-pack-store`, `fork-user-pack`, `save-user-pack`, `delete-user-pack`, `validate-user-pack`, gated by two store-answered preconditions that also require an open composition, so the cold page keeps its short menu and a browser-scoped host registers none. Their revision token is the document `contentHash`. `appearance.set-pack` accepts a User Pack slug beside the catalog enum. An agent's delete refuses while the open composition wears the pack; the GUI's delete rebinds first.

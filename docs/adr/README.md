@@ -65,7 +65,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0052](0052-public-runtime-and-retention-architecture.md)          | Canon (ratified; public deployment descoped 2026-08-31 — local-first)                        | Node/ffmpeg origin served locally, Cloudflare as DNS/proxy only, bounded export, zero content retention |
 | [0053](0053-gfx-namespace-and-legacy-supers-compatibility.md)      | Canon (contract ratified; renames are separate changes)                                      | GFX namespace, one disposition per Legacy Supers name, and the public-session boundary                  |
 | [0054](0054-webmcp-operation-transaction-and-security-contract.md) | Canon (contract ratified; operation layer, controller, and parity gate are separate changes) | Fifteen non-overlapping WebMCP operation families over one revisioned atomic transaction core           |
-| [0055](0055-user-defined-packs.md)                                 | Designed, not built                                                                          | User Packs as validated JSON documents behind a UserPackStore; renderable, never catalog                |
+| [0055](0055-user-defined-packs.md)                                 | Canon (built 2026-09-01)                                                                     | User Packs as validated JSON documents behind a UserPackStore; renderable, never catalog                |
 
 ## Supersession And Refinement
 
