@@ -43,7 +43,7 @@ Deno.test("extension changes derive only the deno extension suite", () => {
 
 Deno.test("a single preset change derives check, test, and affected-scoped presets", () => {
 	const plans = deriveVerificationSuites(["src/lib/presets/chapter-card.json"]);
-	assertEquals(plans.map((plan) => plan.name), ["check", "test", "presets"]);
+	assertEquals(plans.map((plan) => plan.name), ["check", "test", "structural", "presets"]);
 	const presets = plans.find((plan) => plan.name === "presets");
 	assertEquals(presets?.command.includes("--affected"), true);
 	assertEquals(presets?.command.includes("--all"), false);
@@ -67,7 +67,7 @@ Deno.test("platform CSS changes pass only the CSS path to the presets selector",
 
 Deno.test("docs/packs changes stay app-relevant for the presets selector", () => {
 	const plans = deriveVerificationSuites(["docs/packs/syntax/aesthetic.md"]);
-	assertEquals(plans.map((plan) => plan.name), ["check", "test", "presets"]);
+	assertEquals(plans.map((plan) => plan.name), ["check", "test", "structural", "presets"]);
 });
 
 Deno.test("docs-site changes derive only the docs-site suite", () => {
@@ -83,7 +83,7 @@ Deno.test("docs-site changes derive only the docs-site suite", () => {
 Deno.test("mixed docs-site and app changes derive both lanes", () => {
 	assertEquals(
 		suiteNames(["docs-site/src/app.css", "src/lib/utils/thing.ts"]),
-		["docs-site", "check", "test", "presets"],
+		["docs-site", "check", "test", "structural", "presets"],
 	);
 });
 

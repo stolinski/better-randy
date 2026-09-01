@@ -38,10 +38,29 @@ assert.equal(
 	1,
 	'the focused renderer module must own exactly one composition frame seam'
 );
+// Two upload sites, both inside the seam's Surface capture: the ungated lane
+// for a frame without a capture record, and the paint-record-gated lane
+// (commit 6d57f18 — an element the browser has never painted has nothing to
+// copy). Neither the Workspace nor the export controller may grow a third.
 assert.equal(
 	(renderer.match(/pipeline\.uploadDom\(\)/g) ?? []).length,
-	1,
-	'the shared frame seam must own the only live DOM upload operation'
+	2,
+	'the shared frame seam must own the only live DOM upload operations'
+);
+assert.match(
+	renderer,
+	/function captureSurfaceDom\([\s\S]*?pipeline\.uploadDom\(\);[\s\S]*?hasCapturedPaintRecord\(capture\.surface\)[\s\S]*?pipeline\.uploadDom\(\);[\s\S]*?\n\}/,
+	'both Surface DOM uploads must live in captureSurfaceDom, the second behind the paint-record gate'
+);
+assert.doesNotMatch(
+	source,
+	/uploadDom\(/,
+	'Workspace must not upload DOM outside the shared frame seam'
+);
+assert.doesNotMatch(
+	exportController,
+	/uploadDom\(/,
+	'the export controller must not upload DOM outside the shared frame seam'
 );
 assert.match(
 	renderer,

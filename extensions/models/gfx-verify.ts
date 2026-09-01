@@ -189,6 +189,14 @@ export function deriveVerificationSuites(
 	if (appPaths.length > 0) {
 		plans.push({ name: "check", command: buildSuiteCommand("check", null) });
 		plans.push({ name: "test", command: buildSuiteCommand("test", null) });
+		// The structural scripts (render seam, discoverability, name
+		// dispositions, planning state) guard invariants vitest cannot see;
+		// they run on every app change so a drift on main is caught at
+		// integration, not weeks later.
+		plans.push({
+			name: "structural",
+			command: buildSuiteCommand("structural", null),
+		});
 		plans.push({
 			name: "presets",
 			command: buildSuiteCommand("presets", appPaths),
