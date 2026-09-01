@@ -35,14 +35,20 @@ export interface ErrorResponseObservation {
 	search: string;
 	/** The response body, read for a 5xx and `null` for anything below it. */
 	body: string | null;
+	/**
+	 * Whether an unhandled exception produced this response, which means
+	 * `handleError` has already reported it to Sentry WITH its stack.
+	 */
+	reportedByErrorHandler: boolean;
 }
 
 export interface ErrorResponseReport {
 	/** The console line, body included when there is one. */
 	line: string;
 	/**
-	 * Context for the promoted Sentry message, or `null` when there is no body to
-	 * promote or the status was the route's designed answer rather than a failure.
+	 * Context for the promoted Sentry message, or `null` when there is nothing
+	 * left to promote: no body to read, the route's designed answer rather than a
+	 * failure, or a failure the error handler already reported.
 	 */
 	diagnostic: { body: string; search: string } | null;
 }
@@ -65,11 +71,38 @@ export function isDesignedResponseStatus(pathname: string, status: number): bool
 }
 
 /**
+ * Whether this error response is worth promoting to Sentry as its own event.
+ *
+ * Promotion exists for the failures nothing else reports: an intentional
+ * `error(5xx, ...)` throws an `HttpError`, which SvelteKit answers before
+ * `handleError` runs, so without this it leaves no Sentry event at all. An
+ * UNHANDLED exception is the opposite case — `handleError` has already captured
+ * it with its stack by the time the 500 comes back, so promoting it files the
+ * same request a second time as a stackless `500 <METHOD> <path>` message.
+ *
+ * That duplicate is how one aborted frame upload became both GFX-COMPUTER-27
+ * (`Error: aborted`, with the stack) and GFX-COMPUTER-2A (`500 PUT
+ * /api/export/sessions/[sessionId]/frames/1`, without it) on one trace, and it
+ * doubled the unresolved queue: every SSR crash on `/p/[slug]` arrived twice.
+ */
+function isPromotableErrorResponse(observation: ErrorResponseObservation): boolean {
+	return (
+		!observation.reportedByErrorHandler &&
+		!isDesignedResponseStatus(observation.pathname, observation.status)
+	);
+}
+
+/**
  * The line to log and the context to promote, for one error response. A failure
  * on a development host carries its query string and its body verbatim; the same
  * failure on a public host carries no query string and a path-stripped body. A
  * designed status is still logged — an operator wants to see readiness flip —
- * but never promoted, because nothing went wrong.
+ * but never promoted, because nothing went wrong. A failure the error handler
+ * already reported is logged and not promoted either, because promoting it again
+ * files the same request twice.
+ *
+ * Every case still logs. Withholding the diagnostic decides only whether this
+ * response becomes a SECOND Sentry event, never whether the host records it.
  */
 export function describeErrorResponse(observation: ErrorResponseObservation): ErrorResponseReport {
 	const search = observation.profile === 'public' ? '' : observation.search;
@@ -84,8 +117,6 @@ export function describeErrorResponse(observation: ErrorResponseObservation): Er
 	).slice(0, ERROR_RESPONSE_DIAGNOSTIC_CHARACTER_BUDGET);
 	return {
 		line: `${line}\n${body}`,
-		diagnostic: isDesignedResponseStatus(observation.pathname, observation.status)
-			? null
-			: { body, search }
+		diagnostic: isPromotableErrorResponse(observation) ? { body, search } : null
 	};
 }

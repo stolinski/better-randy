@@ -106,12 +106,15 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 			method: event.request.method,
 			pathname: event.url.pathname,
 			search: event.url.search,
-			body: response.status >= 500 ? await response.clone().text() : null
+			body: response.status >= 500 ? await response.clone().text() : null,
+			reportedByErrorHandler: event.locals.serverExceptionReportedToSentry === true
 		});
 		console.error(report.line);
 		if (report.diagnostic !== null) {
-			// Promote a resolved 5xx unless it is the route's designed answer (the
-			// readiness 503); intentional error(...) never reaches handleError, while
+			// Promote a resolved 5xx unless something already answers for it: the
+			// route's designed answer (the readiness 503), or an unhandled exception
+			// handleError reported with its stack. Intentional error(...) never
+			// reaches handleError, so promoting is the only Sentry event it gets;
 			// 4xx stays a log line only.
 			Sentry.captureMessage(`${response.status} ${event.request.method} ${event.url.pathname}`, {
 				level: 'error',
@@ -136,6 +139,13 @@ export const handle = sequence(
 // everything as "Internal Error", which hides the stack from the browser and
 // from agents driving the app headlessly. Production keeps the opaque message.
 export const handleError: HandleServerError = Sentry.handleErrorWithSentry(({ error, event }) => {
+	// Sentry captured this exception, with its stack, immediately before handing
+	// it here. Mark the request so logErrorResponses does not file the 500 it
+	// becomes as a second, stackless event — that duplication is what turned one
+	// aborted frame upload into both GFX-COMPUTER-27 and GFX-COMPUTER-2A. Only an
+	// unhandled exception reaches this hook; an intentional error(...) is answered
+	// before it, and stays promotable.
+	event.locals.serverExceptionReportedToSentry = true;
 	console.error(
 		`[${new Date().toISOString()}] SSR error at ${event.url.pathname}${event.url.search}:`,
 		error

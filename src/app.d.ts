@@ -42,7 +42,19 @@ declare global {
 		// so request handlers get Node APIs directly rather than an edge binding
 		// object.
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			/**
+			 * Set by `handleError` once Sentry has captured an unhandled exception
+			 * for this request, so `logErrorResponses` can tell that failure apart
+			 * from an intentional `error(5xx, ...)` and not file it twice. Absent on
+			 * every request that did not crash.
+			 *
+			 * Carried on `locals` because that is the one object SvelteKit shares by
+			 * reference between the two: it builds `locals: {}` once per request and
+			 * every event copy handed to a hook spreads that same reference.
+			 */
+			serverExceptionReportedToSentry?: boolean;
+		}
 		// interface PageData {}
 		// interface PageState {}
 	}

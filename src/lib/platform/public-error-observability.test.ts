@@ -10,7 +10,8 @@ const OBSERVATION = {
 	method: 'POST',
 	pathname: '/api/export/sessions',
 	search: '?slug=quarterly-numbers&pack=syntax',
-	body: 'Export encoding failed at /var/lib/gfx/export/gfx-export-abc/out.mov'
+	body: 'Export encoding failed at /var/lib/gfx/export/gfx-export-abc/out.mov',
+	reportedByErrorHandler: false
 } as const;
 
 describe('describeErrorResponse', () => {
@@ -79,6 +80,42 @@ describe('describeErrorResponse', () => {
 		});
 
 		assert.equal(report.diagnostic?.body, 'Internal Error');
+	});
+
+	// GFX-COMPUTER-2A: one aborted frame upload filed twice — GFX-COMPUTER-27
+	// carried the `Error: aborted` stack, this one carried nothing, and both share
+	// trace 9bbc416425d84d5cb3a10912f2ce1c9b.
+	it('logs but never promotes a failure the error handler already reported', () => {
+		const report = describeErrorResponse({
+			...OBSERVATION,
+			profile: 'development',
+			method: 'PUT',
+			pathname: '/api/export/sessions/J6Z9uq/frames/1',
+			search: '',
+			body: 'Error: aborted',
+			reportedByErrorHandler: true
+		});
+
+		assert.equal(report.diagnostic, null);
+		assert.ok(report.line.includes('500 PUT /api/export/sessions/J6Z9uq/frames/1'));
+		assert.ok(report.line.includes('Error: aborted'));
+	});
+
+	// The other half of the rule: an intentional error(5xx, ...) is an HttpError,
+	// which SvelteKit answers without ever calling handleError, so promoting it
+	// here is the only Sentry event that failure will ever get.
+	it('still promotes an intentional 5xx, which the error handler never sees', () => {
+		const report = describeErrorResponse({
+			...OBSERVATION,
+			profile: 'development',
+			method: 'GET',
+			pathname: '/api/user-compositions/chart-09',
+			search: '',
+			body: 'Corrupt user composition file',
+			reportedByErrorHandler: false
+		});
+
+		assert.equal(report.diagnostic?.body, 'Corrupt user composition file');
 	});
 
 	it('bounds what one failure can write', () => {
