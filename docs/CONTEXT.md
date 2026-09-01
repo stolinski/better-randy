@@ -215,8 +215,12 @@ A content slot in the composition designed for emphasis — the active word in a
 ### Pack catalog (product)
 
 **Pack Catalog**:
-The set of house-authored **Packs** bundled in the one shared app — the product's primary offer (grilled 2026-07-10). Creators pick the pack closest to their look; variety spans distinct design systems (grammar, not colorways). Custom packs are concierge-authored on request from whatever brand material exists (a brand doc, CSS, or a website) and ship in the same shared bundle. There is no runtime pack loading and no per-customer build.
+The set of house-authored **Packs** bundled in the one shared app — the product's primary offer (grilled 2026-07-10). Creators pick the pack closest to their look; variety spans distinct design systems (grammar, not colorways). Custom packs are concierge-authored on request from whatever brand material exists (a brand doc, CSS, or a website) and ship in the same shared bundle. There is no per-customer build; the only runtime-loaded packs are local **User Packs** ([ADR-0055](adr/0055-user-defined-packs.md)), which never enter the catalog.
 _Avoid_: marketplace, theme store, skin.
+
+**User Pack**:
+A **Pack** authored as a validated JSON document in the **user pack store** — forked from a built-in Pack and edited through the GUI or WebMCP operations ([ADR-0055](adr/0055-user-defined-packs.md)). Same manifest shape as a built-in Pack (roles as data; Google Fonts declarations validated against a vendored catalog and materialized into a hash-pinned same-origin font cache), distinguished by provenance and store, exactly like a **User composition**. Renderable and selectable, never catalog: it enters no verification evidence, is never Calibration Trio input, and deliverable Presets owe it no Pack-neutrality. The drafting lane for concierge pack work — promotion to the catalog means rebuilding it as a repo pack through the authoring playbook.
+_Avoid_: custom pack (ambiguous with concierge-authored catalog packs), theme, local pack.
 
 **Calibration Trio**:
 The three reference compositions re-dressed under a candidate **Pack** and iterated live with Scott until ratified — the quality gate for catalog entry (alongside the boot core-vocabulary validator and the two-Pack pixel-diff lock). One pack at a time; no pack enters the catalog without its ratified trio. Doubles as the pack's pack-switch demo.
