@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, it } from 'vitest';
 
-import type { PackManifest } from './packs/types.ts';
+import { PACK_REGISTRY } from './packs/registry.ts';
+import { MANDATORY_CORE_ROLES, type PackManifest } from './packs/types.ts';
 import type { UserPackFontCacheServices } from './user-pack-font-cache.server.ts';
 import {
 	forkedManifestFromBuiltin,
@@ -77,11 +78,17 @@ async function ready(slug: string, manifest: PackManifest, now = '2026-09-01T12:
 }
 
 describe('user pack documents', () => {
-	it('forks a built-in as an exact copy of its roles and fonts under the new slug', () => {
+	it('forks a built-in as its cores, chrome, and fonts, leaving per-Pipeline overrides behind', () => {
 		const manifest = fork();
 		assert.equal(manifest.slug, 'my-brand');
 		assert.equal(manifest.label, 'My brand');
-		assert.ok(manifest.roles['fill-treatment']);
+		for (const core of MANDATORY_CORE_ROLES) assert.ok(manifest.roles[core], core);
+		assert.ok(manifest.roles['font-treatment']);
+		assert.ok(
+			Object.keys(manifest.roles).every((key) => !key.includes('.')),
+			'no per-Pipeline override survives a fork'
+		);
+		assert.ok(Object.keys(PACK_REGISTRY['clean-light'].roles).some((key) => key.includes('.')));
 		assert.ok((manifest.fonts ?? []).some((font) => font.family === 'Geist'));
 	});
 

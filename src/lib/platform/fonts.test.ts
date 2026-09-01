@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterAll, beforeAll, describe, it, vi } from 'vitest';
 
 import { PACK_REGISTRY } from './packs/registry.ts';
-import { registerRuntimeUserPack, unregisterRuntimeUserPack } from './user-pack-runtime.svelte.ts';
+import { registerLoadedUserPack, unregisterLoadedUserPack } from './user-pack-runtime.svelte.ts';
 
 const loadedSpecs: string[] = [];
 const fakeFontSet = {
@@ -38,10 +38,16 @@ describe('fontsReady', () => {
 
 	it('gates on a User Pack loaded into the runtime without repeating the built-in sweep', async () => {
 		loadedSpecs.length = 0;
-		registerRuntimeUserPack({
-			...PACK_REGISTRY['clean-light'],
-			slug: 'my-brand',
-			fonts: [{ family: 'My Brand Face', weights: [500, 700] }]
+		registerLoadedUserPack('my-brand', {
+			manifest: {
+				...PACK_REGISTRY['clean-light'],
+				slug: 'my-brand',
+				fonts: [{ family: 'My Brand Face', weights: [500, 700] }]
+			},
+			forkedFrom: 'clean-light',
+			savedAt: '2026-09-01T12:00:00.000Z',
+			contentHash: 'a'.repeat(64),
+			fontFaces: []
 		});
 		await fontsReady();
 		assert.deepEqual(loadedSpecs, [
@@ -52,10 +58,16 @@ describe('fontsReady', () => {
 
 	it('re-arms on every call as packs load and unload', async () => {
 		loadedSpecs.length = 0;
-		registerRuntimeUserPack({
-			...PACK_REGISTRY['clean-light'],
-			slug: 'other-brand',
-			fonts: [{ family: 'Another Face', style: 'italic' }]
+		registerLoadedUserPack('other-brand', {
+			manifest: {
+				...PACK_REGISTRY['clean-light'],
+				slug: 'other-brand',
+				fonts: [{ family: 'Another Face', style: 'italic' }]
+			},
+			forkedFrom: 'clean-light',
+			savedAt: '2026-09-01T12:00:00.000Z',
+			contentHash: 'b'.repeat(64),
+			fontFaces: []
 		});
 		await fontsReady();
 		assert.deepEqual(loadedSpecs, [
@@ -65,8 +77,8 @@ describe('fontsReady', () => {
 		]);
 
 		loadedSpecs.length = 0;
-		unregisterRuntimeUserPack('my-brand');
-		unregisterRuntimeUserPack('other-brand');
+		unregisterLoadedUserPack('my-brand');
+		unregisterLoadedUserPack('other-brand');
 		await fontsReady();
 		assert.deepEqual(loadedSpecs, []);
 	});

@@ -15,13 +15,14 @@ class FakeFontFace {
 let ensurePackLoaded: typeof import('./user-pack-runtime.ts').ensurePackLoaded;
 let activateUserPackDocument: typeof import('./user-pack-runtime.ts').activateUserPackDocument;
 let deactivateUserPack: typeof import('./user-pack-runtime.ts').deactivateUserPack;
-let loadedUserPackDocument: typeof import('./user-pack-runtime.ts').loadedUserPackDocument;
+let loadedUserPackDocument: typeof import('./user-pack-runtime.svelte.ts').loadedUserPackDocument;
 
 beforeAll(async () => {
 	vi.stubGlobal('FontFace', FakeFontFace);
 	vi.stubGlobal('document', { fonts: { add: vi.fn(), load: vi.fn(), ready: Promise.resolve() } });
-	({ ensurePackLoaded, activateUserPackDocument, deactivateUserPack, loadedUserPackDocument } =
+	({ ensurePackLoaded, activateUserPackDocument, deactivateUserPack } =
 		await import('./user-pack-runtime.ts'));
+	({ loadedUserPackDocument } = await import('./user-pack-runtime.svelte.ts'));
 });
 
 afterAll(() => {

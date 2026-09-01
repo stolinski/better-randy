@@ -191,8 +191,13 @@ export async function moveUserPackToTrash(
 }
 
 /**
- * A fork starts as an exact copy of the built-in's roles and fonts under the
- * new slug; null when no built-in has that slug.
+ * A fork takes the built-in's core vocabulary — the bare roles: the seven
+ * mandatory cores, the optional cores, and the chrome recipe — plus its fonts,
+ * under the new slug. Its per-Pipeline overrides (`lower-third.accent`,
+ * `chapter-card.kicker`, …) stay with the built-in: they beat the cores under
+ * ADR-0024's specific → core resolution, so a fork that carried them would
+ * render as the built-in whatever its cores were edited to. Null when no
+ * built-in has that slug. (Decided with Scott 2026-09-01.)
  */
 export function forkedManifestFromBuiltin(
 	slug: string,
@@ -201,11 +206,14 @@ export function forkedManifestFromBuiltin(
 ): PackManifest | null {
 	const builtin = PACK_REGISTRY[builtinSlug];
 	if (builtin === undefined) return null;
+	const roles = Object.fromEntries(
+		Object.entries(builtin.roles).filter(([key]) => !key.includes('.'))
+	);
 	return {
 		slug,
 		label: options.label ?? builtin.label,
 		description: options.description ?? builtin.description,
-		roles: structuredClone(builtin.roles),
+		roles: structuredClone(roles),
 		...(builtin.fonts ? { fonts: structuredClone(builtin.fonts) } : {})
 	};
 }

@@ -15,7 +15,30 @@ export default defineConfig(({ mode }) => ({
 				}
 			}),
 	test: {
-		include: ['src/**/*.test.ts', 'vite.config.test.ts']
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'node',
+					include: ['src/**/*.test.ts', 'vite.config.test.ts'],
+					exclude: ['**/node_modules/**', 'src/**/*.dom.test.ts']
+				}
+			},
+			{
+				// Rendered component tests (`*.dom.test.ts`): Svelte's browser build
+				// under jsdom, with rendered components cleaned up between tests. The
+				// browser condition stays inside this project — applied globally it
+				// resolves browser-only builds (Sentry's `$app` client) into Node tests.
+				extends: true,
+				resolve: { conditions: ['browser', 'module', 'development|production', 'node'] },
+				test: {
+					name: 'dom',
+					environment: 'jsdom',
+					include: ['src/**/*.dom.test.ts'],
+					setupFiles: ['@testing-library/svelte/vitest']
+				}
+			}
+		]
 	},
 	server: {
 		port: 7263,

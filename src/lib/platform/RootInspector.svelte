@@ -2,12 +2,10 @@
 	import { onDestroy } from 'svelte';
 
 	import { engineState, packState } from './engine-state.svelte';
-	import { getPack, PACK_REGISTRY } from './packs/registry';
-	import { ensurePackLoaded } from './user-pack-runtime';
-	import { getAuthoringPackOption, listAuthoringPacks } from './packs/catalog';
+	import { getPack } from './packs/registry';
+	import { ensurePackChromeEffectRenderers } from './pack-chrome-renderer-readiness';
 	import { resolveBackgroundFill } from './packs/resolve';
 	import { presetBase } from './preset-base.svelte';
-	import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
 	import { compositionMeta } from './composition-meta.svelte';
 	import {
 		rescaleCompositionTimings,
@@ -21,56 +19,12 @@
 	import InterchangeSection from './InterchangeSection.svelte';
 	import Field from './Field.svelte';
 	import MarkDefaultsSection from './MarkDefaultsSection.svelte';
+	import PackSection from './PackSection.svelte';
 	import TransitionRecipeSection from './TransitionRecipeSection.svelte';
 	import { AsyncAuthoringOperationGuard } from '$lib/utils/async-authoring-operation';
 
-	// Derived, not init-once: a User Pack loaded into the runtime joins the list
-	// the moment it does (ADR-0055).
-	const packOptions = $derived(listAuthoringPacks());
 	const rendererChangeGuard = new AsyncAuthoringOperationGuard();
 	onDestroy(() => rendererChangeGuard.dispose());
-
-	async function ensurePackChromeEffectRenderers(
-		pack: (typeof PACK_REGISTRY)[string],
-		generation: number
-	): Promise<boolean> {
-		const chromeRole = pack.roles.chrome;
-		if (chromeRole?.kind !== 'chrome') return true;
-		for (const effect of chromeRole.effects) {
-			await pipelineRendererRuntime.ensureEffect(effect.type);
-			if (!rendererChangeGuard.isCurrent(generation)) return false;
-		}
-		return true;
-	}
-
-	async function handlePackChange(event: Event): Promise<void> {
-		const select = event.currentTarget as HTMLSelectElement;
-		const slug = select.value;
-		const previousSlug = packState.slug;
-		if (slug === previousSlug) return;
-		const generation = rendererChangeGuard.begin();
-		try {
-			const resolution = await ensurePackLoaded(slug);
-			if (!rendererChangeGuard.isCurrent(generation)) return;
-			if (resolution.kind === 'missing') {
-				select.value = previousSlug;
-				console.error('Pack is not available.', { pack: slug, reason: resolution.message });
-				return;
-			}
-			const pack = getPack(slug);
-			if (
-				engineState.backgroundFill &&
-				!(await ensurePackChromeEffectRenderers(pack, generation))
-			) {
-				return;
-			}
-			if (!rendererChangeGuard.isCurrent(generation) || packState.slug !== previousSlug) return;
-			packState.slug = slug;
-		} catch (cause) {
-			if (rendererChangeGuard.isCurrent(generation)) select.value = packState.slug;
-			console.error('Failed to load Pack Effect renderers.', { pack: slug, cause });
-		}
-	}
 
 	async function handleBackgroundFillToggle(checked: boolean): Promise<void> {
 		const previousFill = engineState.backgroundFill;
@@ -78,7 +32,9 @@
 		try {
 			if (
 				checked &&
-				!(await ensurePackChromeEffectRenderers(getPack(packState.slug), generation))
+				!(await ensurePackChromeEffectRenderers(getPack(packState.slug), () =>
+					rendererChangeGuard.isCurrent(generation)
+				))
 			) {
 				return;
 			}
@@ -205,15 +161,7 @@
 		</Field>
 	</InspectorSection>
 
-	<InspectorSection label="Pack" summary={getAuthoringPackOption(packState.slug).label}>
-		<Field label="Pack">
-			<select value={packState.slug} onchange={handlePackChange}>
-				{#each packOptions as option (option.slug)}
-					<option value={option.slug}>{option.label}</option>
-				{/each}
-			</select>
-		</Field>
-	</InspectorSection>
+	<PackSection />
 
 	<EffectsChainSection />
 

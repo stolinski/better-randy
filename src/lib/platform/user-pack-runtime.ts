@@ -12,7 +12,11 @@
  */
 import { PACK_REGISTRY } from './packs/registry';
 import { registerUserPackFontFaces } from './user-pack-font-faces';
-import { registerRuntimeUserPack, unregisterRuntimeUserPack } from './user-pack-runtime.svelte';
+import {
+	loadedUserPackDocument,
+	registerLoadedUserPack,
+	unregisterLoadedUserPack
+} from './user-pack-runtime.svelte';
 import { userPackStore, type UserPackDocument, type UserPackStore } from './user-pack-store';
 
 export type PackResolution =
@@ -27,15 +31,8 @@ export interface EnsurePackLoadedOptions {
 	refresh?: boolean;
 }
 
-const loadedUserPackDocuments = new Map<string, UserPackDocument>();
-
 export function missingUserPackMessage(slug: string): string {
 	return `Pack "${slug}" is not a built-in Pack, and the User Pack store holds nothing at that slug. Bind this composition to another Pack, or restore "${slug}" in the store.`;
-}
-
-/** The store document behind a loaded User Pack, or null for a built-in or an unloaded slug. */
-export function loadedUserPackDocument(slug: string): UserPackDocument | null {
-	return loadedUserPackDocuments.get(slug) ?? null;
 }
 
 /**
@@ -48,13 +45,11 @@ export function activateUserPackDocument(slug: string, document: UserPackDocumen
 	if (typeof globalThis.document !== 'undefined' && 'fonts' in globalThis.document) {
 		registerUserPackFontFaces(document.fontFaces);
 	}
-	registerRuntimeUserPack({ ...document.manifest, slug });
-	loadedUserPackDocuments.set(slug, document);
+	registerLoadedUserPack(slug, document);
 }
 
 export function deactivateUserPack(slug: string): void {
-	unregisterRuntimeUserPack(slug);
-	loadedUserPackDocuments.delete(slug);
+	unregisterLoadedUserPack(slug);
 }
 
 export async function ensurePackLoaded(
@@ -62,8 +57,8 @@ export async function ensurePackLoaded(
 	options: EnsurePackLoadedOptions = {}
 ): Promise<PackResolution> {
 	if (Object.hasOwn(PACK_REGISTRY, slug)) return { kind: 'builtin', slug };
-	const held = loadedUserPackDocuments.get(slug);
-	if (held !== undefined && !options.refresh) return { kind: 'user', slug, document: held };
+	const held = loadedUserPackDocument(slug);
+	if (held !== null && !options.refresh) return { kind: 'user', slug, document: held };
 
 	let document: UserPackDocument | null;
 	try {
