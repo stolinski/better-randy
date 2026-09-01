@@ -29,3 +29,16 @@ export function assertOriginCompositionStoreServed(): void {
 		'This origin serves a browser-scoped composition session and keeps no composition store; compositions live in the browser that authored them.'
 	);
 }
+
+/**
+ * The User Pack store and its font cache share the composition store's boundary
+ * (ADR-0055): both hold durable content on the author's behalf, so a browser-
+ * scoped public host has neither to serve.
+ */
+export function assertOriginUserPackStoreServed(): void {
+	if (parseCompositionSessionStoreConfig(env).kind === 'origin') return;
+	error(
+		404,
+		'This origin serves a browser-scoped composition session and keeps no User Pack store or font cache; pack authoring is a development-host surface.'
+	);
+}
