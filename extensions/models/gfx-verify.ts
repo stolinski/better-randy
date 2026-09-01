@@ -231,7 +231,7 @@ type MethodContext = {
 /** Model definition for the GFX deterministic verification runner. */
 export const model = {
 	type: "@gfx/verify",
-	version: "2026.09.01.2",
+	version: "2026.09.01.3",
 	globalArguments: GlobalArgsSchema,
 	resources: {
 		verification: {
@@ -520,15 +520,36 @@ export const model = {
 					smoke.healthStatus = null;
 				}
 
-				const expectedRelease = `gfx@${smoke.landedSha}`;
-				if (smoke.servedRelease !== expectedRelease) {
+				// Another lane may integrate between this run's build and this fetch,
+				// and a development-profile host computes the meta per request from
+				// its checkout — so compare against HEAD as of the fetch, not the
+				// build. The build-time commit stays recorded in landedSha.
+				const headNow = await runStep("rev-parse-at-fetch", [
+					"git",
+					"rev-parse",
+					"HEAD",
+				]);
+				const expectedSha = headNow.code === 0
+					? headNow.stdout.trim()
+					: smoke.landedSha;
+				const expectedReleases = new Set([
+					`gfx@${smoke.landedSha}`,
+					`gfx@${expectedSha}`,
+				]);
+				if (
+					smoke.servedRelease === null ||
+					!expectedReleases.has(smoke.servedRelease)
+				) {
 					return record(
-						`served gfx-release is ${smoke.servedRelease ?? "absent"}, expected ${expectedRelease}`,
+						`served gfx-release is ${smoke.servedRelease ?? "absent"}, expected ${[...expectedReleases].join(" or ")}`,
 					);
 				}
-				if (smoke.healthStatus !== 200) {
+				// A 503 here is the readiness contract's designed low-scratch-disk
+				// answer (ADR-0052) and does not gate serving; only an unreachable
+				// or malformed health surface fails the smoke.
+				if (smoke.healthStatus !== 200 && smoke.healthStatus !== 503) {
 					return record(
-						`/api/health answered ${smoke.healthStatus ?? "nothing"}, expected 200`,
+						`/api/health answered ${smoke.healthStatus ?? "nothing"}, expected 200 or 503`,
 					);
 				}
 				return record(null);
