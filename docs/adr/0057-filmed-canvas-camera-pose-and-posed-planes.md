@@ -50,7 +50,7 @@ ADR-0051 as designed, viewed through the phase-1 camera: the geometry-contributi
 
 - Every existing depth Preset renders pixel-identical at the default pose; that identity is a gate (frame diffs across the existing stage Presets) on each phase-1 leaf.
 - `DepthStage` grows a depth attachment, a plane basis, per-plane mip chains, and N overlay planes; `CompositionPlanes` owns N overlay textures; `Composition.svelte` hoists posed Overlays into their own direct canvas children.
-- The GUI projector (`createStageProjector`) becomes pose-aware and per-plane; the canvas gains an editor-only aim handle.
+- The GUI projector (`createStageProjector`) becomes pose-aware and per-plane. The aim is edited as a field in the stage section; an on-canvas aim handle was built and removed, because dragging the aim re-projects the whole page under the pointer.
 - `website-screenshot` gains a variant and a capture registry; its Identity Spec gains a `filmed-page-crop` dimension.
 - The deliverable `website-filmed` is the phase-1 acceptance evidence, rendered at native horizontal and vertical under every Pack.
 - ADR-0051's status stays designed until phase 2 builds it; the ADR index and roadmap carry both phases.

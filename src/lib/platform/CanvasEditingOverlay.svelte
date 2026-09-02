@@ -782,95 +782,9 @@
 		return (Math.atan2(event.clientY - anchorY, event.clientX - anchorX) * 180) / Math.PI;
 	}
 
-	// ─── Camera aim handle (ADR-0057) ────────────────────────────────────────────
-	// Editor-only chrome: the stage camera's rest aim, drawn where that page
-	// point lands under the current frame's camera and dragged along the
-	// Surface plane. It lives in this overlay, never in the captured canvas.
-	const stageAimHandle = $derived.by(() => {
-		void measureEpoch;
-		const stage = engineState.stage;
-		if (!stage || stage.type !== 'depth' || !stage.camera.pose) return null;
-		const aim = stage.camera.pose.aim;
-		const geometry = currentCanvasInteractionGeometry();
-		const screen = geometry?.compositionPointToScreen({ x: aim.x, y: aim.y }, 'surface');
-		const editorRect = rootEl?.getBoundingClientRect();
-		if (!screen || !editorRect) return null;
-		return { x: screen.x - editorRect.left, y: screen.y - editorRect.top };
-	});
-
-	interface AimDragState {
-		before: { x: number; y: number };
-	}
-
-	let aimDragState: AimDragState | null = null;
-
-	function stageCameraPoseForAim(): { aim: { x: number; y: number } } | null {
-		const stage = engineState.stage;
-		return stage?.type === 'depth' && stage.camera.pose ? stage.camera.pose : null;
-	}
-
-	function onAimStart(event: PointerEvent): void {
-		if (event.button !== 0) return;
-		const pose = stageCameraPoseForAim();
-		if (!pose) return;
-		event.preventDefault();
-		event.stopPropagation();
-		aimDragState = { before: { ...pose.aim } };
-		if (typeof window !== 'undefined') {
-			window.addEventListener('pointermove', onAimMove);
-			window.addEventListener('pointerup', onAimEnd);
-			window.addEventListener('pointercancel', onAimCancel);
-		}
-	}
-
-	function onAimMove(event: PointerEvent): void {
-		const pose = stageCameraPoseForAim();
-		if (!aimDragState || !pose) return;
-		const point = pointerToComp(event.clientX, event.clientY, 'surface');
-		if (!point) return;
-		pose.aim = { x: roundedCanvasScalar(point.x, 0, 1), y: roundedCanvasScalar(point.y, 0, 1) };
-		measureEpoch += 1;
-	}
-
-	function removeAimListeners(): void {
-		if (typeof window === 'undefined') return;
-		window.removeEventListener('pointermove', onAimMove);
-		window.removeEventListener('pointerup', onAimEnd);
-		window.removeEventListener('pointercancel', onAimCancel);
-	}
-
-	function onAimEnd(): void {
-		const state = aimDragState;
-		const pose = stageCameraPoseForAim();
-		aimDragState = null;
-		removeAimListeners();
-		if (!state || !pose) return;
-		const after = { ...pose.aim };
-		if (state.before.x === after.x && state.before.y === after.y) return;
-		compositionEditHistory.recordApplied({
-			label: 'Aim stage camera',
-			undo: () => {
-				const current = stageCameraPoseForAim();
-				if (current) current.aim = { ...state.before };
-				measureEpoch += 1;
-			},
-			redo: () => {
-				const current = stageCameraPoseForAim();
-				if (current) current.aim = { ...after };
-				measureEpoch += 1;
-			}
-		});
-	}
-
-	function onAimCancel(): void {
-		const state = aimDragState;
-		const pose = stageCameraPoseForAim();
-		aimDragState = null;
-		removeAimListeners();
-		if (!state || !pose) return;
-		pose.aim = { ...state.before };
-		measureEpoch += 1;
-	}
+	// The stage camera's aim is edited in the stage section, not on the canvas:
+	// a drag handle on the aimed page point re-projects the whole page under
+	// the pointer and fights the hand (removed 2026-09-02 after review).
 
 	function onRotateStart(event: PointerEvent, overlay: Overlay): void {
 		if (event.button !== 0) return;
@@ -2251,16 +2165,6 @@
 			</div>
 		{/if}
 	{/each}
-	{#if stageAimHandle}
-		<button
-			class="stage-aim-handle"
-			type="button"
-			aria-label="Camera aim"
-			onpointerdown={onAimStart}
-			style:left="{stageAimHandle.x}px"
-			style:top="{stageAimHandle.y}px"
-		></button>
-	{/if}
 </div>
 
 <style>
@@ -2383,34 +2287,6 @@
 	   pointer target supplied by the same handle contract. */
 	.overlay-hit__rotate {
 		cursor: grab;
-	}
-
-	/* The stage camera's aim: a ring on the aimed page point, draggable along
-	   the Surface plane. Editor chrome only. */
-	.stage-aim-handle {
-		background: transparent;
-		block-size: 24px;
-		border: 0;
-		box-sizing: border-box;
-		cursor: grab;
-		inline-size: 24px;
-		padding: 0;
-		pointer-events: all;
-		position: absolute;
-		touch-action: none;
-		transform: translate(-50%, -50%);
-	}
-
-	.stage-aim-handle::before {
-		block-size: 14px;
-		border: 2px solid #ffd608;
-		border-radius: 50%;
-		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
-		content: '';
-		inline-size: 14px;
-		inset: 50% auto auto 50%;
-		position: absolute;
-		transform: translate(-50%, -50%);
 	}
 
 	.overlay-hit__rotate::before {

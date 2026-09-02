@@ -39,9 +39,9 @@
 			"camera": {
 				"move": "static",
 				"pose": {
-					"yaw": -16,
-					"pitch": -8,
-					"distance": 0.62,
+					"yaw": -19,
+					"pitch": -9,
+					"distance": 0.6,
 					"aim": {
 						"x": 0.5,
 						"y": 0.52
@@ -49,6 +49,8 @@
 				},
 				"travel": {
 					"to": {
+						"yaw": -12,
+						"pitch": -6,
 						"distance": 0.42
 					},
 					"start": 0,
