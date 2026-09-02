@@ -204,12 +204,32 @@ export function drawAnnotationMarks({
 		const effectiveProgress = markProgress * textAlpha;
 
 		if (layout.style === 'circle') {
-			drawCircle(context, layout.bounds, effectiveProgress, color, intensity);
+			drawCircle(
+				context,
+				layout.bounds,
+				markFragmentSeed(index, 0),
+				effectiveProgress,
+				color,
+				intensity
+			);
 			continue;
 		}
 
-		drawFragmentedMark(context, layout, effectiveProgress, color, intensity);
+		drawFragmentedMark(context, layout, index, effectiveProgress, color, intensity);
 	}
+}
+
+/**
+ * The hand-energy seed for one drawn fragment — its chisel edges, pigment
+ * rows, wobble phase. Derived from the mark's IDENTITY (index in document
+ * order, fragment index), never from where the fragment sits on screen: a
+ * surface that moves under the camera (the newspaper's push, a depth-stage
+ * plane) shifts every fragment a little each frame, and a position-derived
+ * seed re-rolled the marker's shape on every one of them — the highlighter
+ * jittered. Same seed every frame, so the stroke rides the page instead.
+ */
+function markFragmentSeed(markIndex: number, fragmentIndex: number): number {
+	return (markIndex + 1) * 13.7 + fragmentIndex * 5.3;
 }
 
 function getAnnotationMarkBounds(
@@ -231,28 +251,31 @@ function getAnnotationMarkBounds(
 function drawFragmentedMark(
 	context: AnnotationCanvasContext,
 	layout: AnnotationMarkLayout,
+	markIndex: number,
 	progress: number,
 	color: string,
 	intensity: number
 ): void {
-	for (const fragment of layout.fragments) {
+	for (const [fragmentIndex, fragment] of layout.fragments.entries()) {
+		const seed = markFragmentSeed(markIndex, fragmentIndex);
 		if (layout.style === 'highlight') {
-			drawHighlight(context, fragment, progress, color, intensity);
+			drawHighlight(context, fragment, seed, progress, color, intensity);
 			continue;
 		}
 
 		if (layout.style === 'underline') {
-			drawUnderline(context, fragment, progress, color, intensity);
+			drawUnderline(context, fragment, seed, progress, color, intensity);
 			continue;
 		}
 
-		drawStrike(context, fragment, progress, color, intensity);
+		drawStrike(context, fragment, seed, progress, color, intensity);
 	}
 }
 
 function drawHighlight(
 	context: AnnotationCanvasContext,
 	fragment: AnnotationMarkFragmentLayout,
+	seed: number,
 	progress: number,
 	color: string,
 	intensity: number
@@ -268,7 +291,6 @@ function drawHighlight(
 	const right = fragment.x + visibleWidth + insetX * 0.62;
 	const top = fragment.y + fragment.height * 0.17;
 	const bottom = fragment.y + fragment.height * 0.88;
-	const seed = fragment.x * 0.017 + fragment.y * 0.031;
 	const textureBounds = getTextureBounds(left, top, right, bottom, fragment.height * 0.18);
 	const texture = createAnnotationTextureCanvas(textureBounds.width, textureBounds.height);
 	const localLeft = left - textureBounds.x;
@@ -308,6 +330,7 @@ function drawHighlight(
 function drawUnderline(
 	context: AnnotationCanvasContext,
 	fragment: AnnotationMarkFragmentLayout,
+	seed: number,
 	progress: number,
 	color: string,
 	intensity: number
@@ -325,13 +348,14 @@ function drawUnderline(
 		opacity: 0.58 + intensity * 0.22,
 		lineWidth: Math.max(3, fragment.height * 0.13),
 		wobble: fragment.height * 0.04,
-		phase: fragment.x * 0.022 + fragment.y * 0.044
+		phase: seed
 	});
 }
 
 function drawStrike(
 	context: AnnotationCanvasContext,
 	fragment: AnnotationMarkFragmentLayout,
+	seed: number,
 	progress: number,
 	color: string,
 	intensity: number
@@ -354,13 +378,14 @@ function drawStrike(
 		lineWidth: Math.max(4, fragment.height * (0.16 + intensity * 0.05)),
 		solidity: 0.5 + intensity * 0.45,
 		wobble: fragment.height * 0.035,
-		phase: fragment.x * 0.026 + fragment.y * 0.039
+		phase: seed
 	});
 }
 
 function drawCircle(
 	context: AnnotationCanvasContext,
 	bounds: AnnotationMarkFragmentLayout,
+	seed: number,
 	progress: number,
 	color: string,
 	intensity: number
@@ -370,7 +395,6 @@ function drawCircle(
 	const radiusX = bounds.width * 0.6 + bounds.height * 0.12;
 	const radiusY = bounds.height * 0.78;
 	const lineWidth = Math.max(5, bounds.height * 0.055);
-	const seed = bounds.x * 0.02 + bounds.y * 0.035;
 
 	drawMarkerEllipse(context, {
 		centerX,

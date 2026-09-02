@@ -12,17 +12,23 @@ import { hashStringToUnitInterval } from '$lib/utils/seeded';
  * of a broadsheet page photographed up close (ADR-0056) that the paper
  * compositor doesn't supply:
  *
- *   1. **Halftone dot screen at body sizes.** Mid-tones (gray ink) read as a
+ *   1. **The camera push.** The captured page is resampled through a slow
+ *      zoom + drift driven by the timeline's progress. The DOM stays static
+ *      (no per-frame CSS transform — a scaling text layer re-rasterizes and
+ *      pops, and every mark rect would shift), so the push is a pure texture
+ *      resample here, frame-deterministic.
+ *   2. **Halftone dot screen at body sizes.** Mid-tones (gray ink) read as a
  *      pattern of dots whose coverage tracks the underlying luminance. Black
- *      ink (headline) stays solid; near-white paper stays clean; gray
- *      mid-tones break into dots.
- *   2. **Ink bleed at glyph edges.** A sub-pixel dilate on dark glyphs
- *      simulates the way newsprint ink wicks into porous paper fibres.
- *   3. **Newsprint mottling.** Low-frequency ink-absorption variation across
- *      the sheet.
- *   4. **Camera optics.** Radial defocus, lens vignette, and a per-pixel scan
- *      grain across the whole photographed frame — the frame IS the
- *      photograph, so these apply to every opaque pixel, highlighter included.
+ *      ink (headline) stays solid; near-white paper stays clean.
+ *   3. **Ink bleed at glyph edges.** A sub-pixel darkening dilation on dark
+ *      glyphs simulates the way newsprint ink wicks into porous paper fibres.
+ *   4. **Newsprint mottling** and **scan grain** — the sheet's own print
+ *      texture. Both, like the halftone, are computed in PAGE space (the
+ *      resampled coordinate), so they travel with the page under the push
+ *      instead of crawling over it as a screen-fixed pattern.
+ *   5. **Lens optics.** Radial defocus and a lens vignette in SCREEN space —
+ *      the frame is the photograph, so these apply to every opaque pixel,
+ *      highlighter included.
  *
  * Declared via the `SurfaceRenderer.shaderPass` field added in ADR-0008.
  * `Workspace` feeds this pass to the ShaderPassDispatcher between DOM upload
@@ -48,6 +54,13 @@ export const NewspaperPhysicsUniforms = d.struct({
 	/** Composition canvas width / height in pixels, used to map UV to px. */
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
+	/**
+	 * Camera push for this frame: the zoom about the frame centre (≥ 1) and
+	 * the sampling drift in UV, both pure functions of timeline progress.
+	 */
+	pushScale: d.f32,
+	driftX: d.f32,
+	driftY: d.f32,
 	// Intrinsic newsprint print tint: the halftone screen's ink.
 	inkColor: d.vec3f
 });
@@ -58,6 +71,9 @@ export interface NewspaperPhysicsParams {
 	bleedRadiusPx: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	pushScale: number;
+	driftX: number;
+	driftY: number;
 	inkColor: ReturnType<typeof d.vec3f>;
 }
 
@@ -68,6 +84,16 @@ const HALFTONE_PITCH_PX = 10;
 // half-zoom previews; at 3 px and up the body serif reads a weight heavier
 // than it was set.
 const BLEED_RADIUS_PX = 2;
+
+/**
+ * The camera push (identity § camera-push): a continuous 2 % zoom about the
+ * frame centre with a hint of leftward drift over the whole piece. Expressed
+ * as a resample of the captured page, so the page and everything printed on
+ * it — marks included — move together, and the sampled window never leaves
+ * the texture (at progress p the far edge sits at 1 − 0.006 p).
+ */
+const CAMERA_PUSH_SCALE = 0.02;
+const CAMERA_PUSH_DRIFT = 0.004;
 
 /**
  * Fallback composition dimensions used only when the dispatcher hands the
@@ -87,8 +113,20 @@ const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
 	let canvasW = max(layout.$.uniforms.canvasWidth, 1.0);
 	let canvasH = max(layout.$.uniforms.canvasHeight, 1.0);
+	let canvasPx = vec2f(canvasW, canvasH);
 	let pxUv = vec2f(1.0 / canvasW, 1.0 / canvasH);
 	let bleedPx = max(layout.$.uniforms.bleedRadiusPx, 0.0);
+
+	// ----- Camera push (page space) -----
+	//
+	// Where on the captured page this screen pixel looks: a zoom about the
+	// frame centre plus the drift. Every ink/print term below reads the page
+	// through pageUv; the lens terms (defocus, vignette) stay in screen space.
+	let pushScale = max(layout.$.uniforms.pushScale, 1.0);
+	let drift = vec2f(layout.$.uniforms.driftX, layout.$.uniforms.driftY);
+	let pageUv = vec2f(0.5) + (in.uv - vec2f(0.5)) / pushScale + drift;
+	let pagePx = pageUv * canvasPx;
+	let page = textureSample(layout.$.inputTexture, layout.$.samp, pageUv);
 
 	// ----- Pixel classes -----
 	//
@@ -97,10 +135,10 @@ const wgsl = /* wgsl */ `
 	// The ink physics (bleed, halftone) belong only to ink on paper: the
 	// desaturated pixels. The marker highlight the annotation layer multiplies
 	// onto the page is saturated and is left with its clean marker edge.
-	let chMax = max(max(inputSample.r, inputSample.g), inputSample.b);
-	let chMin = min(min(inputSample.r, inputSample.g), inputSample.b);
+	let chMax = max(max(page.r, page.g), page.b);
+	let chMin = min(min(page.r, page.g), page.b);
 	let centerSaturation = chMax - chMin;
-	let isPhotographedPixel = inputSample.a > 0.5;
+	let isPhotographedPixel = page.a > 0.5;
 	let isInkOnPaper = centerSaturation < 0.3 && isPhotographedPixel;
 
 	// ----- Ink bleed at glyph edges -----
@@ -112,29 +150,27 @@ const wgsl = /* wgsl */ `
 	// the neighbourhood would lighten the stroke from the inside and print a
 	// grey rim around every glyph.
 	let bleedOffset = bleedPx * pxUv;
-	let centre = inputSample;
-	let s1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( bleedOffset.x,  bleedOffset.y));
-	let s2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-bleedOffset.x,  bleedOffset.y));
-	let s3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( bleedOffset.x, -bleedOffset.y));
-	let s4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-bleedOffset.x, -bleedOffset.y));
-	let darkestRgb = min(min(centre.rgb, s1.rgb), min(min(s2.rgb, s3.rgb), s4.rgb));
-	let dilatedAlpha = max(max(centre.a, s1.a), max(max(s2.a, s3.a), s4.a));
+	let s1 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f( bleedOffset.x,  bleedOffset.y));
+	let s2 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(-bleedOffset.x,  bleedOffset.y));
+	let s3 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f( bleedOffset.x, -bleedOffset.y));
+	let s4 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(-bleedOffset.x, -bleedOffset.y));
+	let darkestRgb = min(min(page.rgb, s1.rgb), min(min(s2.rgb, s3.rgb), s4.rgb));
+	let dilatedAlpha = max(max(page.a, s1.a), max(max(s2.a, s3.a), s4.a));
 
 	// Only paper next to ink wicks: a pixel already at ink density has
 	// nothing darker to take on, and open paper far from a stroke finds only
 	// paper in its taps (the min is a no-op there).
 	let bleedStrength = 0.4;
-	let bled = vec4f(mix(centre.rgb, darkestRgb, bleedStrength), max(centre.a, dilatedAlpha * bleedStrength));
+	let bled = vec4f(mix(page.rgb, darkestRgb, bleedStrength), max(page.a, dilatedAlpha * bleedStrength));
 
 	// ----- Halftone dot screen at body sizes -----
 	//
-	// A small jittered grid; each cell carries a dot whose radius scales
-	// with (1 - luminance) so darker source pixels paint a larger dot and
-	// near-white paper leaves the cell empty. Seed phase-shifts the grid
-	// per-instance.
+	// A small jittered grid in PAGE space; each cell carries a dot whose
+	// radius scales with (1 - luminance) so darker source pixels paint a
+	// larger dot and near-white paper leaves the cell empty. Seed phase-shifts
+	// the grid per-instance.
 	let pitch = max(layout.$.uniforms.halftonePitchPx, 1.0);
-	let gridPos = vec2f(in.uv.x * canvasW / pitch + seed * 13.0,
-	                    in.uv.y * canvasH / pitch + seed * 17.0);
+	let gridPos = pagePx / pitch + vec2f(seed * 13.0, seed * 17.0);
 	let cellLocal = fract(gridPos) - vec2f(0.5);
 	let cellRadius = length(cellLocal);
 
@@ -158,8 +194,8 @@ const wgsl = /* wgsl */ `
 	let inkColor = layout.$.uniforms.inkColor;
 	let screened = mix(bled.rgb, inkColor, dotCoverage);
 	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a * f32(isInkOnPaper));
-	let inkedRgb = select(inputSample.rgb, halftonedRgb, isInkOnPaper);
-	let inkedAlpha = select(inputSample.a, bled.a, isInkOnPaper);
+	let inkedRgb = select(page.rgb, halftonedRgb, isInkOnPaper);
+	let inkedAlpha = select(page.a, bled.a, isInkOnPaper);
 
 	// ----- Camera defocus -----
 	//
@@ -169,22 +205,23 @@ const wgsl = /* wgsl */ `
 	// macro aperture, not rasterized to vector edges. Holds the centre sharp
 	// (where the headline lives) and softens the corners where the page plane
 	// bends out of focus. The ring radius stays small — a few taps spread
-	// wide read as a double image, not a blur.
+	// wide read as a double image, not a blur. Screen-space distance; taps
+	// read the page.
 	let focalCentre = vec2f(0.5, 0.5);
 	let distFromFocal = distance(in.uv, focalCentre);
 	let defocusMix = smoothstep(0.32, 0.72, distFromFocal);
 	let defocusRadiusPx = defocusMix * 4.5;
 	let axisUv = defocusRadiusPx * pxUv;
 	let diagUv = axisUv * 0.7;
-	let a1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( axisUv.x, 0.0));
-	let a2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-axisUv.x, 0.0));
-	let a3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  axisUv.y));
-	let a4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -axisUv.y));
-	let g1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( diagUv.x,  diagUv.y));
-	let g2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-diagUv.x,  diagUv.y));
-	let g3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( diagUv.x, -diagUv.y));
-	let g4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-diagUv.x, -diagUv.y));
-	let defocusedRgb = inputSample.rgb * 0.25
+	let a1 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f( axisUv.x, 0.0));
+	let a2 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(-axisUv.x, 0.0));
+	let a3 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(0.0,  axisUv.y));
+	let a4 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(0.0, -axisUv.y));
+	let g1 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f( diagUv.x,  diagUv.y));
+	let g2 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(-diagUv.x,  diagUv.y));
+	let g3 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f( diagUv.x, -diagUv.y));
+	let g4 = textureSample(layout.$.inputTexture, layout.$.samp, pageUv + vec2f(-diagUv.x, -diagUv.y));
+	let defocusedRgb = page.rgb * 0.25
 		+ (a1.rgb + a2.rgb + a3.rgb + a4.rgb) * 0.125
 		+ (g1.rgb + g2.rgb + g3.rgb + g4.rgb) * 0.0625;
 	let mixedRgb = mix(inkedRgb, defocusedRgb, defocusMix);
@@ -195,12 +232,12 @@ const wgsl = /* wgsl */ `
 	// printed page (≈500–1500 px at 4K). The paper Pipeline's grain covers
 	// fine + medium + fibre scales, but lacks this coarsest layer — without it
 	// the sheet reads as clean stock with grain rather than printed newsprint
-	// with ink density variation. Inline 2D value noise: hash four corners of
-	// a unit cell, smoothstep-interp between them so the mottling reads as
-	// organic patches rather than periodic banding. ±3% multiplicative band;
-	// seed phase-shifts the noise grid per-instance.
+	// with ink density variation. Inline 2D value noise in PAGE space: hash
+	// four corners of a unit cell, smoothstep-interp between them so the
+	// mottling reads as organic patches rather than periodic banding. ±3%
+	// multiplicative band; seed phase-shifts the noise grid per-instance.
 	let noiseScale = 6.0;
-	let noiseUv = in.uv * noiseScale + vec2f(seed * 13.0, seed * 19.0);
+	let noiseUv = pageUv * noiseScale + vec2f(seed * 13.0, seed * 19.0);
 	let noiseCell = floor(noiseUv);
 	let noiseF = fract(noiseUv);
 	let noiseLerp = noiseF * noiseF * (3.0 - 2.0 * noiseF);
@@ -213,23 +250,24 @@ const wgsl = /* wgsl */ `
 
 	// ----- Scan grain -----
 	//
-	// The finest grain octave: a static per-2px-cell hash, ±2.5% luma, the
-	// sensor/scan noise of the footage the page was photographed for. Static
-	// (seeded, not per-frame) — a photographed still does not crawl.
-	let grainCell = floor(in.uv * vec2f(canvasW, canvasH) / 2.0) + vec2f(seed * 7.0, seed * 3.0);
+	// The finest grain octave: a static per-2px-cell hash in PAGE space, ±2.5%
+	// luma — the tooth of the sheet as photographed. Static (seeded, not
+	// per-frame) and page-anchored, so it rides the push instead of crawling
+	// across the text as a screen-fixed pattern.
+	let grainCell = floor(pagePx / 2.0) + vec2f(seed * 7.0, seed * 3.0);
 	let grainHash = fract(sin(dot(grainCell, vec2f(12.9898, 78.233))) * 43758.5453);
 	let grainedRgb = mottledRgb * (1.0 + (grainHash - 0.5) * 0.05);
 
 	// ----- Lens vignette -----
 	//
 	// Multiplicative corner darkening across the photographed frame — same
-	// UV-distance metric as defocus. Zero at the centre; up to 27% darkening
-	// at the far corners, the way the direction plates fall off. Alpha is
-	// untouched.
+	// screen-space UV-distance metric as defocus. Zero at the centre; up to
+	// 27% darkening at the far corners, the way the direction plates fall
+	// off. Alpha is untouched.
 	let vignetteAmount = smoothstep(0.25, 0.85, distFromFocal) * 0.27;
 	let opticsRgb = grainedRgb * (1.0 - vignetteAmount);
 
-	let finalRgb = select(inputSample.rgb, opticsRgb, isPhotographedPixel);
+	let finalRgb = select(page.rgb, opticsRgb, isPhotographedPixel);
 	return vec4f(finalRgb, inkedAlpha);
 `;
 
@@ -237,13 +275,16 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 	return {
 		uniforms: NewspaperPhysicsUniforms,
 		wgsl,
-		packUniforms(target, bounds) {
+		packUniforms(target, bounds, ctx) {
 			// Surface state carries no explicit id slot today; the preset id
 			// reaches packUniforms via the SurfaceState's title — a stable
 			// per-composition string. This keeps the seed deterministic
 			// per-preset per Q6 / G9.
 			const seedSource = target.content.title ?? target.type;
 			const seed = hashStringToUnitInterval(seedSource);
+			// The push is a pure function of the paused-timeline progress the
+			// dispatcher forwards — the same value preview and export scrub to.
+			const progress = Math.min(1, Math.max(0, ctx.progress));
 
 			return {
 				seed,
@@ -251,6 +292,10 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 				bleedRadiusPx: BLEED_RADIUS_PX,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
+				pushScale: 1 + CAMERA_PUSH_SCALE * progress,
+				// Sampling further right moves the page left on screen.
+				driftX: CAMERA_PUSH_DRIFT * progress,
+				driftY: 0,
 				inkColor: d.vec3f(PRINT_INK_R, PRINT_INK_G, PRINT_INK_B)
 			} satisfies NewspaperPhysicsParams;
 		}

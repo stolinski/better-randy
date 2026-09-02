@@ -93,12 +93,12 @@ export const newspaperIdentity: IdentitySpec = {
 			definition:
 				'The shot is a cut onto the page, and the camera keeps pushing in, slowly, for the length of the piece — the locked-off documentary insert with a hint of life, never a card flying in or a landing settle.',
 			implementation:
-				'CanvasSource.svelte § camera — globalProgress drives a continuous CAMERA_PUSH_SCALE push and a CAMERA_PUSH_DRIFT lateral drift about the frame centre; there is no enter or exit sugar (the definition declares enterExit: false). The transform is a pure function of the frame’s timeline value (frame-deterministic, no wall-clock).',
+				'newspaper-physics.ts § Camera push — packUniforms turns the dispatcher’s timeline progress into pushScale (1 + CAMERA_PUSH_SCALE·p) and a driftX (CAMERA_PUSH_DRIFT·p); the pass resamples the captured page through pageUv = 0.5 + (uv − 0.5)/pushScale + drift and computes halftone, mottling, and scan grain in that page space so the print texture rides the page. The DOM itself never animates (a scaling text layer re-rasterizes and pops, and every mark rect would drift); there is no enter or exit sugar (enterExit: false). Pure function of the frame’s timeline value — frame-deterministic, no wall-clock.',
 			probe: {
 				kind: 'named-observation',
-				region: 'the headline’s cap-height measured at progress 0.0 and 1.0',
+				region: 'the headline’s cap-height measured at progress 0.0 and 1.0; two consecutive frames at mid-piece',
 				expectation:
-					'the later measurement is 1.5–2.5% larger; the first frame is already the full page at rest, never a larger scale settling or an off-frame entry.'
+					'the later measurement is 1.5–2.5% larger; the first frame is already the full page at rest, never a larger scale settling or an off-frame entry. Between consecutive frames the highlighter and the print texture move WITH the page: no re-rolled marker edge, no screen-fixed dot or grain crawl across the glyphs.'
 			}
 		},
 		{

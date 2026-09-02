@@ -4,7 +4,6 @@
 		annotationBodyPlainText,
 		parseAnnotationBodyText
 	} from '$lib/annotations/annotation-body-text';
-	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { clampNumber } from '$lib/utils/math';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
@@ -21,9 +20,12 @@
 	//
 	// The frame is a tight crop INTO a broadsheet page: the sheet overshoots
 	// every frame edge by these fractions of the frame, so no page edge exists
-	// inside the canvas under the seeded tilt and the full camera push. The
-	// right and bottom overshoots are the largest — that is where the headline's
-	// measure, the folio's masthead, and the columns run off the frame.
+	// inside the canvas under the seeded tilt. The right and bottom overshoots
+	// are the largest — that is where the headline's measure, the folio's
+	// masthead, and the columns run off the frame. The camera push is NOT
+	// applied here: this DOM is static so its text rasterizes once and every
+	// mark rect holds still; the newspaper-physics pass resamples the captured
+	// page for the push (identity § camera-push).
 	const PAGE_OVERSHOOT_LEFT = 0.05;
 	const PAGE_OVERSHOOT_RIGHT = 0.09;
 	const PAGE_OVERSHOOT_TOP = 0.05;
@@ -39,13 +41,9 @@
 	const PAGE_MARGIN_RIGHT = 0.03;
 	const CONTENT_INSET_RIGHT = 0.02;
 
-	// ----- Camera (identity § surface-rotation, § camera-push) -----
+	// ----- Camera tilt (identity § surface-rotation) -----
 	const TILT_MIN_DEG = 0.3;
 	const TILT_MAX_DEG = 0.8;
-	// The shot is a cut: no landing, no push-out. The whole piece carries one
-	// continuous push with a hint of leftward drift.
-	const CAMERA_PUSH_SCALE = 0.02;
-	const CAMERA_PUSH_DRIFT = 0.004;
 
 	// ----- Type (long-side units, so both transports print the same page) -----
 	//
@@ -101,8 +99,8 @@
 			contentWidth: width - paddingLeft - paddingRight,
 			// The measure the headline and folio stay inside so they read whole.
 			visibleMeasure: frame.width * (1 - CONTENT_INSET_LEFT - CONTENT_INSET_RIGHT),
-			// Scale and tilt about the FRAME centre, not the page centre, so the
-			// push reads as a camera move over the visible crop.
+			// Tilt about the FRAME centre, not the page centre, so the crop
+			// reads as a camera over the page.
 			originX: frame.width / 2 - x,
 			originY: frame.height / 2 - y
 		};
@@ -130,16 +128,6 @@
 		Math.max(2, Math.round(page.contentWidth / (longSide * COLUMN_WIDTH_RATIO)))
 	);
 
-	// Frame-deterministic camera: a pure function of the timeline's global
-	// progress for this frame. No enter/exit sugar reaches this Surface.
-	const camera = $derived.by(() => {
-		const progress = clampNumber(animState.globalProgress, 0, 1);
-		return {
-			scale: 1 + CAMERA_PUSH_SCALE * progress,
-			x: -frame.width * CAMERA_PUSH_DRIFT * progress
-		};
-	});
-
 	const hasKicker = $derived((content.kicker ?? '').trim().length > 0);
 	const hasAuthor = $derived((content.author ?? '').trim().length > 0);
 	const hasAffiliation = $derived((content.affiliation ?? '').trim().length > 0);
@@ -163,7 +151,7 @@
 	style:top={`${page.y}px`}
 	style:padding={`${page.paddingTop}px ${page.paddingRight}px 0 ${page.paddingLeft}px`}
 	style:transform-origin={`${page.originX}px ${page.originY}px`}
-	style:transform={`translate(${camera.x}px, 0) rotate(${tiltDeg}deg) scale(${camera.scale})`}
+	style:transform={`rotate(${tiltDeg}deg)`}
 	style:background-color={NEWSPRINT_PAPER_HEX}
 	style:color={NEWSPRINT_INK_HEX}
 	style:--visible-measure={`${page.visibleMeasure}px`}
@@ -317,7 +305,6 @@
 		font-family: 'Old Standard TT', 'Times New Roman', Times, serif;
 		overflow: hidden;
 		position: absolute;
-		will-change: transform;
 	}
 
 	/* Opt out of Graffiti's @layer base fluid-typography; this surface sizes
