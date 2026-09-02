@@ -26,8 +26,9 @@ export function parseWebsiteCaptureRequest(value: unknown): WebsiteCaptureReques
 	return { url: normalizeWebsiteCaptureUrl(value.url) };
 }
 
-/** How a capture is taken: the CSS viewport height and the device scale. */
+/** How a capture is taken: the CSS viewport and the device scale. */
 export interface WebsiteCaptureOptions {
+	viewportWidth?: number;
 	viewportHeight?: number;
 	deviceScaleFactor?: number;
 }
@@ -40,7 +41,7 @@ async function captureWebsiteBytes(
 	try {
 		const context = await browser.newContext({
 			viewport: {
-				width: WEBSITE_CAPTURE_WIDTH,
+				width: options.viewportWidth ?? WEBSITE_CAPTURE_WIDTH,
 				height: options.viewportHeight ?? WEBSITE_CAPTURE_HEIGHT
 			},
 			deviceScaleFactor: options.deviceScaleFactor ?? 1
@@ -78,6 +79,7 @@ export interface BundledWebsiteCapture {
 	displayUrl: string;
 	path: string;
 	byteLength: number;
+	viewportWidth: number;
 	viewportHeight: number;
 	deviceScaleFactor: number;
 }
@@ -100,6 +102,7 @@ export async function captureWebsiteToFile(
 		displayUrl: localWebsiteCaptureResult(url, '/api/user-assets/bundled.png').displayUrl,
 		path: outputPath,
 		byteLength: bytes.byteLength,
+		viewportWidth: options.viewportWidth ?? WEBSITE_CAPTURE_WIDTH,
 		viewportHeight: options.viewportHeight ?? WEBSITE_CAPTURE_HEIGHT,
 		deviceScaleFactor: options.deviceScaleFactor ?? 1
 	};

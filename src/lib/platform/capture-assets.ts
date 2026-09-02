@@ -17,12 +17,13 @@ export interface CaptureAsset {
 }
 
 const CAPTURE_ASSETS: Record<string, CaptureAsset> = {
-	// The Syntax channel's Videos tab: a 1440×2560 CSS viewport at device scale 2
-	// so a filmed page keeps native density across both native targets.
+	// The Syntax channel's Videos tab: a 2560×2000 CSS viewport at device scale 2,
+	// wider than the native target so the filmed page keeps native density with
+	// page beyond every frame edge for an oblique camera.
 	'syntax-youtube-videos': {
 		url: syntaxYoutubeVideosUrl,
-		width: 2880,
-		height: 5120,
+		width: 5120,
+		height: 4000,
 		sourceUrl: 'https://www.youtube.com/@syntaxfm/videos',
 		capturedOn: '2026-09-01'
 	}

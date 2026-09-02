@@ -12,7 +12,7 @@ describe('bundled capture registry', () => {
 		assert.ok(asset);
 		assert.deepEqual(
 			{ width: asset.width, height: asset.height, sourceUrl: asset.sourceUrl },
-			{ width: 2880, height: 5120, sourceUrl: 'https://www.youtube.com/@syntaxfm/videos' }
+			{ width: 5120, height: 4000, sourceUrl: 'https://www.youtube.com/@syntaxfm/videos' }
 		);
 		assert.ok(asset.url.endsWith('.png'));
 		assert.equal(getCaptureAsset('missing'), null);

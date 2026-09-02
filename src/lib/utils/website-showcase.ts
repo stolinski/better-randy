@@ -139,11 +139,13 @@ export interface FilmedPageLayout {
 
 /**
  * The `filmed` framing of the website-screenshot Surface (ADR-0057): the
- * capture is laid at the smallest scale that covers the whole frame (native
- * density wherever the capture is at least frame-sized), with no browser
- * chrome, and shifted so the authored page anchor (capture fractions) sits at
- * the frame centre — clamped so a frame edge never sees past the page. The
- * frame is a crop into the page, the way ADR-0056 crops into the newspaper.
+ * capture is laid at NATIVE DENSITY — one capture pixel per frame pixel — and
+ * only scaled up when it is smaller than the frame, so a capture wider than
+ * the native target keeps page beyond every frame edge for the oblique camera
+ * to look across. No browser chrome; the authored page anchor (capture
+ * fractions) sits at the frame centre, clamped so a frame edge never sees past
+ * the page under the frontal camera. The frame is a crop into the page, the
+ * way ADR-0056 crops into the newspaper.
  */
 export function calculateFilmedPageLayout(
 	frameWidth: number,
@@ -155,7 +157,7 @@ export function calculateFilmedPageLayout(
 	if (frameWidth <= 0 || frameHeight <= 0 || captureWidth <= 0 || captureHeight <= 0) {
 		throw new RangeError('Filmed page frame and capture dimensions must be positive');
 	}
-	const scale = Math.max(frameWidth / captureWidth, frameHeight / captureHeight);
+	const scale = Math.max(1, frameWidth / captureWidth, frameHeight / captureHeight);
 	const width = captureWidth * scale;
 	const height = captureHeight * scale;
 	const anchorX = Math.min(1, Math.max(0, anchor.x));
