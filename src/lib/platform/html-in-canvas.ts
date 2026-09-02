@@ -216,6 +216,24 @@ export class CanvasPaintGenerationTracker {
 					this.#elementGenerations.set(child, this.#paintGeneration);
 				}
 			}
+			// A paint event is delivered after the browser painted. A direct child
+			// present now that this paint did NOT list was painted by an earlier
+			// paint — one this tracker never observed, because the child mounted
+			// before the paint handler attached and its DOM has not changed since.
+			// A Surface whose DOM is static from its first frame (the newspaper
+			// page: no enter motion, the camera push lives in its shader) is
+			// exactly that child, and no later paint ever reports it — left at the
+			// never-painted sentinel it was never captured, and the composition
+			// stayed empty until a relayout (a window resize) listed it. Seed it at
+			// this generation: the browser holds its paint record. The one window
+			// this misjudges — a child inserted between the browser's paint and this
+			// event — is tolerated at the capture seam (`captureSurfaceDom`), and the
+			// next paint reports that child with a real generation.
+			for (const child of canvas.children) {
+				if (!this.#elementGenerations.has(child)) {
+					this.#elementGenerations.set(child, this.#paintGeneration);
+				}
+			}
 		}
 
 		for (const resolve of this.#waiters) {

@@ -116,7 +116,7 @@ describe('getDomFrameCaptureQueue', () => {
 });
 
 describe('CanvasPaintGenerationTracker', () => {
-	it('advances only the changed direct canvas child', () => {
+	it('advances only the changed direct canvas child once both are known', () => {
 		const composition = element();
 		const overlay = element();
 		const targetCanvas = canvas([composition, overlay]);
@@ -125,13 +125,44 @@ describe('CanvasPaintGenerationTracker', () => {
 		const nested = element(composition);
 		const tracker = new CanvasPaintGenerationTracker();
 
+		tracker.record(targetCanvas, {} as HtmlInCanvasPaintEvent);
 		tracker.record(
 			targetCanvas,
 			{ changedElements: [nested] } as unknown as HtmlInCanvasPaintEvent
 		);
 
+		assert.equal(tracker.generationFor(composition), 2);
+		assert.equal(tracker.generationFor(overlay), 1);
+	});
+
+	// The newspaper page has no enter motion and its DOM never changes, so it
+	// mounted, was painted, and then no paint event ever listed it: left at the
+	// never-painted sentinel, the frame renderer skipped its capture and the
+	// composition stayed empty until a window resize relaid it out. A child that
+	// exists when a paint event arrives was painted by that paint or an earlier
+	// one — seed it, and never re-dirty it on later paints that don't list it.
+	it('seeds a direct child the tracker has never seen, without re-dirtying it later', () => {
+		const composition = element();
+		const overlay = element();
+		const targetCanvas = canvas([composition, overlay]);
+		Object.defineProperty(composition, 'parentElement', { value: targetCanvas });
+		Object.defineProperty(overlay, 'parentElement', { value: targetCanvas });
+		const nestedOverlay = element(overlay);
+		const tracker = new CanvasPaintGenerationTracker();
+
+		tracker.record(
+			targetCanvas,
+			{ changedElements: [nestedOverlay] } as unknown as HtmlInCanvasPaintEvent
+		);
 		assert.equal(tracker.generationFor(composition), 1);
-		assert.equal(tracker.generationFor(overlay), 0);
+		assert.equal(tracker.generationFor(overlay), 1);
+
+		tracker.record(
+			targetCanvas,
+			{ changedElements: [nestedOverlay] } as unknown as HtmlInCanvasPaintEvent
+		);
+		assert.equal(tracker.generationFor(composition), 1);
+		assert.equal(tracker.generationFor(overlay), 2);
 	});
 
 	it('settles an empty manual paint without dirtying DOM captures', () => {

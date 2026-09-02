@@ -140,7 +140,10 @@ const uploadedOverlayGenerations = new WeakMap<CompositionPlanes, number>();
 // with a real generation. Without this check a fresh mount, or a hot-module
 // replacement that swapped the composition node, uploaded a generation-0
 // element and threw `InvalidStateError: No cached paint record for element`
-// out of the paint handler (Sentry issue 7631939454).
+// out of the paint handler (Sentry issue 7631939454). The tracker seeds a
+// child it has never seen on the first paint event delivered while it exists
+// (`CanvasPaintGenerationTracker.record`), so a Surface whose DOM never
+// changes — the newspaper page — is not skipped here forever.
 function captureSurfaceDom(request: CompositionFrameRenderRequest): void {
 	const pipeline = request.resources.pipeline;
 	if (!pipeline) return;
@@ -151,7 +154,7 @@ function captureSurfaceDom(request: CompositionFrameRenderRequest): void {
 	}
 	if (!hasCapturedPaintRecord(capture.surface)) return;
 	if (capture.force || uploadedSurfaceGenerations.get(pipeline) !== capture.surface) {
-		pipeline.uploadDom();
+		if (!uploadDomIfPainted(() => pipeline.uploadDom())) return;
 		uploadedSurfaceGenerations.set(pipeline, capture.surface);
 	}
 }
@@ -168,8 +171,27 @@ function captureOverlayDom(
 	}
 	if (!hasCapturedPaintRecord(capture.overlay)) return;
 	if (capture.force || uploadedOverlayGenerations.get(planes) !== capture.overlay) {
-		planes.captureOverlay(element);
+		if (!uploadDomIfPainted(() => planes.captureOverlay(element))) return;
 		uploadedOverlayGenerations.set(planes, capture.overlay);
+	}
+}
+
+/**
+ * Runs a DOM upload, tolerating the one window the paint-generation tracker
+ * cannot see: a direct canvas child inserted between the browser's paint and
+ * the paint event that seeded its generation has no paint record yet, and the
+ * WICG lane throws `InvalidStateError` for it. The frame keeps whatever texture
+ * is resident (the same outcome as the never-painted skip above), the upload is
+ * not recorded as done, and the next paint — which reports that child — retries
+ * it with a real generation. Anything else thrown is a real failure.
+ */
+function uploadDomIfPainted(upload: () => void): boolean {
+	try {
+		upload();
+		return true;
+	} catch (error) {
+		if (error instanceof DOMException && error.name === 'InvalidStateError') return false;
+		throw error;
 	}
 }
 
