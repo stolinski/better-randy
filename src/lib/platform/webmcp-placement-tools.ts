@@ -20,8 +20,14 @@
  * the field's name.
  */
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
-import { OVERLAY_PLACEMENT_ANCHORS, type DiagramEndpoint, type DiagramPoint } from './engine-schema';
 import {
+	OVERLAY_PLACEMENT_ANCHORS,
+	STAGE_CAMERA_POSE_LIMITS,
+	type DiagramEndpoint,
+	type DiagramPoint
+} from './engine-schema';
+import {
+	readWebmcpClearableRecordArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
@@ -37,7 +43,9 @@ import {
 	runClearCompositionOrientationOverrideOperation,
 	runSetCompositionDiagramGeometryOperation,
 	runSetCompositionOverlayDepthOperation,
-	runSetCompositionOverlayPlacementOperation
+	runSetCompositionOverlayPlacementOperation,
+	runSetCompositionOverlayPoseOperation,
+	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
 import {
 	webmcpDerivedEnumProperty,
@@ -50,6 +58,29 @@ import type { DiagramGeometryPatch } from './composition-placement-operations';
 import type { OverlayPlacement } from './engine-schema';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
+
+function poseAngleProperty(axis: string, limit: number): WebmcpSchemaProperty {
+	return {
+		type: 'number',
+		description: `${axis} in degrees, -${limit} through ${limit}.`,
+		minimum: -limit,
+		maximum: limit
+	};
+}
+
+function readOverlayPose(args: unknown): { yaw?: number; pitch?: number; roll?: number } | null {
+	const record = readWebmcpClearableRecordArgument(args, 'pose');
+	if (record === null) return null;
+	const angle = (axis: 'yaw' | 'pitch' | 'roll'): number | undefined =>
+		readWebmcpOptionalNumberArgument(record, axis);
+	return { yaw: angle('yaw'), pitch: angle('pitch'), roll: angle('roll') };
+}
+
+function readPageAnchor(args: unknown): { x: number; y: number } | null {
+	const record = readWebmcpClearableRecordArgument(args, 'pageAnchor');
+	if (record === null) return null;
+	return { x: readWebmcpNumberArgument(record, 'x'), y: readWebmcpNumberArgument(record, 'y') };
+}
 
 function placementTargetProperty(): WebmcpSchemaProperty {
 	return {
@@ -288,9 +319,13 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 				properties: {
 					expectedRevision: webmcpObservedRevisionProperty(),
 					overlayId: webmcpEntityIdProperty('The Overlay to move in depth.'),
-					z: webmcpFractionProperty(
-						'0 sits on the focal plane, 1 is fully defocused. Omit it to return the Layer default.'
-					)
+					z: {
+						type: 'number',
+						description:
+							'0 sits on the Surface plane, 1 at the backdrop, negative lifts toward the camera. Omit it to return the Layer default.',
+						minimum: -1,
+						maximum: 1
+					}
 				},
 				required: ['expectedRevision', 'overlayId'],
 				additionalProperties: false
@@ -301,6 +336,77 @@ export function listWebmcpPlacementToolDefinitions(): readonly WebmcpToolDefinit
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						overlayId: readWebmcpStringArgument(args, 'overlayId'),
 						z: readWebmcpOptionalNumberArgument(args, 'z') ?? null
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-overlay-pose',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					overlayId: webmcpEntityIdProperty('The Overlay to turn.'),
+					pose: {
+						description:
+							"Degrees about the Overlay's rendered centre: positive yaw turns its right edge away, positive pitch leans its top edge away, positive roll turns it clockwise. Omitted angles hold 0; null removes the pose.",
+						oneOf: [
+							{
+								type: 'object',
+								description: 'The angles to author; an omitted angle holds 0.',
+								properties: {
+									yaw: poseAngleProperty('yaw', STAGE_CAMERA_POSE_LIMITS.yawDegrees),
+									pitch: poseAngleProperty('pitch', STAGE_CAMERA_POSE_LIMITS.pitchDegrees),
+									roll: poseAngleProperty('roll', STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+								},
+								additionalProperties: false
+							},
+							{ type: 'null', description: 'Remove the pose; the Overlay keeps its depth.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'overlayId', 'pose'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-overlay-pose', () =>
+					runSetCompositionOverlayPoseOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						overlayId: readWebmcpStringArgument(args, 'overlayId'),
+						pose: readOverlayPose(args)
+					})
+				)
+		},
+		{
+			operationId: 'placement.set-surface-page-anchor',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					pageAnchor: {
+						description:
+							'The page point, in capture fractions (x right, y down), that the filmed website-screenshot framing puts at frame centre; null returns the page centre.',
+						oneOf: [
+							{
+								type: 'object',
+								description: 'The page point to put at frame centre.',
+								properties: {
+									x: webmcpFractionProperty('Across the captured page.'),
+									y: webmcpFractionProperty('Down the captured page.')
+								},
+								additionalProperties: false
+							},
+							{ type: 'null', description: 'Return to the page centre.' }
+						]
+					}
+				},
+				required: ['expectedRevision', 'pageAnchor'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('placement.set-surface-page-anchor', () =>
+					runSetCompositionSurfacePageAnchorOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						pageAnchor: readPageAnchor(args)
 					})
 				)
 		},

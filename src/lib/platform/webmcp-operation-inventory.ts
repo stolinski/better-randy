@@ -326,6 +326,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		ownedPaths: [
 			{ pointer: '/state/overlays/*/position', scope: 'value' },
 			{ pointer: '/state/overlays/*/z', scope: 'value' },
+			{ pointer: '/state/overlays/*/pose', scope: 'value' },
+			{ pointer: '/state/surface/pageAnchor', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/position', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/from', scope: 'value' },
 			{ pointer: '/state/surface/diagram/*/to', scope: 'value' },
@@ -1138,6 +1140,38 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['overlay'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
+	},
+	{
+		id: 'placement.set-overlay-pose',
+		family: 'placement',
+		toolName: 'gfx_placement_set_overlay_pose',
+		summary:
+			"Turn one Overlay's own plane on the depth stage — yaw, pitch, and roll in degrees about its rendered centre — or remove the pose. A posed Overlay rides its own plane, lit and shadowed with the scene.",
+		effect: 'write',
+		writes: ['/state/overlays/*/pose'],
+		precondition: 'overlay-present',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['overlay'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/OverlayPositionSection.svelte'
+	},
+	{
+		id: 'placement.set-surface-page-anchor',
+		family: 'placement',
+		toolName: 'gfx_placement_set_surface_page_anchor',
+		summary:
+			'Choose which point of a captured page sits at frame centre when the website-screenshot Surface is framed filmed, or return to the page centre.',
+		effect: 'write',
+		writes: ['/state/surface/pageAnchor'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['surface'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/WebsiteCaptureFields.svelte'
 	},
 	{
 		id: 'placement.set-diagram-geometry',

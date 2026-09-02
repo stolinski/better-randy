@@ -129,6 +129,8 @@ function cloneSurface(surface: SurfaceState): SurfaceState {
 		// Chrome mode (ADR-0037): another top-level surface field that must be
 		// carried explicitly, or chromeless presets silently render the window.
 		chrome: surface.chrome,
+		// The filmed framing's page anchor (ADR-0057): the same top-level trap.
+		pageAnchor: surface.pageAnchor ? { ...surface.pageAnchor } : undefined,
 		enter: surface.enter ? cloneTransition(surface.enter) : undefined,
 		exit: surface.exit ? cloneTransition(surface.exit) : undefined,
 		animation: surface.animation ? cloneSurfaceAnimation(surface.animation) : undefined,
@@ -164,7 +166,9 @@ function cloneOverlay(overlay: Overlay): Overlay {
 		enter: overlay.enter ? cloneTransition(overlay.enter) : undefined,
 		exit: overlay.exit ? cloneTransition(overlay.exit) : undefined,
 		animation: overlay.animation ? cloneOverlayAnimation(overlay.animation) : undefined,
-		z: overlay.z
+		z: overlay.z,
+		// The posed plane (ADR-0057) rides with its depth.
+		pose: overlay.pose ? { ...overlay.pose } : undefined
 	};
 }
 

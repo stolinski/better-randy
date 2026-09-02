@@ -32,14 +32,17 @@ import {
 } from './composition-operation-preflight';
 import { COMPOSITION_ORIENTATIONS } from './composition-transport-operations';
 
+import { STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
 import type {
 	DiagramEndpoint,
 	DiagramPoint,
 	DiagramPrimitive,
 	Overlay,
 	OverlayPlacement,
+	OverlayPose,
 	Transport
 } from './engine-schema';
+import { getSurfaceDefinition } from './pipelines/definition-registry';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** Which placement a write lands on: the shared one, or one orientation's snapshot. */
@@ -72,8 +75,21 @@ export interface ClearCompositionOrientationOverrideRequest {
 export interface SetCompositionOverlayDepthRequest {
 	expectedRevision: number;
 	overlayId: string;
-	/** 0 sits on the focal plane; 1 is fully defocused. `null` returns the Layer default. */
+	/** 0 the Surface plane, 1 the backdrop, negative lifted toward the camera. `null` returns the Layer default. */
 	z: number | null;
+}
+
+export interface SetCompositionOverlayPoseRequest {
+	expectedRevision: number;
+	overlayId: string;
+	/** Degrees about the Overlay's rendered centre; omitted angles hold 0. `null` removes the pose. */
+	pose: { yaw?: number; pitch?: number; roll?: number } | null;
+}
+
+export interface SetCompositionSurfacePageAnchorRequest {
+	expectedRevision: number;
+	/** The page point (capture fractions) at frame centre in the filmed framing. `null` returns the page centre. */
+	pageAnchor: { x: number; y: number } | null;
 }
 
 /** The geometry fields a diagram primitive carries, in composition fractions. */
@@ -281,6 +297,104 @@ export async function runSetCompositionOverlayDepthOperation(
 		focus: { target: 'overlay', overlayId: request.overlayId },
 		mutate: (draft) => {
 			requireDraftOverlay(draft.state.overlays, request.overlayId).z = request.z ?? undefined;
+		}
+	});
+}
+
+/** Turn one Overlay's own plane on the depth stage (ADR-0057); with an explicit depth it is what lifts the Overlay onto that plane. */
+export async function runSetCompositionOverlayPoseOperation(
+	request: SetCompositionOverlayPoseRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('placement.set-overlay-pose');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const overlays = readOpenCompositionDocument().state.overlays;
+	if (!overlays.some((overlay) => overlay.id === request.overlayId)) {
+		return refuseUnknownOverlay(row, request.overlayId, overlays);
+	}
+	let pose: OverlayPose | undefined;
+	if (request.pose !== null) {
+		const angles = [
+			['yaw', request.pose.yaw ?? 0, STAGE_CAMERA_POSE_LIMITS.yawDegrees],
+			['pitch', request.pose.pitch ?? 0, STAGE_CAMERA_POSE_LIMITS.pitchDegrees],
+			['roll', request.pose.roll ?? 0, STAGE_CAMERA_POSE_LIMITS.rollDegrees]
+		] as const;
+		for (const [axis, value, limit] of angles) {
+			if (!(Number.isFinite(value) && Math.abs(value) <= limit)) {
+				return refuseCompositionOperation(
+					row,
+					compositionEditHistory.revision,
+					'invalid_argument',
+					`${axis} runs from -${limit} to ${limit} degrees.`,
+					{ rejected: String(value), alternatives: [`-${limit}`, '0', `${limit}`] }
+				);
+			}
+		}
+		pose = {
+			yaw: request.pose.yaw ?? 0,
+			pitch: request.pose.pitch ?? 0,
+			roll: request.pose.roll ?? 0
+		};
+	}
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: pose ? 'Pose Overlay' : 'Clear Overlay pose',
+		focus: { target: 'overlay', overlayId: request.overlayId },
+		mutate: (draft) => {
+			requireDraftOverlay(draft.state.overlays, request.overlayId).pose = pose;
+		}
+	});
+}
+
+/** Choose which page point the filmed website-screenshot framing puts at frame centre (ADR-0057). */
+export async function runSetCompositionSurfacePageAnchorOperation(
+	request: SetCompositionSurfacePageAnchorRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('placement.set-surface-page-anchor');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const surface = readOpenCompositionDocument().state.surface;
+	if (!getSurfaceDefinition(surface.type)?.controls.websiteCapture) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'precondition_unmet',
+			`The ${surface.type} Surface has no page to anchor; the page anchor belongs to the website-screenshot Surface in its filmed framing.`,
+			{ rejected: surface.type, alternatives: ['website-screenshot'] }
+		);
+	}
+	const anchor = request.pageAnchor;
+	if (
+		anchor !== null &&
+		!(
+			Number.isFinite(anchor.x) &&
+			Number.isFinite(anchor.y) &&
+			anchor.x >= 0 &&
+			anchor.x <= 1 &&
+			anchor.y >= 0 &&
+			anchor.y <= 1
+		)
+	) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			'The page anchor is a point in capture fractions, 0 through 1 on each axis.',
+			{ rejected: JSON.stringify(anchor), alternatives: ['{"x":0.5,"y":0.5}', 'null'] }
+		);
+	}
+
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: 'Set page anchor',
+		focus: { target: 'surface' },
+		mutate: (draft) => {
+			draft.state.surface.pageAnchor = anchor === null ? undefined : { x: anchor.x, y: anchor.y };
 		}
 	});
 }

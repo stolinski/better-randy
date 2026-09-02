@@ -9,7 +9,9 @@ import {
 	runClearCompositionOrientationOverrideOperation,
 	runSetCompositionDiagramGeometryOperation,
 	runSetCompositionOverlayDepthOperation,
-	runSetCompositionOverlayPlacementOperation
+	runSetCompositionOverlayPlacementOperation,
+	runSetCompositionOverlayPoseOperation,
+	runSetCompositionSurfacePageAnchorOperation
 } from './composition-placement-operations';
 import { engineState, transitionState } from './engine-state.svelte';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
@@ -178,6 +180,87 @@ describe('Overlay placement', () => {
 		);
 
 		expect(failure.code).toBe('invalid_argument');
+	});
+
+	it('lifts an Overlay toward the camera with a negative depth', async () => {
+		await addOverlay(0);
+		expectApplied(
+			await runSetCompositionOverlayDepthOperation({
+				expectedRevision: 1,
+				overlayId: 'lower-third-1',
+				z: -0.18
+			})
+		);
+		expect(engineState.overlays[0].z).toBe(-0.18);
+	});
+
+	it('poses and un-poses an Overlay within the authored angle limits', async () => {
+		await addOverlay(0);
+		expectApplied(
+			await runSetCompositionOverlayPoseOperation({
+				expectedRevision: 1,
+				overlayId: 'lower-third-1',
+				pose: { yaw: 10, pitch: -3 }
+			})
+		);
+		expect(engineState.overlays[0].pose).toEqual({ yaw: 10, pitch: -3, roll: 0 });
+
+		const failure = expectFailed(
+			await runSetCompositionOverlayPoseOperation({
+				expectedRevision: 2,
+				overlayId: 'lower-third-1',
+				pose: { yaw: 90 }
+			})
+		);
+		expect(failure.code).toBe('invalid_argument');
+
+		expectApplied(
+			await runSetCompositionOverlayPoseOperation({
+				expectedRevision: 2,
+				overlayId: 'lower-third-1',
+				pose: null
+			})
+		);
+		expect(engineState.overlays[0].pose).toBeUndefined();
+	});
+});
+
+describe('Surface page anchor', () => {
+	it('refuses a Surface without a captured page', async () => {
+		const failure = expectFailed(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 0,
+				pageAnchor: { x: 0.6, y: 0.5 }
+			})
+		);
+		expect(failure.code).toBe('precondition_unmet');
+	});
+
+	it('anchors and un-anchors the filmed page', async () => {
+		engineState.surface.type = 'website-screenshot';
+		engineState.surface.variant = 'filmed';
+		engineState.surface.content.captureAsset = 'syntax-youtube-videos';
+		engineState.surface.content.sourceUrl = 'https://www.youtube.com/@syntaxfm/videos';
+		expectApplied(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 0,
+				pageAnchor: { x: 0.6, y: 0.5 }
+			})
+		);
+		expect(engineState.surface.pageAnchor).toEqual({ x: 0.6, y: 0.5 });
+
+		const failure = expectFailed(
+			await runSetCompositionSurfacePageAnchorOperation({
+				expectedRevision: 1,
+				pageAnchor: { x: 1.4, y: 0.5 }
+			})
+		);
+		expect(failure.code).toBe('invalid_argument');
+
+		expectApplied(
+			await runSetCompositionSurfacePageAnchorOperation({ expectedRevision: 1, pageAnchor: null })
+		);
+		expect(engineState.surface.pageAnchor).toBeUndefined();
 	});
 });
 

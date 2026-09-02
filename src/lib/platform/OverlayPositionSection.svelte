@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { engineState } from './engine-state.svelte';
-	import type { Overlay, OverlayPlacement } from './engine-schema';
+	import { STAGE_CAMERA_POSE_LIMITS, type Overlay, type OverlayPlacement } from './engine-schema';
 	import { cloneOverlayPlacement, resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -46,14 +46,32 @@
 		resolveOverlayPlacement(ov.position, engineState.transport.orientation)
 	);
 
-	// Focal-plane z (ADR-0021 semantics / ADR-0027 v1): 0 = focal plane (sharp),
-	// 1 = max defocus; absent → the Overlay-Layer default 0.7 at render. Only
-	// consulted by the depth stage (ADR-0028) and the depth-of-field Effect
-	// (rack focus rides its focusPull params), so the row only shows then.
+	// Focal-plane z (ADR-0021 semantics, signed by ADR-0057): 0 = the Surface
+	// plane, 1 = the backdrop, negative = lifted toward the camera; absent → the
+	// Overlay-Layer default 0.7 at render. Only consulted by the depth stage
+	// (ADR-0028) and the depth-of-field Effect (rack focus rides its focusPull
+	// params), so the row only shows then.
 	const depthActive = $derived(
 		engineState.stage !== undefined ||
 			engineState.effects.some((effect) => effect.type === 'depth-of-field')
 	);
+	// A pose (ADR-0057) turns the Overlay's own plane on the depth stage; with
+	// an explicit z it is what lifts the Overlay onto that plane.
+	const stageActive = $derived(engineState.stage?.type === 'depth');
+
+	const POSE_FIELDS = [
+		{ key: 'yaw', label: 'Yaw°', limit: STAGE_CAMERA_POSE_LIMITS.yawDegrees },
+		{ key: 'pitch', label: 'Pitch°', limit: STAGE_CAMERA_POSE_LIMITS.pitchDegrees },
+		{ key: 'roll', label: 'Roll°', limit: STAGE_CAMERA_POSE_LIMITS.rollDegrees }
+	] as const;
+
+	function setPose(key: 'yaw' | 'pitch' | 'roll', value: string, limit: number): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		const pose = ov.pose ?? { yaw: 0, pitch: 0, roll: 0 };
+		pose[key] = Math.max(-limit, Math.min(limit, n));
+		ov.pose = pose;
+	}
 
 	function setAnchor(target: OverlayPlacement, value: string): void {
 		target.anchor = value as OverlayPlacement['anchor'];
@@ -94,7 +112,7 @@
 	function setZ(value: string): void {
 		const n = Number(value);
 		if (!Number.isFinite(n)) return;
-		ov.z = Math.max(0, Math.min(1, n));
+		ov.z = Math.max(-1, Math.min(1, n));
 	}
 
 	function toggleOrientationCustomization(checked: boolean): void {
@@ -199,7 +217,7 @@
 		<Field label="Z">
 			<input
 				type="number"
-				min="0"
+				min="-1"
 				max="1"
 				step="any"
 				value={ov.z ?? ''}
@@ -208,6 +226,26 @@
 			/>
 			<button type="button" class="clear-btn" onclick={() => (ov.z = undefined)}>×</button>
 		</Field>
+	{/if}
+	{#if stageActive}
+		{#each POSE_FIELDS as field (field.key)}
+			<Field label={field.label}>
+				<input
+					type="number"
+					min={-field.limit}
+					max={field.limit}
+					step="any"
+					value={ov.pose?.[field.key] ?? 0}
+					oninput={(e) =>
+						setPose(field.key, (e.currentTarget as HTMLInputElement).value, field.limit)}
+				/>
+			</Field>
+		{/each}
+		{#if ov.pose}
+			<Field label="Pose">
+				<button type="button" class="clear-btn" onclick={() => (ov.pose = undefined)}>×</button>
+			</Field>
+		{/if}
 	{/if}
 </InspectorSection>
 

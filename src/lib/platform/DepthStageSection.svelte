@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { engineState } from './engine-state.svelte';
-	import { ENGINE_EASES, type Ease, type Stage } from './engine-schema';
+	import {
+		ENGINE_EASES,
+		STAGE_CAMERA_POSE_LIMITS,
+		type Ease,
+		type Stage,
+		type StageCameraPose,
+		type StageCameraTravel
+	} from './engine-schema';
 	import { listSubstrateAssets } from './substrate-textures';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -55,6 +62,80 @@
 		const n = Number(value);
 		return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null;
 	}
+
+	// The camera pose and its one authored travel (ADR-0057). The pose fields
+	// default to the frontal camera, so turning the pose on changes nothing
+	// until a field moves; the travel starts as a copy of the rest pose.
+	const POSE_ANGLE_FIELDS = [
+		{ key: 'yaw', label: 'Yaw°', limit: STAGE_CAMERA_POSE_LIMITS.yawDegrees },
+		{ key: 'pitch', label: 'Pitch°', limit: STAGE_CAMERA_POSE_LIMITS.pitchDegrees },
+		{ key: 'roll', label: 'Roll°', limit: STAGE_CAMERA_POSE_LIMITS.rollDegrees }
+	] as const;
+
+	function restPose(): StageCameraPose {
+		return { yaw: 0, pitch: 0, roll: 0, distance: 1, aim: { x: 0.5, y: 0.5 } };
+	}
+
+	function ensurePose(): StageCameraPose {
+		const stage = ensureStage();
+		if (!stage.camera.pose) stage.camera.pose = restPose();
+		return stage.camera.pose;
+	}
+
+	function togglePose(): void {
+		const stage = ensureStage();
+		if (stage.camera.pose) {
+			stage.camera.pose = undefined;
+		} else {
+			ensurePose();
+		}
+	}
+
+	function setPoseAngle(
+		target: StageCameraPose | StageCameraTravel['to'],
+		key: 'yaw' | 'pitch' | 'roll',
+		value: string,
+		limit: number
+	): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		target[key] = Math.max(-limit, Math.min(limit, n));
+	}
+
+	function setPoseDistance(target: StageCameraPose | StageCameraTravel['to'], value: string): void {
+		const n = Number(value);
+		if (!Number.isFinite(n)) return;
+		target.distance = Math.max(
+			STAGE_CAMERA_POSE_LIMITS.minDistance,
+			Math.min(STAGE_CAMERA_POSE_LIMITS.maxDistance, n)
+		);
+	}
+
+	function setPoseAim(
+		target: StageCameraPose | StageCameraTravel['to'],
+		axis: 'x' | 'y',
+		value: string
+	): void {
+		const n = clampedUnitInterval(value);
+		if (n === null) return;
+		const aim = target.aim ?? { x: 0.5, y: 0.5 };
+		target.aim = { x: aim.x ?? 0.5, y: aim.y ?? 0.5, [axis]: n };
+	}
+
+	function toggleTravel(): void {
+		const stage = ensureStage();
+		if (stage.camera.travel) {
+			stage.camera.travel = undefined;
+		} else {
+			const pose = stage.camera.pose ?? restPose();
+			stage.camera.travel = {
+				to: { ...pose, aim: { ...pose.aim } },
+				start: 0,
+				duration: 0.85,
+				ease: 'smooth'
+			};
+		}
+	}
 </script>
 
 <InspectorSection label="Depth Stage" summary={engineState.stage ? 'On' : 'Off'}>
@@ -73,9 +154,7 @@
 				value={stage.camera.move}
 				onchange={(e) => {
 					ensureStage().camera.move = (e.currentTarget as HTMLSelectElement).value as
-						| 'static'
-						| 'push'
-						| 'drift';
+						'static' | 'push' | 'drift';
 				}}
 			>
 				<option value="static">Static</option>
@@ -102,6 +181,156 @@
 					value={stage.camera.ease}
 					onchange={(e) => {
 						ensureStage().camera.ease = (e.currentTarget as HTMLSelectElement).value as Ease;
+					}}
+				>
+					{#each easeOptions as [value, opt] (value)}
+						<option {value}>{opt.label}</option>
+					{/each}
+				</select>
+			</Field>
+		{/if}
+		<Field label="Pose">
+			<InspectorToggle checked={!!stage.camera.pose} label="Camera pose" onchange={togglePose} />
+		</Field>
+		{#if stage.camera.pose}
+			{@const pose = stage.camera.pose}
+			{#each POSE_ANGLE_FIELDS as field (field.key)}
+				<Field label={field.label}>
+					<input
+						type="number"
+						min={-field.limit}
+						max={field.limit}
+						step="any"
+						value={pose[field.key]}
+						oninput={(e) =>
+							setPoseAngle(
+								pose,
+								field.key,
+								(e.currentTarget as HTMLInputElement).value,
+								field.limit
+							)}
+					/>
+				</Field>
+			{/each}
+			<Field label="Distance">
+				<input
+					type="number"
+					min={STAGE_CAMERA_POSE_LIMITS.minDistance}
+					max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
+					step="any"
+					value={pose.distance}
+					oninput={(e) => setPoseDistance(pose, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="Aim">
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Aim x"
+					value={pose.aim.x}
+					oninput={(e) => setPoseAim(pose, 'x', (e.currentTarget as HTMLInputElement).value)}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Aim y"
+					value={pose.aim.y}
+					oninput={(e) => setPoseAim(pose, 'y', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+		{/if}
+		<Field label="Travel">
+			<InspectorToggle
+				checked={!!stage.camera.travel}
+				label="Camera travel"
+				onchange={toggleTravel}
+			/>
+		</Field>
+		{#if stage.camera.travel}
+			{@const travel = stage.camera.travel}
+			{#each POSE_ANGLE_FIELDS as field (field.key)}
+				<Field label={`To ${field.label}`}>
+					<input
+						type="number"
+						min={-field.limit}
+						max={field.limit}
+						step="any"
+						value={travel.to[field.key] ?? stage.camera.pose?.[field.key] ?? 0}
+						oninput={(e) =>
+							setPoseAngle(
+								travel.to,
+								field.key,
+								(e.currentTarget as HTMLInputElement).value,
+								field.limit
+							)}
+					/>
+				</Field>
+			{/each}
+			<Field label="To distance">
+				<input
+					type="number"
+					min={STAGE_CAMERA_POSE_LIMITS.minDistance}
+					max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
+					step="any"
+					value={travel.to.distance ?? stage.camera.pose?.distance ?? 1}
+					oninput={(e) => setPoseDistance(travel.to, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="To aim">
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Travel aim x"
+					value={travel.to.aim?.x ?? stage.camera.pose?.aim.x ?? 0.5}
+					oninput={(e) => setPoseAim(travel.to, 'x', (e.currentTarget as HTMLInputElement).value)}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Travel aim y"
+					value={travel.to.aim?.y ?? stage.camera.pose?.aim.y ?? 0.5}
+					oninput={(e) => setPoseAim(travel.to, 'y', (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</Field>
+			<Field label="Travel window">
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Travel start"
+					value={travel.start}
+					oninput={(e) => {
+						const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
+						if (n !== null) travel.start = n;
+					}}
+				/>
+				<input
+					type="number"
+					min="0"
+					max="1"
+					step="any"
+					aria-label="Travel duration"
+					value={travel.duration}
+					oninput={(e) => {
+						const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
+						if (n !== null) travel.duration = n;
+					}}
+				/>
+			</Field>
+			<Field label="Travel ease">
+				<select
+					value={travel.ease}
+					onchange={(e) => {
+						travel.ease = (e.currentTarget as HTMLSelectElement).value as Ease;
 					}}
 				>
 					{#each easeOptions as [value, opt] (value)}
