@@ -173,6 +173,10 @@ function cross(a: Vec3Tuple, b: Vec3Tuple): Vec3Tuple {
 	return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
+function dotProduct(a: Vec3Tuple, b: Vec3Tuple): number {
+	return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
 function length(v: Vec3Tuple): number {
 	return Math.hypot(v[0], v[1], v[2]);
 }
@@ -201,10 +205,12 @@ export interface StageCameraRig {
 	/** The aim point on the Surface plane, in world units. */
 	aim: Vec3Tuple;
 	up: Vec3Tuple;
+	/** Unit line of sight, eye → aim. */
+	forward: Vec3Tuple;
 	viewProjection: Float32Array;
 	/** Camera-space distance from the eye to the aim point — the depth focusZ 0 keeps sharp. */
 	aimDistance: number;
-	/** Distance from the eye to the backdrop point straight behind the aim — the depth focusZ 1 reaches. */
+	/** Camera-space distance to the backdrop point straight behind the aim — the depth focusZ 1 reaches. */
 	backdropDistance: number;
 }
 
@@ -234,9 +240,9 @@ export function createStageCameraRig({
 	const lateral = normalize(cross(WORLD_UP, back));
 	const distance = pose.distance * STAGE_CAM_Z + offset.dolly;
 	const eye = add(add(aim, scale(back, distance)), scale(lateral, offset.lateral));
+	const forward = normalize(subtract(aim, eye));
 	let up: Vec3Tuple = WORLD_UP;
 	if (roll !== 0) {
-		const forward = normalize(subtract(aim, eye));
 		const right = normalize(cross(forward, WORLD_UP));
 		const trueUp = cross(right, forward);
 		up = add(scale(trueUp, Math.cos(roll)), scale(right, Math.sin(roll)));
@@ -244,14 +250,18 @@ export function createStageCameraRig({
 	const projection = mat4.perspective(STAGE_FOV, aspect, 0.1, 100);
 	const view = mat4.lookAt(eye, aim, up);
 	const viewProjection = mat4.multiply(projection, view) as Float32Array;
+	// Camera-space (axial) distances — the same quantity the plane pass writes as
+	// depth (clip.w), so the focal depth lands exactly on the aimed point.
+	const backdropPoint: Vec3Tuple = [aim[0], aim[1], -STAGE_BACKDROP_DEPTH];
 	return {
 		pose,
 		eye,
 		aim,
 		up,
+		forward,
 		viewProjection,
 		aimDistance: length(subtract(eye, aim)),
-		backdropDistance: length(subtract(eye, [aim[0], aim[1], -STAGE_BACKDROP_DEPTH]))
+		backdropDistance: dotProduct(subtract(backdropPoint, eye), forward)
 	};
 }
 

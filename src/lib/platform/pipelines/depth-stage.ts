@@ -5,28 +5,53 @@ import type { StageCamera } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import {
-	STAGE_BACKDROP_DEPTH,
-	STAGE_CAM_Z,
 	STAGE_DEPTH_FAR,
 	STAGE_DEPTH_NEAR,
 	createStageCameraRig,
+	hasAuthoredStageCameraPose,
 	stageBackdropCover,
-	stageDepthEncoding,
-	stagePlaneHalfExtents
+	stageDepthEncoding
 } from './depth-stage-camera';
+import {
+	STAGE_DEPTH_ATTACHMENT_FORMAT,
+	STAGE_DEPTH_SIDECAR_FORMAT,
+	STAGE_MAX_CASTERS,
+	STAGE_PLANE_BLEND,
+	StagePlaneUniforms,
+	stagePlaneLayout,
+	stagePlaneOpaqueFragmentFn,
+	stagePlaneSkirtFragmentFn,
+	stagePlaneVertexFn
+} from './depth-stage-plane-pass';
+import {
+	assertStagePlaneCeilings,
+	createBackdropStagePlaneBasis,
+	createFrontalStagePlaneBasis,
+	selectStagePlaneCasters,
+	sortStagePlanesBackToFront,
+	stageOverlayPlaneDepth,
+	stagePlaneHalfLengths,
+	stagePlaneModelMatrix,
+	stagePlaneTextureBytes,
+	type StagePlaneBasis,
+	type StagePlaneRole
+} from './depth-stage-planes';
 
-// Dimensional depth stage (ADR-0028). The validated WebGPU 3D depth-of-field POC
-// (src/routes/poc/dof3d) as a reusable engine renderer: the Surface composite is
-// placed on a fronto-parallel plane near the camera, over an opaque backdrop plane
-// at depth; a perspective camera move makes the two reproject at different rates
-// (real parallax), and a mip-prefiltered gather DOF defocuses by per-pixel depth.
+// Dimensional depth stage (ADR-0028, posed and depth-tested by ADR-0057). The
+// validated WebGPU 3D depth-of-field POC (src/routes/poc/dof3d) as a reusable
+// engine renderer: the captured Surface composite rides a plane near the
+// camera over an opaque backdrop plane at depth, an optional captured Overlay
+// plane sits between them at its ADR-0021 z, a posed perspective camera makes
+// them reproject at different rates (real parallax), and a mip-prefiltered
+// gather DOF defocuses by per-pixel depth.
 //
-// Scope (per ADR-0028): Surface plane + backdrop + an optional Overlay plane at
-// its ADR-0021 z, depth-in-alpha with painter's order (each textured plane's
-// transparent surround is discarded so the planes behind show around the content).
-// Real scene lighting/shadow is the remaining documented forward hook. The flat
-// multiplane path (ADR-0027) stays the default; this renders only when a Preset
-// declares `state.stage`.
+// Scene assembly is a two-pass depth-tested compositor over general plane
+// bases (see depth-stage-plane-pass.ts): opaque texels write depth and blend
+// premultiplied, soft skirts blend over what is really behind them. Per-pixel
+// depth lives in an r16float SIDECAR target the DOF reads; the scene colour
+// target carries colour only. Under an authored camera pose the receding planes
+// sample mip chains through an anisotropic sampler; the frontal camera keeps
+// the single-level sources, so the shipped Presets render as before.
 //
 // The grain fix that made the POC ship: the DOF gather never samples the sharp
 // scene buffer — it reads a prefiltered mip whose footprint spans the gap between
@@ -36,26 +61,17 @@ const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
 const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
 const SCENE_TEXTURE_USAGE = TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-// Camera geometry (FOV / rest distance / backdrop depth / pose-from-time) lives
-// in depth-stage-camera.ts, shared with canvas hit-testing — see that module.
-const CAM_Z = STAGE_CAM_Z;
-const BACKDROP_DEPTH = STAGE_BACKDROP_DEPTH;
-// Camera-space distances encoded as depth 0 / 1. The shipped frontal camera
-// keeps this legacy pair; an authored pose widens the pair to the distances it
-// can actually reach (`stageDepthEncoding`) and the DOF uniforms rescale so the
-// circle of confusion per world unit is unchanged.
-const D_NEAR = STAGE_DEPTH_NEAR;
-const D_FAR = STAGE_DEPTH_FAR;
 const BOKEH_TAPS = 96;
 const MAX_LOD = 14; // textureSampleLevel clamps to the texture's real top mip
 const REF_COC = 42; // max circle-of-confusion (px) per 1080px of frame short side
-const SHADOW_TAPS = 8; // caster-alpha disc taps per shadow (penumbra)
-const SHADOW_PENUMBRA = 0.1; // penumbra radius (world units) per unit plane gap
 const SHADOW_STRENGTH = 0.75; // max shadow darkening per unit light intensity
+const BYTES_PER_RGBA16F_TEXEL = 8;
+const BYTES_PER_R16F_TEXEL = 2;
+const BYTES_PER_DEPTH24_TEXEL = 4;
 
 // The Pack's named key directions realized as scene geometry: unit vectors the
 // light TRAVELS along (mostly frontal, into the scene — an oblique key throws
-// the card's shadow far outside the frame at BACKDROP_DEPTH).
+// the card's shadow far outside the frame at the backdrop depth).
 const LIGHT_VECTORS: Record<LightDirection, [number, number, number]> = {
 	'upper-left': [0.14, -0.16, -0.977],
 	'upper-right': [-0.14, -0.16, -0.977],
@@ -64,238 +80,11 @@ const LIGHT_VECTORS: Record<LightDirection, [number, number, number]> = {
 	right: [-0.2, -0.05, -0.978]
 };
 
-// misc = (depthNear, depthFar, textured, discardTransparent). baseColor = solid
-// plane albedo (the backdrop; on discard-transparent planes it carries the
-// BACKDROP's colour + darken for the fade reconstruction below).
-// world = (halfW, halfH, worldZ, _): the plane's world extents + depth, for the
-// scene light. light = (dir.xyz, intensity): the Pack's key light travelling
-// along dir; intensity 0 ⇒ unlit (pixel-identical to the pre-light stage).
-// casterA/B = (halfW, halfH, worldZ, strength): planes that cast shadow onto
-// this one, sampled via casterTexA/B; strength 0 ⇒ no caster in that slot.
-// eye = (eyeX, eyeY, eyeZ, fade): the camera position + the plane's
-// composition-owned opacity (ADR-0035). Planes composite by OVERWRITE (alpha
-// carries depth), so a fading plane can't alpha-blend — instead it
-// reconstructs the backdrop along the view ray (bgPlane = halfW, halfH, z,
-// textured; sampled via bgTex) and mixes toward it.
-const PlaneUniforms = d.struct({
-	mvp: d.mat4x4f,
-	misc: d.vec4f,
-	baseColor: d.vec4f,
-	world: d.vec4f,
-	light: d.vec4f,
-	casterA: d.vec4f,
-	casterB: d.vec4f,
-	eye: d.vec4f,
-	bgPlane: d.vec4f,
-	// midPlane = (halfW, halfH, worldZ, present): a plane BETWEEN this one and
-	// the backdrop (the Overlay plane, for the Surface). The partial-presence
-	// reconstruction tests it before falling back to the backdrop — without
-	// it, a low-alpha skirt (glyph bloom) synthesizes backdrop over overlay
-	// content that is actually behind it, erasing it (Critic 2026-07-10).
-	midPlane: d.vec4f
-});
 // params = (focus depth01, aperture, maxCoc px, band). resolution = scene px.
 // depths = (nearest plane depth01, _, _, _): the frontmost plane this frame —
 // the compose pass uses it to keep sharp nearest-plane pixels on the sharp
 // branch (nothing can bleed over the frontmost plane).
 const DofUniforms = d.struct({ params: d.vec4f, resolution: d.vec2f, depths: d.vec4f });
-
-const planeLayout = tgpu.bindGroupLayout({
-	surfaceTexture: { texture: d.texture2d(d.f32) },
-	casterTexA: { texture: d.texture2d(d.f32) },
-	casterTexB: { texture: d.texture2d(d.f32) },
-	bgTex: { texture: d.texture2d(d.f32) },
-	midTex: { texture: d.texture2d(d.f32) },
-	samp: { sampler: 'filtering' },
-	plane: { uniform: PlaneUniforms }
-});
-
-// A plane quad transformed by its MVP; carries uv, camera-space distance
-// (clip.w), and the fragment's world-space xy (planes are axis-aligned scaled
-// quads, so world xy = corner xy × the plane's half-extents) for the light.
-const planeVertexFn = tgpu['~unstable'].vertexFn({
-	in: { vertexIndex: d.builtin.vertexIndex },
-	out: { position: d.builtin.position, uv: d.vec2f, dist: d.f32, world: d.vec2f }
-}) /* wgsl */ `{
-	var pos = array<vec3f, 6>(
-		vec3f(-1.0, -1.0, 0.0), vec3f(1.0, -1.0, 0.0), vec3f(1.0, 1.0, 0.0),
-		vec3f(-1.0, -1.0, 0.0), vec3f(1.0, 1.0, 0.0), vec3f(-1.0, 1.0, 0.0)
-	);
-	var uv = array<vec2f, 6>(
-		vec2f(0.0, 1.0), vec2f(1.0, 1.0), vec2f(1.0, 0.0),
-		vec2f(0.0, 1.0), vec2f(1.0, 0.0), vec2f(0.0, 0.0)
-	);
-	let clip = layout.$.plane.mvp * vec4f(pos[in.vertexIndex], 1.0);
-	let wxy = pos[in.vertexIndex].xy * layout.$.plane.world.xy;
-	return Out(clip, uv[in.vertexIndex], clip.w, wxy);
-}`.$uses({ layout: planeLayout });
-
-// Opaque planes in painter's order: the scene target stores STRAIGHT colour + the
-// camera-space depth in alpha. The Surface composite is premultiplied; transparent
-// surround is discarded so the backdrop (drawn first) shows around the card.
-const planeFragmentFn = tgpu['~unstable'].fragmentFn({
-	in: { uv: d.vec2f, dist: d.f32, world: d.vec2f },
-	out: d.vec4f
-}) /* wgsl */ `{
-	let misc = layout.$.plane.misc;
-	var color = layout.$.plane.baseColor.rgb;
-	// Partial-alpha COVERAGE of a discard-transparent plane (AA edges, baked
-	// semi-transparent ink like text-shadows). Folded into the same backdrop
-	// reconstruction as the composition fade below — a binary 0.5 discard
-	// quantizes soft ink into a dotted dark fringe that survives the DOF blur.
-	var coverage = 1.0;
-	if (misc.z > 0.5) {
-		let s = textureSample(layout.$.surfaceTexture, layout.$.samp, in.uv); // premultiplied
-		if (misc.w > 0.5 && s.a < 0.02) { discard; }
-		if (misc.w > 0.5) { coverage = min(s.a, 1.0); }
-		color = s.rgb / max(s.a, 0.001); // un-premultiply: the plane's own colour
-		// Backdrop-only (misc.w < 0.5 = not discard-transparent): a soft central
-		// darken of the photo for near-plane text legibility. baseColor.a carries
-		// the strength. Opaque, so it composites cleanly (no alpha discard) and
-		// keeps the floating-text look — a scrim can't ride the near plane.
-		if (misc.w < 0.5) {
-			// Wide elliptical pool with an INNER PLATEAU: full strength out to ~0.34
-			// (covers the centred text block, so glyphs never sit on the brighter
-			// falloff zone), then fades 0.34→0.9. Keeps text contrast uniform across
-			// the whole quote while the photo still breathes past the pool.
-			let dv = (in.uv - vec2f(0.5)) * vec2f(1.0, 1.7);
-			let darken = (1.0 - smoothstep(0.3, 1.15, length(dv))) * layout.$.plane.baseColor.a;
-			color = color * (1.0 - darken);
-		}
-	}
-	// Scene key light (Pack light-treatment Role). Two contributions, both in
-	// shared world space so every plane inhabits ONE light:
-	//  - received rake: a soft directional gradient, brighter toward the key's
-	//    origin, dimmer away — the raking-key cue of a lit space;
-	//  - cast shadow: march back along the light to each caster plane, sample
-	//    its alpha in a small disc (penumbra grows with the plane gap), darken.
-	// intensity 0 skips everything — pixel-identical to the unlit stage.
-	let light = layout.$.plane.light;
-	if (light.w > 0.001) {
-		let towards = normalize(vec2f(-light.x, -light.y + 1e-4));
-		let extent = max(layout.$.plane.world.x, layout.$.plane.world.y);
-		let rake = dot(in.world / max(extent, 1e-4), towards);
-		color = color * (1.0 + rake * light.w * 0.22);
-
-		let wz = layout.$.plane.world.z;
-		var shade = 0.0;
-		let ca = layout.$.plane.casterA;
-		if (ca.w > 0.001) {
-			let s = (ca.z - wz) / max(-light.z, 1e-4);
-			if (s > 0.001) {
-				let cxy = in.world - light.xy * s;
-				let cuv = vec2f((cxy.x / ca.x + 1.0) * 0.5, 1.0 - (cxy.y / ca.y + 1.0) * 0.5);
-				let rad = ${SHADOW_PENUMBRA} * s;
-				var occ = 0.0;
-				for (var i: u32 = 0u; i < ${SHADOW_TAPS}u; i = i + 1u) {
-					let st = (f32(i) + 0.5) / ${SHADOW_TAPS}.0;
-					let ang = f32(i) * 2.39996;
-					let o = vec2f(cos(ang), sin(ang)) * sqrt(st) * rad;
-					let tuv = cuv + vec2f(o.x / ca.x, -o.y / ca.y) * 0.5;
-					if (all(tuv >= vec2f(0.0)) && all(tuv <= vec2f(1.0))) {
-						occ = occ + textureSampleLevel(layout.$.casterTexA, layout.$.samp, tuv, 0.0).a;
-					}
-				}
-				shade = max(shade, (occ / ${SHADOW_TAPS}.0) * ca.w);
-			}
-		}
-		let cb = layout.$.plane.casterB;
-		if (cb.w > 0.001) {
-			let s = (cb.z - wz) / max(-light.z, 1e-4);
-			if (s > 0.001) {
-				let cxy = in.world - light.xy * s;
-				let cuv = vec2f((cxy.x / cb.x + 1.0) * 0.5, 1.0 - (cxy.y / cb.y + 1.0) * 0.5);
-				let rad = ${SHADOW_PENUMBRA} * s;
-				var occ = 0.0;
-				for (var i: u32 = 0u; i < ${SHADOW_TAPS}u; i = i + 1u) {
-					let st = (f32(i) + 0.5) / ${SHADOW_TAPS}.0;
-					let ang = f32(i) * 2.39996;
-					let o = vec2f(cos(ang), sin(ang)) * sqrt(st) * rad;
-					let tuv = cuv + vec2f(o.x / cb.x, -o.y / cb.y) * 0.5;
-					if (all(tuv >= vec2f(0.0)) && all(tuv <= vec2f(1.0))) {
-						occ = occ + textureSampleLevel(layout.$.casterTexB, layout.$.samp, tuv, 0.0).a;
-					}
-				}
-				shade = max(shade, (occ / ${SHADOW_TAPS}.0) * cb.w);
-			}
-		}
-		color = color * (1.0 - min(shade, 1.0));
-	}
-	var depth01 = clamp((in.dist - misc.x) / (misc.y - misc.x), 0.0, 1.0);
-	// PRESENCE = coverage × composition fade (ADR-0035). Planes overwrite
-	// (alpha = depth), so a partially-present pixel synthesizes what's behind
-	// it: intersect the view ray with the backdrop plane, sample/shade it the
-	// way the backdrop pass would, and mix colour AND depth toward it — the
-	// DOF then blurs the revealed content at its true depth. presence 0
-	// discards to the real backdrop.
-	let fade = layout.$.plane.eye.w;
-	let presence = coverage * fade;
-	if (misc.w > 0.5 && presence < 0.999) {
-		if (presence < 0.003) { discard; }
-		let eyePos = layout.$.plane.eye.xyz;
-		let frag = vec3f(in.world, layout.$.plane.world.z);
-		let dir = frag - eyePos;
-		let bg = layout.$.plane.bgPlane;
-		let t = (bg.z - eyePos.z) / min(dir.z, -1e-4);
-		let hit = eyePos + dir * t;
-		let bgUv = vec2f((hit.x / bg.x + 1.0) * 0.5, 1.0 - (hit.y / bg.y + 1.0) * 0.5);
-		var bgColor = layout.$.plane.baseColor.rgb;
-		if (bg.w > 0.5) {
-			bgColor = textureSampleLevel(
-				layout.$.bgTex, layout.$.samp, clamp(bgUv, vec2f(0.0), vec2f(1.0)), 0.0
-			).rgb;
-			// the same centre darken the backdrop plane applies (baseColor.a)
-			let dvF = (bgUv - vec2f(0.5)) * vec2f(1.0, 1.7);
-			let darkenF = (1.0 - smoothstep(0.3, 1.15, length(dvF))) * layout.$.plane.baseColor.a;
-			bgColor = bgColor * (1.0 - darkenF);
-		}
-		// carry the scene rake onto the reconstruction so the reveal matches
-		// the real backdrop behind it
-		let lightF = layout.$.plane.light;
-		if (lightF.w > 0.001) {
-			let towardsF = normalize(vec2f(-lightF.x, -lightF.y + 1e-4));
-			let rakeF = dot(hit.xy / max(max(bg.x, bg.y), 1e-4), towardsF);
-			bgColor = bgColor * (1.0 + rakeF * lightF.w * 0.22);
-		}
-		var bgDepth01 = clamp((length(hit - eyePos) - misc.x) / (misc.y - misc.x), 0.0, 1.0);
-		// What is ACTUALLY behind this pixel may be the mid (Overlay) plane,
-		// not the backdrop — test the nearer hit and reconstruct THAT, or a
-		// soft low-alpha skirt erases overlay content behind it into
-		// synthesized backdrop (glyph-shaped bezel erasure, Critic 2026-07-10).
-		// The reveal carries the mid plane's rake but not the shadow cast onto
-		// it (a lit-pack approximation confined to sub-0.999-presence skirts).
-		let mid = layout.$.plane.midPlane;
-		if (mid.w > 0.5) {
-			let tM = (mid.z - eyePos.z) / min(dir.z, -1e-4);
-			let hitM = eyePos + dir * tM;
-			let mUv = vec2f((hitM.x / mid.x + 1.0) * 0.5, 1.0 - (hitM.y / mid.y + 1.0) * 0.5);
-			if (all(mUv >= vec2f(0.0)) && all(mUv <= vec2f(1.0))) {
-				let sM = textureSampleLevel(layout.$.midTex, layout.$.samp, mUv, 0.0);
-				if (sM.a > 0.5) {
-					var midColor = sM.rgb / max(sM.a, 0.001);
-					if (lightF.w > 0.001) {
-						let towardsM = normalize(vec2f(-lightF.x, -lightF.y + 1e-4));
-						let rakeM = dot(hitM.xy / max(max(mid.x, mid.y), 1e-4), towardsM);
-						midColor = midColor * (1.0 + rakeM * lightF.w * 0.22);
-					}
-					bgColor = midColor;
-					bgDepth01 = clamp((length(hitM - eyePos) - misc.x) / (misc.y - misc.x), 0.0, 1.0);
-				}
-			}
-		}
-		color = mix(bgColor, color, presence);
-		// Depth takes the DOMINANT contributor, not the colour mix: a
-		// presence-interpolated depth lands fictitious values between the
-		// planes, and wherever that crosses the focal depth the pixel reads
-		// "in focus" — the compose then re-injects SHARP pixels along the
-		// contour inside an otherwise defocused glyph (dark contour dots).
-		// The window sits LOW (0.05–0.3): thin sub-pixel-coverage geometry (a
-		// 2px accent rule ≈ 0.3 coverage) must keep ITS OWN plane's depth, or
-		// the DOF blurs it at the backdrop's focal state and smears it away.
-		depth01 = mix(bgDepth01, depth01, smoothstep(0.05, 0.3, presence));
-	}
-	return vec4f(color, depth01);
-}`.$uses({ layout: planeLayout });
 
 const fullVertexFn = tgpu['~unstable'].vertexFn({
 	in: { vertexIndex: d.builtin.vertexIndex },
@@ -306,6 +95,19 @@ const fullVertexFn = tgpu['~unstable'].vertexFn({
 	return Out(vec4f(p[in.vertexIndex], 0.0, 1.0), u[in.vertexIndex]);
 }`;
 
+// Level-0 copy of a plane source into a stage-owned mip chain (the source
+// textures are single-level captures; only the stage needs the pyramid).
+const blitLayout = tgpu.bindGroupLayout({
+	src: { texture: d.texture2d(d.f32) },
+	samp: { sampler: 'filtering' }
+});
+const blitFragmentFn = tgpu['~unstable'].fragmentFn({
+	in: { uv: d.vec2f },
+	out: d.vec4f
+}) /* wgsl */ `{
+	return textureSampleLevel(layout.$.src, layout.$.samp, in.uv, 0.0);
+}`.$uses({ layout: blitLayout });
+
 // Mip-downsample, building the prefiltered pyramid the DOF gather reads from.
 // The FIRST reduction (mip 0 → 1) is CoC-WEIGHTED: each texel enters the
 // pyramid premultiplied by how defocused it is (weight in alpha), so sharp
@@ -313,8 +115,10 @@ const fullVertexFn = tgpu['~unstable'].vertexFn({
 // in-focus subject otherwise wears against a defocused backdrop (mip texels
 // near the silhouette used to average subject light into the backdrop's blur).
 // Deeper levels box-filter the premultiplied data; the gather un-premultiplies.
+// Depth comes from the sidecar target, never from the colour texture.
 const downLayout = tgpu.bindGroupLayout({
 	src: { texture: d.texture2d(d.f32) },
+	depth: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
 });
@@ -338,7 +142,8 @@ const downWeightFragmentFn = tgpu['~unstable'].fragmentFn({
 	for (var k: u32 = 0u; k < 4u; k = k + 1u) {
 		let o = vec2f(f32(k % 2u) - 0.5, f32(k / 2u) - 0.5) * texel;
 		let s = textureSampleLevel(layout.$.src, layout.$.samp, in.uv + o, 0.0);
-		let coc = aperture * max(0.0, abs(s.a - focus) - band) * maxCoc;
+		let sd = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv + o, 0.0).x;
+		let coc = aperture * max(0.0, abs(sd - focus) - band) * maxCoc;
 		// Exclude only genuinely IN-FOCUS content; anything visibly defocused
 		// gets full weight (a graded ramp biases boundary texels). Thin
 		// small-CoC geometry the mips can't carry is covered by the compose
@@ -358,9 +163,10 @@ const downsampleFragmentFn = tgpu['~unstable'].fragmentFn({
 }`.$uses({ layout: downLayout });
 
 // DOF gather: read colour from a prefiltered mip whose footprint spans the gap
-// between our sparse golden-angle taps (the grain fix); depth always at LOD 0.
-// scatter-as-gather weighting (a tap lights the centre only if the centre is
-// within the tap's own CoC) keeps sharp foreground from bleeding.
+// between our sparse golden-angle taps (the grain fix); depth always from the
+// sidecar at LOD 0. scatter-as-gather weighting (a tap lights the centre only
+// if the centre is within the tap's own CoC) keeps sharp foreground from
+// bleeding.
 //
 // Runs at HALF resolution (the 4K perf gate): the gather's output is only ever
 // used where the image is defocused, which tolerates a bilinear upsample. The
@@ -372,6 +178,7 @@ const downsampleFragmentFn = tgpu['~unstable'].fragmentFn({
 // foreground, the cheap-DOF tell.
 const dofLayout = tgpu.bindGroupLayout({
 	scene: { texture: d.texture2d(d.f32) },
+	depth: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
 });
@@ -383,7 +190,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 	let aperture = layout.$.uniforms.params.y;
 	let maxCoc = layout.$.uniforms.params.z;
 	let texel = vec2f(1.0) / layout.$.uniforms.resolution;
-	let center = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv, 0.0);
+	let centerDepth = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv, 0.0).x;
 	let band = layout.$.uniforms.params.w;
 	// Focus band: depths within the band of focus stay sharp (CoC 0), so a plane
 	// with real foreshortening depth-spread (fronto-parallel text) is crisp
@@ -398,14 +205,14 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 	// focal plane and read "in focus". Thin small-CoC geometry the averaged
 	// radius over-blurs is carried by the compose pass's wide sharp-injection
 	// band (see composeFragmentFn).
-	let cocOwn = aperture * max(0.0, abs(center.a - focus) - band) * maxCoc;
+	let cocOwn = aperture * max(0.0, abs(centerDepth - focus) - band) * maxCoc;
 	var cocC = cocOwn;
 	{
 		let e = texel * 2.0;
-		let dxp = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv + vec2f(e.x, 0.0), 0.0).a;
-		let dxn = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv - vec2f(e.x, 0.0), 0.0).a;
-		let dyp = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv + vec2f(0.0, e.y), 0.0).a;
-		let dyn = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv - vec2f(0.0, e.y), 0.0).a;
+		let dxp = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv + vec2f(e.x, 0.0), 0.0).x;
+		let dxn = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv - vec2f(e.x, 0.0), 0.0).x;
+		let dyp = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv + vec2f(0.0, e.y), 0.0).x;
+		let dyn = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv - vec2f(0.0, e.y), 0.0).x;
 		var avg = cocOwn;
 		avg = avg + aperture * max(0.0, abs(dxp - focus) - band) * maxCoc;
 		avg = avg + aperture * max(0.0, abs(dxn - focus) - band) * maxCoc;
@@ -415,7 +222,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 	}
 	// LOD for colour taps — CONTINUOUS, always >= 1: levels >= 1 hold the
 	// CoC-WEIGHTED pyramid (premultiplied by defocus weight; see the downsample
-	// passes — level 0's alpha is DEPTH, not weight). The gather NEVER needs
+	// passes — level 0 is the plain scene colour). The gather NEVER needs
 	// level 0 colour: wherever the image is sharp, the full-res compose pass
 	// re-injects the sharp scene over this result, so gating the mip path with
 	// a binary step just plants a visible seam in the small-CoC band. The -1.3
@@ -440,7 +247,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 		let offsetPx = vec2f(cos(ang), sin(ang)) * sqrt(st) * cocC;
 		let dist = length(offsetPx);
 		let tapUV = in.uv + offsetPx * texel;
-		let tapDepth = textureSampleLevel(layout.$.scene, layout.$.samp, tapUV, 0.0).a;
+		let tapDepth = textureSampleLevel(layout.$.depth, layout.$.samp, tapUV, 0.0).x;
 		let tapCoc = aperture * max(0.0, abs(tapDepth - focus) - band) * maxCoc;
 		// DEPTH-ORDERED weighting (the halo fix). Two physical ways a tap's
 		// light reaches the centre:
@@ -453,7 +260,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 		//    is: between two mutually-DEFOCUSED planes there is no refusal, or
 		//    the per-tap depth classification (binary at contours) speckles the
 		//    blur with weight jitter (contour stipple).
-		let nearer = step(tapDepth + 0.02, center.a);
+		let nearer = step(tapDepth + 0.02, centerDepth);
 		let tapSharp = 1.0 - smoothstep(1.0, 4.0, tapCoc);
 		let wScatter = 1.0 - smoothstep(tapCoc - 2.0, tapCoc + 2.0, dist);
 		let wGather = (1.0 - smoothstep(cocC - 2.0, cocC + 2.0, dist)) * (1.0 - nearer * tapSharp);
@@ -480,6 +287,7 @@ const dofFragmentFn = tgpu['~unstable'].fragmentFn({
 // blend, so sharp and defocused regions wear ONE grade.
 const composeLayout = tgpu.bindGroupLayout({
 	scene: { texture: d.texture2d(d.f32) },
+	depth: { texture: d.texture2d(d.f32) },
 	dofHalf: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
 	uniforms: { uniform: DofUniforms }
@@ -493,10 +301,11 @@ const composeFragmentFn = tgpu['~unstable'].fragmentFn({
 	let maxCoc = layout.$.uniforms.params.z;
 	let band = layout.$.uniforms.params.w;
 	let center = textureSampleLevel(layout.$.scene, layout.$.samp, in.uv, 0.0);
+	let centerDepth = textureSampleLevel(layout.$.depth, layout.$.samp, in.uv, 0.0).x;
 	var col = center.rgb;
 	if (aperture > 0.001) {
 		let dof = textureSampleLevel(layout.$.dofHalf, layout.$.samp, in.uv, 0.0);
-		let cocC = aperture * max(0.0, abs(center.a - focus) - band) * maxCoc;
+		let cocC = aperture * max(0.0, abs(centerDepth - focus) - band) * maxCoc;
 		// Blur-branch commit ramps to CoC 6 — the scale at which the half-res
 		// gather is genuinely competent for ALL geometry. Committing earlier
 		// (at ~2) cliffs px-thin features: the gather under-carries a 2px line
@@ -510,7 +319,7 @@ const composeFragmentFn = tgpu['~unstable'].fragmentFn({
 		// foreground can legitimately bleed over it. Without this, the
 		// half-res bleed mask (which cannot resolve px-thin sharp features)
 		// forces the blur branch and erases them.
-		let onNearest = step(center.a, layout.$.uniforms.depths.x + 0.03);
+		let onNearest = step(centerDepth, layout.$.uniforms.depths.x + 0.03);
 		let blend = max(commit, dof.a * (1.0 - (1.0 - commit) * onNearest));
 		col = mix(col, dof.rgb, blend);
 	}
@@ -531,6 +340,10 @@ function toMat4(m: Float32Array) {
 
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 
+function mipLevelCountFor(width: number, height: number): number {
+	return Math.floor(Math.log2(Math.max(width, height))) + 1;
+}
+
 export interface DepthStageOptions {
 	host: GpuHost;
 	width: number;
@@ -541,7 +354,7 @@ export interface DepthStageInput {
 	/** The Surface pipeline's premultiplied composition output (surface-only while
 	 *  the Composition plane-split is on). Placed on the near plane. */
 	surfacePlaneView: GPUTextureView;
-	/** In-focus depth (ADR-0021 scalar): 0 ⇒ the Surface plane sharp, 1 ⇒ backdrop. */
+	/** In-focus depth (ADR-0021 scalar): 0 ⇒ the aimed Surface point sharp, 1 ⇒ backdrop. */
 	focusZ: number;
 	/** Max circle-of-confusion / blur strength, 0..1. */
 	aperture: number;
@@ -576,19 +389,42 @@ export interface DepthStageInput {
 	light?: { direction: LightDirection; intensity: number } | null;
 	/** Composition-owned surface opacity (ADR-0035) for surfaces whose fade
 	 *  carrier (an environment shaderPass) is skipped on the stage. The plane
-	 *  fades by reconstructing the backdrop along the view ray; its cast
-	 *  shadow fades with it. 1 = no fade. */
+	 *  blends toward what is behind it as it fades; its cast shadow fades with
+	 *  it. 1 = no fade. */
 	surfaceFadeAlpha?: number;
 	/** Clip progress 0..1 — drives the camera move + focus. Frame-deterministic. */
 	time: number;
+}
+
+/** One plane as the scene passes see it this frame. */
+interface StagePlaneDraw {
+	role: StagePlaneRole;
+	basis: StagePlaneBasis;
+	/** What the plane's own fragments sample (a mip copy under a pose, else the source). */
+	planeView: GPUTextureView;
+	/** The level-0 alpha other planes march through when this plane casts. */
+	casterView: GPUTextureView;
+	textured: boolean;
+	discardTransparent: boolean;
+	fade: number;
+	darken: number;
+	castStrength: number;
+}
+
+interface StageMipCopy {
+	texture: GPUTexture;
+	views: GPUTextureView[];
 }
 
 export class DepthStage {
 	#width: number;
 	#height: number;
 	#sceneTexture: GPUTexture;
+	#depthSidecarTexture: GPUTexture;
+	#depthAttachmentTexture: GPUTexture;
 	#dofHalfTexture: GPUTexture;
 	#outputTexture: GPUTexture;
+	#mipCopies = new Map<StagePlaneRole, StageMipCopy>();
 	#render: (input: DepthStageInput) => void;
 
 	constructor({ host, width, height }: DepthStageOptions) {
@@ -597,7 +433,7 @@ export class DepthStage {
 		const { device, root } = host;
 		const unstable = root['~unstable'];
 
-		const mipLevels = Math.floor(Math.log2(Math.max(width, height))) + 1;
+		const mipLevels = mipLevelCountFor(width, height);
 		const maxCoc = Math.round((REF_COC * Math.min(width, height)) / 1080);
 
 		this.#sceneTexture = device.createTexture({
@@ -605,6 +441,19 @@ export class DepthStage {
 			format: INTERMEDIATE_FORMAT,
 			mipLevelCount: mipLevels,
 			usage: SCENE_TEXTURE_USAGE
+		});
+		// Per-pixel camera-space depth01 the DOF reads — written only by texels
+		// that own their pixel (the opaque pass), so a soft skirt never lends its
+		// depth to the plane behind it.
+		this.#depthSidecarTexture = device.createTexture({
+			size: [width, height, 1],
+			format: STAGE_DEPTH_SIDECAR_FORMAT,
+			usage: SCENE_TEXTURE_USAGE
+		});
+		this.#depthAttachmentTexture = device.createTexture({
+			size: [width, height, 1],
+			format: STAGE_DEPTH_ATTACHMENT_FORMAT,
+			usage: TEXTURE_USAGE_RENDER_ATTACHMENT
 		});
 		// The half-res gather target (4K perf): the 96-tap DOF runs over a quarter
 		// of the pixels; the full-res compose pass re-injects native sharpness
@@ -620,6 +469,8 @@ export class DepthStage {
 			usage: SCENE_TEXTURE_USAGE
 		});
 		const sceneView = this.#sceneTexture.createView();
+		const depthSidecarView = this.#depthSidecarTexture.createView();
+		const depthAttachmentView = this.#depthAttachmentTexture.createView();
 		const dofHalfView = this.#dofHalfTexture.createView();
 		const mipViews: GPUTextureView[] = [];
 		for (let i = 0; i < mipLevels; i += 1) {
@@ -636,40 +487,40 @@ export class DepthStage {
 			addressModeU: 'clamp-to-edge',
 			addressModeV: 'clamp-to-edge'
 		});
+		// Oblique-safe plane sampling under a pose: mips keep a receding page
+		// from shimmering, anisotropy keeps its glyphs from smearing along the
+		// foreshortened axis.
+		const anisotropicSampler = device.createSampler({
+			magFilter: 'linear',
+			minFilter: 'linear',
+			mipmapFilter: 'linear',
+			addressModeU: 'clamp-to-edge',
+			addressModeV: 'clamp-to-edge',
+			maxAnisotropy: 16
+		});
 
-		const PLANE_REST = {
-			world: d.vec4f(1, 1, 0, 0),
+		const planeRest = () => ({
+			mvp: d.mat4x4f(),
+			origin: d.vec4f(0, 0, 0, 0),
+			axisU: d.vec4f(1, 0, 0, 0),
+			axisV: d.vec4f(0, 1, 0, 1),
+			normal: d.vec4f(0, 0, 1, 0),
+			misc: d.vec4f(STAGE_DEPTH_NEAR, STAGE_DEPTH_FAR, 1, 1),
+			baseColor: d.vec4f(0.16, 0.14, 0.13, 1),
 			light: d.vec4f(0, 0, -1, 0),
-			casterA: d.vec4f(1, 1, 0, 0),
-			casterB: d.vec4f(1, 1, 0, 0),
-			eye: d.vec4f(0, 0, CAM_Z, 1),
-			bgPlane: d.vec4f(1, 1, 0, 0),
-			midPlane: d.vec4f(1, 1, 0, 0)
+			casterOrigin: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 0, 0, 0)),
+			casterU: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(1, 0, 0, 1)),
+			casterV: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 1, 0, 1)),
+			casterNormal: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 0, 1, 0))
+		});
+		const planeBuffers: Record<StagePlaneRole, ReturnType<typeof createPlaneBuffer>> = {
+			backdrop: createPlaneBuffer(),
+			surface: createPlaneBuffer(),
+			overlay: createPlaneBuffer()
 		};
-		const backdropPlane = root
-			.createBuffer(PlaneUniforms, {
-				mvp: d.mat4x4f(),
-				misc: d.vec4f(D_NEAR, D_FAR, 0, 0),
-				baseColor: d.vec4f(0.16, 0.14, 0.13, 1),
-				...PLANE_REST
-			})
-			.$usage('uniform');
-		const surfacePlane = root
-			.createBuffer(PlaneUniforms, {
-				mvp: d.mat4x4f(),
-				misc: d.vec4f(D_NEAR, D_FAR, 1, 1),
-				baseColor: d.vec4f(0, 0, 0, 1),
-				...PLANE_REST
-			})
-			.$usage('uniform');
-		const overlayPlane = root
-			.createBuffer(PlaneUniforms, {
-				mvp: d.mat4x4f(),
-				misc: d.vec4f(D_NEAR, D_FAR, 1, 1),
-				baseColor: d.vec4f(0, 0, 0, 1),
-				...PLANE_REST
-			})
-			.$usage('uniform');
+		function createPlaneBuffer() {
+			return root.createBuffer(StagePlaneUniforms, planeRest()).$usage('uniform');
+		}
 		const dofUniform = root
 			.createBuffer(DofUniforms, {
 				params: d.vec4f(0, 0, maxCoc, 0),
@@ -678,9 +529,33 @@ export class DepthStage {
 			})
 			.$usage('uniform');
 
-		const planePipeline = unstable
-			.withVertex(planeVertexFn, {})
-			.withFragment(planeFragmentFn, { format: INTERMEDIATE_FORMAT })
+		const opaquePipeline = unstable
+			.withVertex(stagePlaneVertexFn, {})
+			.withFragment(stagePlaneOpaqueFragmentFn, {
+				color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
+				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
+			})
+			.withDepthStencil({
+				format: STAGE_DEPTH_ATTACHMENT_FORMAT,
+				depthWriteEnabled: true,
+				depthCompare: 'less-equal'
+			})
+			.createPipeline();
+		const skirtPipeline = unstable
+			.withVertex(stagePlaneVertexFn, {})
+			.withFragment(stagePlaneSkirtFragmentFn, {
+				color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
+				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT, writeMask: 0 }
+			})
+			.withDepthStencil({
+				format: STAGE_DEPTH_ATTACHMENT_FORMAT,
+				depthWriteEnabled: false,
+				depthCompare: 'less-equal'
+			})
+			.createPipeline();
+		const blitPipeline = unstable
+			.withVertex(fullVertexFn, {})
+			.withFragment(blitFragmentFn, { format: INTERMEDIATE_FORMAT })
 			.createPipeline();
 		const downWeightPipeline = unstable
 			.withVertex(fullVertexFn, {})
@@ -700,61 +575,91 @@ export class DepthStage {
 			.createPipeline();
 
 		const downBinds = Array.from({ length: mipLevels - 1 }, (_, k) =>
-			root.createBindGroup(downLayout, { src: mipViews[k], samp: sampler, uniforms: dofUniform })
+			root.createBindGroup(downLayout, {
+				src: mipViews[k],
+				depth: depthSidecarView,
+				samp: sampler,
+				uniforms: dofUniform
+			})
 		);
 		const dofBind = root.createBindGroup(dofLayout, {
 			scene: sceneView,
+			depth: depthSidecarView,
 			samp: sampler,
 			uniforms: dofUniform
 		});
 		const composeBind = root.createBindGroup(composeLayout, {
 			scene: sceneView,
+			depth: depthSidecarView,
 			dofHalf: dofHalfView,
 			samp: sampler,
 			uniforms: dofUniform
 		});
 
 		const aspect = width / height;
-		// Each plane fills the frame at its own distance: half-height = the frustum
-		// half-height there, half-width = that × aspect. Authored content lands at its
-		// composed size; the camera move shifts near/far planes at different rates.
-		const fillScale = (dist: number): [number, number, number] => {
-			const { halfW, halfH } = stagePlaneHalfExtents(dist, aspect);
-			return [halfW, halfH, 1];
+		const mipCopies = this.#mipCopies;
+		const ensureMipCopy = (role: StagePlaneRole): StageMipCopy => {
+			const existing = mipCopies.get(role);
+			if (existing) return existing;
+			const texture = device.createTexture({
+				size: [width, height, 1],
+				format: INTERMEDIATE_FORMAT,
+				mipLevelCount: mipLevels,
+				usage: SCENE_TEXTURE_USAGE
+			});
+			const views: GPUTextureView[] = [];
+			for (let i = 0; i < mipLevels; i += 1) {
+				views.push(texture.createView({ baseMipLevel: i, mipLevelCount: 1, dimension: '2d' }));
+			}
+			const copy = { texture, views };
+			mipCopies.set(role, copy);
+			return copy;
 		};
-		const surfaceFill = fillScale(CAM_Z);
-		const surfaceModel = mat4.scale(mat4.identity(), surfaceFill);
-		// Oversize the backdrop (cover): a camera move changes each plane's framing,
-		// and a backdrop sized to EXACTLY fill at the construction distance reveals
-		// black edges when the camera pulls back. The cover is derived from the
-		// frustum footprint over the whole authored move, never below the shipped
-		// 1.2× that keeps the photo full-bleed across the legacy push.
-		const backdropFill = fillScale(CAM_Z + BACKDROP_DEPTH);
+		// Level 0 blit + box chain into a stage-owned pyramid. Returns the pass count.
+		const buildMipCopy = (role: StagePlaneRole, source: GPUTextureView): StageMipCopy => {
+			const copy = ensureMipCopy(role);
+			blitPipeline
+				.with(root.createBindGroup(blitLayout, { src: source, samp: sampler }))
+				.withColorAttachment({ view: copy.views[0], loadOp: 'clear', storeOp: 'store' })
+				.draw(3);
+			for (let i = 1; i < mipLevels; i += 1) {
+				downPipeline
+					.with(
+						root.createBindGroup(downLayout, {
+							src: copy.views[i - 1],
+							depth: depthSidecarView,
+							samp: sampler,
+							uniforms: dofUniform
+						})
+					)
+					.withColorAttachment({ view: copy.views[i], loadOp: 'clear', storeOp: 'store' })
+					.draw(3);
+			}
+			return copy;
+		};
+
+		const frameBytes = (bytesPerTexel: number, mipped: boolean): number =>
+			stagePlaneTextureBytes(width, height, bytesPerTexel, mipped);
+		const residentBytes =
+			frameBytes(BYTES_PER_RGBA16F_TEXEL, true) + // scene pyramid
+			frameBytes(BYTES_PER_RGBA16F_TEXEL, false) + // output
+			frameBytes(BYTES_PER_RGBA16F_TEXEL, false) / 4 + // half-res gather
+			frameBytes(BYTES_PER_R16F_TEXEL, false) + // depth sidecar
+			frameBytes(BYTES_PER_DEPTH24_TEXEL, false); // depth attachment
 
 		this.#render = (input) => {
 			// The camera rig (ADR-0057): rest pose + travel + legacy push/drift,
 			// resolved by the same function the GUI projector uses.
 			const rig = createStageCameraRig({ aspect, camera: input.camera, time: input.time });
-			const vp = rig.viewProjection;
-			const [eyeX, eyeY, eyeZ] = rig.eye;
+			const posed = hasAuthoredStageCameraPose(input.camera);
 			const backdropCover = stageBackdropCover(input.camera, aspect);
-			const backdropModel = mat4.scale(mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]), [
-				backdropFill[0] * backdropCover,
-				backdropFill[1] * backdropCover,
-				1
-			]);
 			// The depth encoding for this camera, and the DOF rescale that keeps the
 			// circle of confusion per world unit identical to the legacy pair.
 			const encoding = stageDepthEncoding(input.camera, aspect);
-			const encodingScale = (encoding.far - encoding.near) / (D_FAR - D_NEAR);
-			// Plane depths used for the focus target. They MUST be computed per frame
-			// from the live eye position: the camera move changes each plane's
-			// camera-space distance, so a focus pinned to the construction-time
-			// distance drifts off the plane during a push — defocusing (and blooming)
-			// content that should stay sharp. `focusDepth01(dist)` reuses the same
-			// dist→depth01 mapping the plane fragment encodes.
+			const encodingScale = (encoding.far - encoding.near) / (STAGE_DEPTH_FAR - STAGE_DEPTH_NEAR);
 			const focusDepth01 = (dist: number): number =>
 				(dist - encoding.near) / (encoding.far - encoding.near);
+
 			// The scene key light (Pack light-treatment Role): a unit travel vector +
 			// intensity, shared by every plane. No light ⇒ intensity 0, and the plane
 			// shader skips both the rake and the shadow march entirely.
@@ -766,99 +671,174 @@ export class DepthStage {
 				lightDir?.[2] ?? -1,
 				lightIntensity
 			);
+			const lightDirection: [number, number, number] = lightDir ?? [0, 0, -1];
 			const shadowStrength = lightIntensity * SHADOW_STRENGTH;
-			const noCaster = d.vec4f(1, 1, 0, 0);
-			// Composition-owned surface fade — the plane reconstructs the backdrop
-			// as it fades (see the fragment), and its cast shadow fades with it (a
-			// lingering silhouette under a faded surface reads as a ghost).
+			// Composition-owned surface fade — the plane blends toward what is
+			// behind it as it fades, and its cast shadow fades with it (a lingering
+			// silhouette under a faded surface reads as a ghost).
 			const fade = Math.min(1, Math.max(0, input.surfaceFadeAlpha ?? 1));
-			// Overlay plane (overlay-at-depth): sits `overlayZ` of the way from the
-			// Surface plane to the backdrop, sized to fill the frame at its own rest
-			// distance so authored content lands at its composed size — the camera
-			// move then reprojects it at its own rate (real parallax) and the DOF
-			// defocuses it by its own depth.
-			const overlayDepth = Math.min(1, Math.max(0, input.overlayZ ?? 0.7)) * BACKDROP_DEPTH;
-			const overlayFill = fillScale(CAM_Z + overlayDepth);
-			const surfaceCaster = d.vec4f(surfaceFill[0], surfaceFill[1], 0, shadowStrength * fade);
-			const overlayCaster = input.overlayPlaneView
-				? d.vec4f(overlayFill[0], overlayFill[1], -overlayDepth, shadowStrength)
-				: noCaster;
-			// A backdrop image textures the far plane (misc.z = textured); it's opaque,
-			// so misc.w = 0 (never discard, unlike the Surface plane's transparent
-			// surround). With no image the plane stays a solid colour (misc.z = 0).
-			const backdropTextured = input.backdropTextureView ? 1 : 0;
-			const bgPlaneVec = d.vec4f(
-				backdropFill[0] * backdropCover,
-				backdropFill[1] * backdropCover,
-				-BACKDROP_DEPTH,
-				backdropTextured
-			);
-			// The backdrop's colour + darken, shared by the backdrop plane itself
-			// and by fading planes reconstructing it (baseColor.a = darken strength
-			// on a textured backdrop, 1 = solid-colour marker otherwise).
-			const backdropBase = d.vec4f(
-				input.backdropColor[0],
-				input.backdropColor[1],
-				input.backdropColor[2],
-				backdropTextured > 0 ? (input.backdropContrast ?? 0) : 1
-			);
-			backdropPlane.write({
-				mvp: toMat4(mat4.multiply(vp, backdropModel) as Float32Array),
-				misc: d.vec4f(encoding.near, encoding.far, backdropTextured, 0),
-				baseColor: backdropBase,
-				world: bgPlaneVec,
-				light: lightVec,
-				casterA: surfaceCaster,
-				casterB: overlayCaster,
-				eye: d.vec4f(eyeX, eyeY, eyeZ, 1),
-				bgPlane: bgPlaneVec,
-				midPlane: noCaster
-			});
-			surfacePlane.write({
-				mvp: toMat4(mat4.multiply(vp, surfaceModel) as Float32Array),
-				misc: d.vec4f(encoding.near, encoding.far, 1, 1),
-				baseColor: backdropBase,
-				world: d.vec4f(surfaceFill[0], surfaceFill[1], 0, 0),
-				light: lightVec,
-				casterA: noCaster,
-				casterB: noCaster,
-				eye: d.vec4f(eyeX, eyeY, eyeZ, fade),
-				bgPlane: bgPlaneVec,
-				// The Overlay plane sits between the Surface and the backdrop —
-				// the Surface's partial-presence reconstruction must consult it
-				// before synthesizing backdrop.
-				midPlane:
-					input.overlayPlaneView && overlayDepth > 0
-						? d.vec4f(overlayFill[0], overlayFill[1], -overlayDepth, 1)
-						: noCaster
-			});
+			const backdropTextured = input.backdropTextureView !== undefined;
+
+			// Under a pose the receding planes sample stage-owned mip chains; the
+			// frontal camera keeps the single-level sources (pixel-identical).
+			let mipPasses = 0;
+			let mippedPlaneCount = 0;
+			let textureBytes = residentBytes;
+			const planeSourceView = (role: StagePlaneRole, source: GPUTextureView): GPUTextureView => {
+				if (!posed) return source;
+				mippedPlaneCount += 1;
+				mipPasses += mipLevels;
+				textureBytes += frameBytes(BYTES_PER_RGBA16F_TEXEL, true);
+				return buildMipCopy(role, source).views.length > 0
+					? mipCopies.get(role)!.texture.createView()
+					: source;
+			};
+
+			// Plane list in Layer order (backdrop, Surface, Overlay); the passes
+			// re-sort back to front, keeping this order at equal depth.
+			const backdropView = input.backdropTextureView ?? input.surfacePlaneView;
+			const planes: StagePlaneDraw[] = [
+				{
+					role: 'backdrop',
+					basis: createBackdropStagePlaneBasis(aspect, backdropCover),
+					planeView: backdropTextured ? planeSourceView('backdrop', backdropView) : backdropView,
+					casterView: backdropView,
+					textured: backdropTextured,
+					discardTransparent: false,
+					fade: 1,
+					darken: backdropTextured ? (input.backdropContrast ?? 0) : 0,
+					castStrength: 0
+				},
+				{
+					role: 'surface',
+					basis: createFrontalStagePlaneBasis(aspect, 0),
+					planeView: planeSourceView('surface', input.surfacePlaneView),
+					casterView: input.surfacePlaneView,
+					textured: true,
+					discardTransparent: true,
+					fade,
+					darken: 0,
+					castStrength: shadowStrength * fade
+				}
+			];
 			if (input.overlayPlaneView) {
-				const overlayModel = mat4.scale(
-					mat4.translate(mat4.identity(), [0, 0, -overlayDepth]),
-					overlayFill
-				);
-				overlayPlane.write({
-					mvp: toMat4(mat4.multiply(vp, overlayModel) as Float32Array),
-					misc: d.vec4f(encoding.near, encoding.far, 1, 1),
-					baseColor: backdropBase,
-					world: d.vec4f(overlayFill[0], overlayFill[1], -overlayDepth, 0),
-					light: lightVec,
-					// The Surface (nearer, when the overlay sits behind it) casts onto
-					// the Overlay plane — the card shadowing the lower-third it overlaps.
-					casterA: overlayDepth > 0 ? surfaceCaster : noCaster,
-					casterB: noCaster,
-					eye: d.vec4f(eyeX, eyeY, eyeZ, 1),
-					bgPlane: bgPlaneVec,
-					midPlane: noCaster
+				const overlayDepth = stageOverlayPlaneDepth(input.overlayZ ?? 0.7);
+				planes.push({
+					role: 'overlay',
+					basis: createFrontalStagePlaneBasis(aspect, overlayDepth),
+					planeView: input.overlayPlaneView,
+					casterView: input.overlayPlaneView,
+					textured: true,
+					discardTransparent: true,
+					fade: 1,
+					darken: 0,
+					castStrength: shadowStrength
 				});
 			}
+			const sceneMipPasses = input.aperture > 0.001 ? mipLevels - 1 : 0;
+			assertStagePlaneCeilings({
+				planeCount: planes.length,
+				mippedPlaneCount,
+				textureBytes,
+				mipPasses: mipPasses + sceneMipPasses
+			});
+
+			const planeSampler = posed ? anisotropicSampler : sampler;
+			const sorted = sortStagePlanesBackToFront(planes, rig.eye, rig.forward);
+			const bindGroups = new Map<StagePlaneDraw, ReturnType<typeof root.createBindGroup>>();
+			for (const plane of sorted) {
+				const { halfW, halfH } = stagePlaneHalfLengths(plane.basis);
+				const casters = selectStagePlaneCasters(plane.basis, planes, lightDirection).filter(
+					(caster) => caster.castStrength > 0.001
+				);
+				const casterSlots = Array.from({ length: STAGE_MAX_CASTERS }, (_, slot) => casters[slot]);
+				const casterOrigin = casterSlots.map((caster) =>
+					caster
+						? d.vec4f(
+								caster.basis.origin[0],
+								caster.basis.origin[1],
+								caster.basis.origin[2],
+								caster.castStrength
+							)
+						: d.vec4f(0, 0, 0, 0)
+				);
+				const casterU = casterSlots.map((caster) => {
+					if (!caster) return d.vec4f(1, 0, 0, 1);
+					const lengths = stagePlaneHalfLengths(caster.basis);
+					const [x, y, z] = caster.basis.u;
+					return d.vec4f(x / lengths.halfW, y / lengths.halfW, z / lengths.halfW, lengths.halfW);
+				});
+				const casterV = casterSlots.map((caster) => {
+					if (!caster) return d.vec4f(0, 1, 0, 1);
+					const lengths = stagePlaneHalfLengths(caster.basis);
+					const [x, y, z] = caster.basis.v;
+					return d.vec4f(x / lengths.halfH, y / lengths.halfH, z / lengths.halfH, lengths.halfH);
+				});
+				const casterNormal = casterSlots.map((caster) =>
+					caster
+						? d.vec4f(caster.basis.normal[0], caster.basis.normal[1], caster.basis.normal[2], 0)
+						: d.vec4f(0, 0, 1, 0)
+				);
+				const buffer = planeBuffers[plane.role];
+				buffer.write({
+					mvp: toMat4(
+						mat4.multiply(rig.viewProjection, stagePlaneModelMatrix(plane.basis)) as Float32Array
+					),
+					origin: d.vec4f(
+						plane.basis.origin[0],
+						plane.basis.origin[1],
+						plane.basis.origin[2],
+						plane.textured ? 1 : 0
+					),
+					axisU: d.vec4f(
+						plane.basis.u[0],
+						plane.basis.u[1],
+						plane.basis.u[2],
+						plane.discardTransparent ? 1 : 0
+					),
+					axisV: d.vec4f(plane.basis.v[0], plane.basis.v[1], plane.basis.v[2], plane.fade),
+					normal: d.vec4f(
+						plane.basis.normal[0],
+						plane.basis.normal[1],
+						plane.basis.normal[2],
+						plane.darken
+					),
+					misc: d.vec4f(encoding.near, encoding.far, halfW, halfH),
+					baseColor: d.vec4f(
+						input.backdropColor[0],
+						input.backdropColor[1],
+						input.backdropColor[2],
+						1
+					),
+					light: lightVec,
+					casterOrigin,
+					casterU,
+					casterV,
+					casterNormal
+				});
+				bindGroups.set(
+					plane,
+					root.createBindGroup(stagePlaneLayout, {
+						planeTexture: plane.planeView,
+						casterTexture0: casterSlots[0]?.casterView ?? plane.casterView,
+						casterTexture1: casterSlots[1]?.casterView ?? plane.casterView,
+						casterTexture2: casterSlots[2]?.casterView ?? plane.casterView,
+						casterTexture3: casterSlots[3]?.casterView ?? plane.casterView,
+						samp: planeSampler,
+						plane: buffer
+					})
+				);
+			}
+
 			// Live distances along the view, so focusZ 0 keeps the AIM point sharp
 			// (the Surface plane under the frontal camera; the aimed page point
 			// under a pose) through the whole camera move, and focusZ 1 reaches the
 			// backdrop behind it.
-			const surfaceDist = rig.aimDistance;
-			const backdropDist = rig.backdropDistance;
-			const focus = mix(focusDepth01(surfaceDist), focusDepth01(backdropDist), input.focusZ);
+			const focus = mix(
+				focusDepth01(rig.aimDistance),
+				focusDepth01(rig.backdropDistance),
+				input.focusZ
+			);
 			dofUniform.write({
 				params: d.vec4f(
 					focus,
@@ -868,74 +848,57 @@ export class DepthStage {
 				),
 				resolution: d.vec2f(width, height),
 				// The frontmost plane's live depth (the Surface plane is nearest).
-				depths: d.vec4f(focusDepth01(surfaceDist), 0, 0, 0)
+				depths: d.vec4f(focusDepth01(rig.aimDistance), 0, 0, 0)
 			});
 
-			// Bind groups that reference the per-call Surface plane view. The backdrop
-			// binds its image substrate when present (sampled via the `textured`
-			// branch); otherwise it binds the Surface view as an unused placeholder
-			// (the layout requires a texture, but misc.z = 0 ignores it).
-			const bgTexView = input.backdropTextureView ?? input.surfacePlaneView;
-			const backdropBind = root.createBindGroup(planeLayout, {
-				surfaceTexture: bgTexView,
-				casterTexA: input.surfacePlaneView,
-				casterTexB: input.overlayPlaneView ?? input.surfacePlaneView,
-				bgTex: bgTexView,
-				midTex: input.surfacePlaneView,
-				samp: sampler,
-				plane: backdropPlane
-			});
-			const surfaceBind = root.createBindGroup(planeLayout, {
-				surfaceTexture: input.surfacePlaneView,
-				casterTexA: input.surfacePlaneView,
-				casterTexB: input.surfacePlaneView,
-				bgTex: bgTexView,
-				// The Overlay plane's capture — the mid-plane the partial-presence
-				// reconstruction consults (placeholder when no overlay rides a plane;
-				// midPlane.w = 0 ignores it).
-				midTex: input.overlayPlaneView ?? input.surfacePlaneView,
-				samp: sampler,
-				plane: surfacePlane
-			});
-			const overlayBind = input.overlayPlaneView
-				? root.createBindGroup(planeLayout, {
-						surfaceTexture: input.overlayPlaneView,
-						casterTexA: input.surfacePlaneView,
-						casterTexB: input.surfacePlaneView,
-						bgTex: bgTexView,
-						midTex: input.surfacePlaneView,
-						samp: sampler,
-						plane: overlayPlane
+			// Pass 1 — opaque texels, back to front, depth-tested and depth-written.
+			// The colour target clears to the backdrop colour (the oversized
+			// backdrop covers it anyway), the sidecar to the far depth.
+			const [r, g, b] = input.backdropColor;
+			sorted.forEach((plane, index) => {
+				const first = index === 0;
+				opaquePipeline
+					.with(bindGroups.get(plane)!)
+					.withColorAttachment({
+						color: first
+							? { view: mipViews[0], clearValue: [r, g, b, 1], loadOp: 'clear', storeOp: 'store' }
+							: { view: mipViews[0], loadOp: 'load', storeOp: 'store' },
+						depth: first
+							? {
+									view: depthSidecarView,
+									clearValue: [1, 0, 0, 1],
+									loadOp: 'clear',
+									storeOp: 'store'
+								}
+							: { view: depthSidecarView, loadOp: 'load', storeOp: 'store' }
 					})
-				: null;
-
-			// Painter's order, far → near: backdrop, then the Overlay plane when it
-			// sits behind the Surface (overlayZ > 0), then the Surface. An overlay AT
-			// the Surface's depth (overlayZ = 0) draws after it, preserving the flat
-			// path's Layer stacking (Overlay over Surface).
-			planePipeline
-				.with(backdropBind)
-				.withColorAttachment({
-					view: mipViews[0],
-					clearValue: [0, 0, 0, 1],
-					loadOp: 'clear',
-					storeOp: 'store'
-				})
-				.draw(6);
-			if (overlayBind && overlayDepth > 0) {
-				planePipeline
-					.with(overlayBind)
-					.withColorAttachment({ view: mipViews[0], loadOp: 'load', storeOp: 'store' })
+					.withDepthStencilAttachment(
+						first
+							? {
+									view: depthAttachmentView,
+									depthClearValue: 1,
+									depthLoadOp: 'clear',
+									depthStoreOp: 'store'
+								}
+							: { view: depthAttachmentView, depthLoadOp: 'load', depthStoreOp: 'store' }
+					)
 					.draw(6);
-			}
-			planePipeline
-				.with(surfaceBind)
-				.withColorAttachment({ view: mipViews[0], loadOp: 'load', storeOp: 'store' })
-				.draw(6);
-			if (overlayBind && overlayDepth <= 0) {
-				planePipeline
-					.with(overlayBind)
-					.withColorAttachment({ view: mipViews[0], loadOp: 'load', storeOp: 'store' })
+			});
+			// Pass 2 — the soft skirts of the captured planes, depth-tested against
+			// pass 1 but never written, blended over what is really behind them.
+			for (const plane of sorted) {
+				if (!plane.discardTransparent) continue;
+				skirtPipeline
+					.with(bindGroups.get(plane)!)
+					.withColorAttachment({
+						color: { view: mipViews[0], loadOp: 'load', storeOp: 'store' },
+						depth: { view: depthSidecarView, loadOp: 'load', storeOp: 'store' }
+					})
+					.withDepthStencilAttachment({
+						view: depthAttachmentView,
+						depthLoadOp: 'load',
+						depthStoreOp: 'store'
+					})
 					.draw(6);
 			}
 
@@ -946,8 +909,8 @@ export class DepthStage {
 			// pieces (the unify case) from paying the pyramid + gather cost.
 			if (input.aperture > 0.001) {
 				for (let i = 1; i < mipLevels; i += 1) {
-					// Level 1 applies the CoC weighting (reads depth from mip 0's
-					// alpha); deeper levels box-filter the premultiplied data.
+					// Level 1 applies the CoC weighting (reads depth from the sidecar);
+					// deeper levels box-filter the premultiplied data.
 					const pipelineForLevel = i === 1 ? downWeightPipeline : downPipeline;
 					pipelineForLevel
 						.with(downBinds[i - 1])
@@ -1001,7 +964,11 @@ export class DepthStage {
 
 	dispose(): void {
 		this.#sceneTexture.destroy();
+		this.#depthSidecarTexture.destroy();
+		this.#depthAttachmentTexture.destroy();
 		this.#dofHalfTexture.destroy();
 		this.#outputTexture.destroy();
+		for (const copy of this.#mipCopies.values()) copy.texture.destroy();
+		this.#mipCopies.clear();
 	}
 }

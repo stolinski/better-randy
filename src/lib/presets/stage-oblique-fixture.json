@@ -1,0 +1,103 @@
+{
+	"schema": "gfx@1",
+	"name": "Stage oblique fixture",
+	"description": "Verification fixture for the ADR-0057 filmed canvas: the depth-stage-demo construction (paper title card over the Pack field, a lower-third on its own plane at z 0.45) seen through an authored camera pose — low and to the left, aimed a little above centre — with one travel that eases toward square and pulls focus with the aim. Exercises the posed camera rig, the depth-tested plane-basis scene pass, plane-basis rake and cast shadow on a receding page, oblique mip/anisotropic sampling, and the widened depth encoding. The card holds to the end so every sampled frame carries the page. Not a deliverable: kind fixture.",
+	"kind": "fixture",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 7,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "serif",
+			"paperColor": "#f4efe4",
+			"inkColor": "#16140f"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "paper",
+			"content": {
+				"title": "Why Bun Quietly Replaced npm",
+				"dateLabel": "JUN 2026",
+				"body": ""
+			},
+			"enter": {
+				"start": 0,
+				"duration": 0.02,
+				"ease": "settled"
+			}
+		},
+		"overlays": [
+			{
+				"type": "lower-third",
+				"id": "stage-credit",
+				"z": 0.45,
+				"content": {
+					"variant": "standard",
+					"kicker": "ENGINE",
+					"title": "Filmed canvas",
+					"subtitle": "Posed camera · ADR-0057"
+				},
+				"position": {
+					"anchor": "bottom-left",
+					"offset": {
+						"x": 0.06,
+						"y": 0.115
+					}
+				},
+				"enter": {
+					"start": 0.06,
+					"duration": 0.058,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.041,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": [],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "static",
+				"pose": {
+					"yaw": -24,
+					"pitch": 7,
+					"distance": 0.95,
+					"aim": {
+						"x": 0.5,
+						"y": 0.45
+					}
+				},
+				"travel": {
+					"to": {
+						"yaw": -14,
+						"pitch": 4,
+						"distance": 0.85,
+						"aim": {
+							"x": 0.45,
+							"y": 0.5
+						}
+					},
+					"start": 0,
+					"duration": 0.85,
+					"ease": "smooth"
+				}
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.5,
+				"band": 0.05
+			}
+		}
+	}
+}
