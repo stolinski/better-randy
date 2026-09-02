@@ -58,8 +58,8 @@
 			},
 			"focus": {
 				"focusZ": 0,
-				"aperture": 1,
-				"band": 0
+				"aperture": 0.45,
+				"band": 0.04
 			}
 		}
 	}
