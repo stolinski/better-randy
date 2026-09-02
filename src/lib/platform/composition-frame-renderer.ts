@@ -6,7 +6,7 @@ import {
 import { cssColorToRgbaFloat, hexToRgbaFloat } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
-import type { Effect, EngineState, StageCamera } from './engine-schema';
+import type { Effect, EngineState, Overlay, StageCamera } from './engine-schema';
 import type { GpuHost } from './gpu-host';
 import { hasCapturedPaintRecord } from './html-in-canvas';
 import type { PackManifest } from './packs/types';
@@ -27,7 +27,8 @@ import {
 } from './pipelines/runtime-loader';
 import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
-import { DepthStage } from './pipelines/depth-stage';
+import { DepthStage, type DepthStagePosedOverlayPlane } from './pipelines/depth-stage';
+import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 import { STAGE_CAM_Z, createStageCameraRig } from './pipelines/depth-stage-camera';
 import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
@@ -37,6 +38,10 @@ import type { ShaderPass, SurfaceRenderInputs, SurfaceRenderInstance } from './p
 import type { PreparedVideoUnderlayTexture } from './video-underlay-frame-texture';
 
 const SELF_FADING_SURFACE_TYPES = new Set(['chapter-card', 'title-sequence', 'pullquote-on-photo']);
+
+// The ADR-0021 Overlay-Layer default depth. On the depth stage it is the shared
+// Overlay plane's depth; an Overlay with an explicit z rides its own plane.
+const SHARED_OVERLAY_PLANE_Z = 0.7;
 
 const NO_BACKDROP: CompositeBackdrop = {
 	strength: 0,
@@ -69,7 +74,10 @@ interface ResolvedStageFrame {
 	backdropAsset: string | null;
 	backdropContrast: number;
 	camera: StageCamera;
-	hasOverlayPlane: boolean;
+	/** Overlays on the shared plane at the Layer default depth. */
+	sharedOverlayCount: number;
+	/** Overlays riding their own posed plane (ADR-0057), in Layer order. */
+	posedOverlays: readonly Overlay[];
 	overlayZ: number;
 	light: LightTreatment | null;
 	effects: readonly Effect[];
@@ -107,7 +115,15 @@ export interface CachedTransitionFrame {
 export interface CompositionDomCaptureGenerations {
 	surface: number;
 	overlay: number;
+	/** Paint generations of each posed Overlay's own root, by Overlay id (ADR-0057). */
+	posedOverlays?: Readonly<Record<string, number>>;
 	force: boolean;
+}
+
+/** A posed Overlay's own capture root: a frame-sized direct canvas child (ADR-0057). */
+export interface CompositionPosedOverlayRoot {
+	overlayId: string;
+	element: HTMLElement;
 }
 
 export type CompositionReadableProbeMode = 'normal' | 'readable-mask';
@@ -120,6 +136,8 @@ export interface CompositionFrameRenderRequest {
 	paperVisibility: number;
 	compositionElement: HTMLElement | null;
 	overlayRootElement: HTMLElement | null;
+	/** The posed Overlays' own roots while the stage splits them out; absent = none mounted. */
+	posedOverlayRoots?: readonly CompositionPosedOverlayRoot[];
 	substrateTexture: GPUTexture | null;
 	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 	readableProbeMode?: CompositionReadableProbeMode;
@@ -131,6 +149,7 @@ export interface CompositionFrameRenderRequest {
 
 const uploadedSurfaceGenerations = new WeakMap<SurfaceRenderInstance, number>();
 const uploadedOverlayGenerations = new WeakMap<CompositionPlanes, number>();
+const uploadedPosedOverlayGenerations = new WeakMap<CompositionPlanes, Map<string, number>>();
 
 // `force` overrides the generation-equality short-circuit — it does not override
 // the paint-record precondition. An element the browser has never painted has
@@ -172,6 +191,31 @@ function captureOverlayDom(
 	if (capture.force || uploadedOverlayGenerations.get(planes) !== capture.overlay) {
 		if (!uploadDomIfPainted(() => planes.captureOverlay(element))) return;
 		uploadedOverlayGenerations.set(planes, capture.overlay);
+	}
+}
+
+// The same generation gate as the shared Overlay root, per posed Overlay root.
+function capturePosedOverlayDom(
+	request: CompositionFrameRenderRequest,
+	planes: CompositionPlanes,
+	overlayId: string,
+	element: HTMLElement
+): void {
+	const capture = request.domCapture;
+	if (!capture) {
+		planes.capturePosedOverlay(overlayId, element);
+		return;
+	}
+	const generation = capture.posedOverlays?.[overlayId];
+	if (generation === undefined || !hasCapturedPaintRecord(generation)) return;
+	let uploaded = uploadedPosedOverlayGenerations.get(planes);
+	if (!uploaded) {
+		uploaded = new Map();
+		uploadedPosedOverlayGenerations.set(planes, uploaded);
+	}
+	if (capture.force || uploaded.get(overlayId) !== generation) {
+		if (!uploadDomIfPainted(() => planes.capturePosedOverlay(overlayId, element))) return;
+		uploaded.set(overlayId, generation);
 	}
 }
 
@@ -407,7 +451,7 @@ function resolveDofFrame(state: EngineState, progress: number): ResolvedDofFrame
 				focusZ: 0,
 				aperture: 0,
 				surfaceZ: 0,
-				overlayZ: clampNumber(state.overlays[0]?.z ?? 0.7, 0, 1),
+				overlayZ: clampNumber(state.overlays[0]?.z ?? SHARED_OVERLAY_PLANE_Z, -1, 1),
 				backdrop: NO_BACKDROP,
 				otherEffects: state.effects
 			};
@@ -472,7 +516,7 @@ function resolveDofFrame(state: EngineState, progress: number): ResolvedDofFrame
 		focusZ,
 		aperture,
 		surfaceZ: 0,
-		overlayZ: clampNumber(state.overlays[0]?.z ?? 0.7, 0, 1),
+		overlayZ: clampNumber(state.overlays[0]?.z ?? SHARED_OVERLAY_PLANE_Z, -1, 1),
 		backdrop,
 		otherEffects: state.effects.filter((effect) => effect.type !== 'depth-of-field')
 	};
@@ -496,6 +540,7 @@ function resolveStageFrame(
 		focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
 	}
 	const background = treatments.background;
+	const { shared, posed } = partitionStageOverlays(state.overlays);
 	return {
 		focusZ,
 		aperture: clampNumber(stage.focus.aperture, 0, 1),
@@ -504,8 +549,9 @@ function resolveStageFrame(
 		backdropAsset: stage.backdrop?.image?.asset ?? null,
 		backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
 		camera: stage.camera,
-		hasOverlayPlane: state.overlays.length > 0,
-		overlayZ: clampNumber(state.overlays[0]?.z ?? 0.7, 0, 1),
+		sharedOverlayCount: shared.length,
+		posedOverlays: posed,
+		overlayZ: SHARED_OVERLAY_PLANE_Z,
 		light: treatments.light,
 		effects: state.effects
 	};
@@ -600,15 +646,50 @@ function renderStageFrame(
 		ctx: timebase
 	});
 	let overlayPlaneView: GPUTextureView | undefined;
-	if (stage.hasOverlayPlane && compositionPlanes && request.overlayRootElement) {
-		captureOverlayDom(request, compositionPlanes, request.overlayRootElement);
-		compositionPlanes.premultiplyOverlay();
-		overlayPlaneView = compositionPlanes.overlayPlaneTexture().createView();
+	const posedOverlayPlanes: DepthStagePosedOverlayPlane[] = [];
+	if (compositionPlanes) {
+		if (stage.sharedOverlayCount > 0 && request.overlayRootElement) {
+			captureOverlayDom(request, compositionPlanes, request.overlayRootElement);
+			compositionPlanes.premultiplyOverlay();
+			overlayPlaneView = compositionPlanes.overlayPlaneTexture().createView();
+		}
+		// Each posed Overlay is captured from its own frame-sized root and turns
+		// about its rendered centre, measured from that same root (ADR-0057).
+		const posedRoots = new Map(
+			(request.posedOverlayRoots ?? []).map((root) => [root.overlayId, root.element])
+		);
+		compositionPlanes.retainPosedOverlays(stage.posedOverlays.map((overlay) => overlay.id));
+		const size = { width: depthStage.width, height: depthStage.height };
+		for (const overlay of stage.posedOverlays) {
+			const element = posedRoots.get(overlay.id);
+			if (!element) continue;
+			capturePosedOverlayDom(request, compositionPlanes, overlay.id, element);
+			compositionPlanes.premultiplyPosedOverlay(overlay.id);
+			const texture = compositionPlanes.posedOverlayPlaneTexture(overlay.id);
+			if (!texture) continue;
+			const bounds = measureOverlayBoundsPx(
+				overlay,
+				element,
+				size,
+				request.state.transport.orientation
+			);
+			posedOverlayPlanes.push({
+				overlayId: overlay.id,
+				planeView: texture.createView(),
+				z: overlay.z ?? SHARED_OVERLAY_PLANE_Z,
+				pose: overlay.pose,
+				pivot: {
+					x: (bounds.x + bounds.width / 2) / size.width,
+					y: (bounds.y + bounds.height / 2) / size.height
+				}
+			});
+		}
 	}
 	depthStage.render({
 		surfacePlaneView: stagedSurfaceTexture.createView(),
 		overlayPlaneView,
 		overlayZ: stage.overlayZ,
+		posedOverlayPlanes,
 		focusZ: stage.focusZ,
 		aperture: stage.aperture,
 		focusBand: stage.focusBand,

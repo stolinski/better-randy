@@ -6,7 +6,12 @@ import {
 	assertStagePlaneCeilings,
 	createBackdropStagePlaneBasis,
 	createFrontalStagePlaneBasis,
+	createPosedOverlayPlaneBasis,
+	createStageProjector,
+	partitionStageOverlays,
+	posedOverlayStagePlane,
 	selectStagePlaneCasters,
+	STAGE_LIFT_DEPTH,
 	sortStagePlanesBackToFront,
 	STAGE_PLANE_CEILINGS,
 	StagePlaneCeilingError,
@@ -119,6 +124,7 @@ describe('stage plane ceilings', () => {
 	it('accepts the shipped three-plane frame', () => {
 		assertStagePlaneCeilings({
 			planeCount: 3,
+			posedOverlayPlaneCount: 0,
 			mippedPlaneCount: 0,
 			textureBytes: stagePlaneTextureBytes(3840, 2160, 8, true) * 2,
 			mipPasses: 12
@@ -130,6 +136,7 @@ describe('stage plane ceilings', () => {
 			() =>
 				assertStagePlaneCeilings({
 					planeCount: 9,
+					posedOverlayPlaneCount: 0,
 					mippedPlaneCount: 0,
 					textureBytes: 0,
 					mipPasses: 0
@@ -140,6 +147,7 @@ describe('stage plane ceilings', () => {
 			() =>
 				assertStagePlaneCeilings({
 					planeCount: 3,
+					posedOverlayPlaneCount: 0,
 					mippedPlaneCount: 3,
 					textureBytes: STAGE_PLANE_CEILINGS.maxPlaneTextureBytes + 1,
 					mipPasses: 0
@@ -152,5 +160,110 @@ describe('stage plane ceilings', () => {
 	it('counts a mip chain as a third more', () => {
 		assert.equal(stagePlaneTextureBytes(100, 100, 8, false), 80_000);
 		assert.equal(stagePlaneTextureBytes(100, 100, 8, true), Math.ceil(80_000 * (4 / 3)));
+	});
+});
+
+describe('posed Overlay planes (ADR-0057)', () => {
+	const overlay = (id: string, extra: Record<string, unknown> = {}) =>
+		({
+			type: 'lower-third',
+			id,
+			content: {},
+			position: { anchor: 'bottom-left' },
+			...extra
+		}) as never;
+
+	it('assigns Overlays with a pose or an explicit depth to their own plane', () => {
+		const { shared, posed } = partitionStageOverlays([
+			overlay('plain'),
+			overlay('deep', { z: 0.45 }),
+			overlay('turned', { pose: { yaw: 10, pitch: 0, roll: 0 } }),
+			overlay('lifted', { z: -0.2 })
+		]);
+		assert.deepEqual(
+			shared.map((entry: { id: string }) => entry.id),
+			['plain']
+		);
+		assert.deepEqual(
+			posed.map((entry: { id: string }) => entry.id),
+			['deep', 'turned', 'lifted']
+		);
+	});
+
+	it('maps signed depth to world units behind or in front of the Surface', () => {
+		assert.equal(stageOverlayPlaneDepth(0.5), 0.5 * STAGE_BACKDROP_DEPTH);
+		assert.equal(stageOverlayPlaneDepth(-1), -STAGE_LIFT_DEPTH);
+		assert.equal(stageOverlayPlaneDepth(0), 0);
+	});
+
+	it('is exactly the frontal plane at a zero pose', () => {
+		const pivot = { x: 0.3, y: 0.8 };
+		assert.deepEqual(
+			createPosedOverlayPlaneBasis(ASPECT, -0.18, { yaw: 0, pitch: 0, roll: 0 }, pivot),
+			createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(-0.18))
+		);
+		assert.deepEqual(
+			createPosedOverlayPlaneBasis(ASPECT, 0.45, undefined, pivot),
+			createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(0.45))
+		);
+	});
+
+	it('turns the plane about its pivot: the pivot stays put, the right edge recedes under yaw', () => {
+		const pivot = { x: 0.25, y: 0.75 };
+		const frontal = createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(-0.18));
+		const posed = createPosedOverlayPlaneBasis(
+			ASPECT,
+			-0.18,
+			{ yaw: 30, pitch: 0, roll: 0 },
+			pivot
+		);
+		const { halfW, halfH } = stagePlaneHalfLengths(frontal);
+		const pivotWorld = [(2 * pivot.x - 1) * halfW, (1 - 2 * pivot.y) * halfH, frontal.origin[2]];
+		// The pivot's local coordinates on the frontal quad.
+		const lu = (pivotWorld[0] - frontal.origin[0]) / halfW;
+		const lv = (pivotWorld[1] - frontal.origin[1]) / halfH;
+		const posedPivot = [0, 1, 2].map(
+			(axis) => posed.origin[axis] + lu * posed.u[axis] + lv * posed.v[axis]
+		);
+		for (const axis of [0, 1, 2]) {
+			assert.ok(Math.abs(posedPivot[axis] - pivotWorld[axis]) < 1e-9, `pivot axis ${axis}`);
+		}
+		assert.ok(posed.u[2] < 0, 'the right edge moves away from the camera');
+		assert.ok(Math.abs(stagePlaneHalfLengths(posed).halfW - halfW) < 1e-9, 'extent preserved');
+		assert.ok(
+			Math.abs(posed.normal[0]) > 0 && posed.normal[2] > 0,
+			'normal still faces the camera'
+		);
+	});
+
+	it('projects and ray-casts a posed plane consistently and falls back for an unknown id', () => {
+		const camera = { move: 'static', amount: 0.5, ease: 'smooth' } as never;
+		const projector = createStageProjector({
+			aspect: ASPECT,
+			camera,
+			overlayZ: 0.7,
+			posedOverlayPlanes: [
+				{
+					overlayId: 'card',
+					z: -0.18,
+					pose: { yaw: 10, pitch: -3, roll: 0 },
+					pivot: { x: 0.8, y: 0.2 }
+				}
+			],
+			time: 0
+		});
+		for (const [u, v] of [
+			[0.8, 0.2],
+			[0.1, 0.9],
+			[0.5, 0.5]
+		]) {
+			const frame = projector.projectPoint(posedOverlayStagePlane('card'), u, v);
+			const back = projector.raycastPoint(posedOverlayStagePlane('card'), frame.x, frame.y);
+			assert.ok(back !== null);
+			assert.ok(Math.abs(back.x - u) < 1e-6 && Math.abs(back.y - v) < 1e-6, `${u},${v}`);
+		}
+		const shared = projector.projectPoint('overlay', 0.5, 0.5);
+		const unknown = projector.projectPoint(posedOverlayStagePlane('missing'), 0.5, 0.5);
+		assert.deepEqual(unknown, shared);
 	});
 });

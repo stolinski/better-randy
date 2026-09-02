@@ -102,10 +102,7 @@ export interface SetCompositionDiagramGeometryRequest {
 type DiagramGeometryField = keyof DiagramGeometryPatch;
 
 /** The geometry fields each primitive type carries on itself. */
-const DIAGRAM_GEOMETRY_FIELDS: Record<
-	DiagramPrimitive['type'],
-	readonly DiagramGeometryField[]
-> = {
+const DIAGRAM_GEOMETRY_FIELDS: Record<DiagramPrimitive['type'], readonly DiagramGeometryField[]> = {
 	node: ['position', 'scale'],
 	label: ['position', 'scale', 'maxWidth'],
 	'stat-callout': ['position', 'scale', 'from', 'to'],
@@ -267,13 +264,13 @@ export async function runSetCompositionOverlayDepthOperation(
 	if (!overlays.some((overlay) => overlay.id === request.overlayId)) {
 		return refuseUnknownOverlay(row, request.overlayId, overlays);
 	}
-	if (request.z !== null && !(Number.isFinite(request.z) && request.z >= 0 && request.z <= 1)) {
+	if (request.z !== null && !(Number.isFinite(request.z) && request.z >= -1 && request.z <= 1)) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'invalid_argument',
-			'Focal distance runs from 0 at the focal plane to 1 fully defocused.',
-			{ rejected: String(request.z), alternatives: ['0', '1', 'null'] }
+			'Depth runs from -1 (lifted toward the camera) through 0 at the Surface plane to 1 at the backdrop; on the depth stage an explicit depth gives the Overlay its own plane.',
+			{ rejected: String(request.z), alternatives: ['-0.2', '0', '0.7', 'null'] }
 		);
 	}
 

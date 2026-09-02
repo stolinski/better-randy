@@ -1,5 +1,5 @@
 import type { OverlayPlacement } from './engine-schema';
-import type { StagePlane, StageProjector } from './pipelines/depth-stage-camera';
+import type { StagePlane, StageProjector } from './pipelines/depth-stage-planes';
 
 /**
  * Editor-only geometry authority for direct canvas manipulation.

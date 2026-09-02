@@ -56,7 +56,12 @@
 		type DiagramLabelTextBoxSnapshot
 	} from './canvas-text-box-resize';
 	import { engineState } from './engine-state.svelte';
-	import { createStageProjector, type StagePlane } from './pipelines/depth-stage-camera';
+	import {
+		createStageProjector,
+		isPosedStageOverlay,
+		posedOverlayStagePlane,
+		type StagePlane
+	} from './pipelines/depth-stage-planes';
 	import {
 		canvasElementSelection,
 		layerSelection,
@@ -84,6 +89,8 @@
 		 *  depth stage / owned surface opacity) — overlays live there, not in
 		 *  `compositionElement`. Null on the flat path (overlays inline). */
 		overlayRootElement?: HTMLElement | null;
+		/** The posed Overlays' own roots on the depth stage (ADR-0057), by Overlay id. */
+		posedOverlayRootElements?: Record<string, HTMLElement | null>;
 		canvas: HTMLCanvasElement | null;
 		compositionSize: { width: number; height: number };
 		/** Display zoom; pan is only active when zoomed in (> 1). */
@@ -98,6 +105,7 @@
 	let {
 		compositionElement,
 		overlayRootElement = null,
+		posedOverlayRootElements = {},
 		canvas,
 		compositionSize,
 		zoom = 1,
@@ -188,10 +196,39 @@
 	function getOverlayEl(overlay: Overlay): HTMLElement | null {
 		const selector = `[data-overlay-id="${overlay.id}"]`;
 		return (
+			posedOverlayRootElements[overlay.id]?.querySelector<HTMLElement>(selector) ??
 			overlayRootElement?.querySelector<HTMLElement>(selector) ??
 			compositionElement?.querySelector<HTMLElement>(selector) ??
 			null
 		);
+	}
+
+	// Which captured plane an Overlay's pixels ride: its own posed plane on the
+	// depth stage (ADR-0057) or the shared Overlay plane.
+	function overlayPlane(overlay: Overlay): StagePlane {
+		return engineState.stage?.type === 'depth' && isPosedStageOverlay(overlay)
+			? posedOverlayStagePlane(overlay.id)
+			: 'overlay';
+	}
+
+	function overlayPlaneById(overlayId: string): StagePlane {
+		const overlay = engineState.overlays.find((candidate) => candidate.id === overlayId);
+		return overlay ? overlayPlane(overlay) : 'overlay';
+	}
+
+	// A posed Overlay turns about its rendered centre; measure it against its
+	// own frame-sized root so the editor's plane matches the renderer's.
+	function measureOverlayPivot(overlay: Overlay): { x: number; y: number } {
+		const root = posedOverlayRootElements[overlay.id] ?? overlayRootElement ?? compositionElement;
+		const el = getOverlayEl(overlay);
+		if (!root || !el) return { x: 0.5, y: 0.5 };
+		const rootRect = root.getBoundingClientRect();
+		const rect = el.getBoundingClientRect();
+		if (rootRect.width <= 0 || rootRect.height <= 0) return { x: 0.5, y: 0.5 };
+		return {
+			x: (rect.left - rootRect.left + rect.width / 2) / rootRect.width,
+			y: (rect.top - rootRect.top + rect.height / 2) / rootRect.height
+		};
 	}
 
 	// Depth-stage projection (m182h9gp): when the composition declares a depth
@@ -207,10 +244,19 @@
 		const stage = engineState.stage;
 		if (!stage || stage.type !== 'depth') return null;
 		if (compositionSize.width === 0 || compositionSize.height === 0) return null;
+		// Posed Overlays turn about their measured centres, so re-measure with
+		// the same epoch the boxes use.
+		void measureEpoch;
 		return createStageProjector({
 			aspect: compositionSize.width / compositionSize.height,
 			camera: stage.camera,
-			overlayZ: clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1),
+			overlayZ: 0.7,
+			posedOverlayPlanes: engineState.overlays.filter(isPosedStageOverlay).map((overlay) => ({
+				overlayId: overlay.id,
+				z: overlay.z ?? 0.7,
+				pose: overlay.pose,
+				pivot: measureOverlayPivot(overlay)
+			})),
 			time: clampNumber(animState.globalProgress, 0, 1)
 		});
 	});
@@ -411,7 +457,7 @@
 		void placement.rotation;
 		const el = getOverlayEl(overlay);
 		if (!el) return null;
-		return projectRect(el, 'overlay');
+		return projectRect(el, overlayPlane(overlay));
 	}
 
 	// The overlay's current top-left, as a 0..1 fraction of the composition. Used
@@ -422,7 +468,7 @@
 		if (!el) return null;
 		const bounds = currentCanvasInteractionGeometry()?.renderedBoundsFor(
 			canvasInteractionRect(el.getBoundingClientRect()),
-			'overlay'
+			overlayPlane(overlay)
 		)?.compositionBounds.normalized;
 		return bounds ? { x: bounds.left, y: bounds.top } : null;
 	}
@@ -472,7 +518,7 @@
 		const convertCenter =
 			(pos.anchor === 'center' || pos.anchor === 'top-center' || pos.anchor === 'bottom-center') &&
 			measured !== null;
-		const startComp = pointerToComp(event.clientX, event.clientY, 'overlay');
+		const startComp = pointerToComp(event.clientX, event.clientY, overlayPlane(overlay));
 		if (!startComp) return;
 		dragState = {
 			overlayId: overlay.id,
@@ -485,7 +531,7 @@
 			originY: isRect ? (pos.rect?.y ?? 0) : convertCenter ? measured!.y : (pos.offset?.y ?? 0),
 			convertCenter,
 			moved: false,
-			snap: createCanvasDragSnapGesture(`overlay:${overlay.id}`, 'overlay')
+			snap: createCanvasDragSnapGesture(`overlay:${overlay.id}`, overlayPlane(overlay))
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onPointerMove);
@@ -501,7 +547,7 @@
 		// Pointer → composition-fraction delta (offset.x is a fraction of
 		// inline-size, offset.y of block-size), ray-cast onto the overlay's plane
 		// so the drag tracks the reprojected pixels when the stage is on.
-		const comp = pointerToComp(event.clientX, event.clientY, 'overlay');
+		const comp = pointerToComp(event.clientX, event.clientY, overlayPlaneById(dragState.overlayId));
 		if (!comp) return;
 		const proposedDelta = {
 			x: comp.x - dragState.startCompX,

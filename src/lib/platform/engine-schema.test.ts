@@ -976,3 +976,31 @@ describe('stage camera pose and travel (ADR-0057)', () => {
 		assert.equal(stage.camera.travel, undefined);
 	});
 });
+
+describe('Overlay signed depth and pose (ADR-0057)', () => {
+	function overlayState(overlay: Record<string, unknown>): unknown {
+		return {
+			...baseState(),
+			overlays: [
+				{
+					type: 'lower-third',
+					id: 'card',
+					content: { variant: 'standard', title: 'Card' },
+					position: { anchor: 'bottom-left' },
+					...overlay
+				}
+			]
+		};
+	}
+
+	it('accepts a lifted depth and a partial pose with zero defaults', () => {
+		const parsed = EngineStateSchema.parse(overlayState({ z: -0.18, pose: { yaw: 10 } }));
+		assert.equal(parsed.overlays[0].z, -0.18);
+		assert.deepEqual(parsed.overlays[0].pose, { yaw: 10, pitch: 0, roll: 0 });
+	});
+
+	it('rejects depth and pose outside the authored limits', () => {
+		assert.equal(EngineStateSchema.safeParse(overlayState({ z: -1.5 })).success, false);
+		assert.equal(EngineStateSchema.safeParse(overlayState({ pose: { pitch: 50 } })).success, false);
+	});
+});

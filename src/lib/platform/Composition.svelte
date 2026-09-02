@@ -5,6 +5,7 @@
 	import { engineState } from './engine-state.svelte';
 	import OverlayMount from './OverlayMount.svelte';
 	import SurfaceMount from './SurfaceMount.svelte';
+	import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
 	interface Props {
@@ -21,16 +22,29 @@
 		 */
 		splitPlanes?: boolean;
 		overlayRootElement?: HTMLElement | null;
+		/**
+		 * On the depth stage an Overlay with a pose or an explicit depth rides its
+		 * own plane (ADR-0057), so it gets its own frame-sized direct canvas
+		 * child — the capture lane rasterizes direct children only. Keyed by
+		 * Overlay id; an entry is null once its root unmounts.
+		 */
+		posedOverlayRootElements?: Record<string, HTMLElement | null>;
 	}
 
 	let {
 		element = $bindable<HTMLElement | null>(null),
 		surfaceElement = $bindable<HTMLElement | null>(null),
 		splitPlanes = false,
-		overlayRootElement = $bindable<HTMLElement | null>(null)
+		overlayRootElement = $bindable<HTMLElement | null>(null),
+		posedOverlayRootElements = $bindable<Record<string, HTMLElement | null>>({})
 	}: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	const posedOverlayIds = $derived(
+		engineState.stage?.type === 'depth'
+			? partitionStageOverlays(engineState.overlays).posed.map((overlay) => overlay.id)
+			: []
+	);
 </script>
 
 <div
@@ -64,9 +78,23 @@
 		style:block-size={`${frame.height}px`}
 		style:inline-size={`${frame.width}px`}
 	>
-		<OverlayMount />
+		<OverlayMount excludeIds={posedOverlayIds} />
 		<CaptionsMount />
 	</div>
+	<!-- One root per posed Overlay (ADR-0057): the same frame-sized sibling
+	     construction as the shared Overlay root, captured on its own so the
+	     stage can place it on its own plane. -->
+	{#each posedOverlayIds as overlayId (overlayId)}
+		<div
+			bind:this={posedOverlayRootElements[overlayId]}
+			class="composition overlay-root"
+			data-posed-overlay-root={overlayId}
+			style:block-size={`${frame.height}px`}
+			style:inline-size={`${frame.width}px`}
+		>
+			<OverlayMount onlyIds={[overlayId]} />
+		</div>
+	{/each}
 {/if}
 
 <style>

@@ -14,6 +14,19 @@
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
 	import { getVideoFrameSize } from '$lib/utils/video-frame';
 
+	interface Props {
+		/** Host only these Overlays (a posed Overlay's own capture root, ADR-0057). */
+		onlyIds?: readonly string[];
+		/** Leave these Overlays to their own roots (the shared root on the depth stage). */
+		excludeIds?: readonly string[];
+	}
+
+	let { onlyIds, excludeIds = [] }: Props = $props();
+
+	function hostsOverlay(overlayId: string): boolean {
+		return (onlyIds ? onlyIds.includes(overlayId) : true) && !excludeIds.includes(overlayId);
+	}
+
 	function findRenderer(type: string): OverlayRenderer | null {
 		return pipelineRendererRuntime.current().overlays.get(type) ?? null;
 	}
@@ -155,7 +168,7 @@
 
 {#each engineState.overlays as overlay, index (overlay.id)}
 	{@const renderer = findRenderer(overlay.type)}
-	{#if renderer}
+	{#if renderer && hostsOverlay(overlay.id)}
 		{@const Component = renderer.CanvasSource}
 		{@const channels = animState.overlayChannels[index] ?? null}
 		{@const placement = resolveOverlayPlacement(

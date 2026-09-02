@@ -4,7 +4,6 @@ import { describe, it } from 'vitest';
 import { StageSchema, type StageCamera } from '$lib/platform/engine-schema';
 import {
 	createStageCameraRig,
-	createStageProjector,
 	resolveStageCameraPose,
 	STAGE_BACKDROP_COVER_MIN,
 	STAGE_BACKDROP_DEPTH,
@@ -16,6 +15,7 @@ import {
 	stageCameraMoveOffset,
 	stageDepthEncoding
 } from './depth-stage-camera';
+import { createStageProjector } from './depth-stage-planes';
 
 const ASPECT = 3840 / 2160;
 

@@ -1,7 +1,8 @@
 import tgpu, { d } from 'typegpu';
 
-import { getDomFrameCaptureQueue } from '$lib/platform/html-in-canvas';
+import { STAGE_POSED_OVERLAY_LIMIT } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
+import { getDomFrameCaptureQueue } from '$lib/platform/html-in-canvas';
 
 // Depth-of-field multiplane capture (ADR-0027). The composition is captured as
 // depth-separated planes — the Surface plane (the surface pipeline's output;
@@ -372,10 +373,14 @@ export class CompositionPlanes {
 	#overlayPlaneTexture: GPUTexture;
 	#compositeTexture: GPUTexture;
 	#domFrameCaptureQueue: ReturnType<typeof getDomFrameCaptureQueue>;
+	#device: GPUDevice;
+	// Posed Overlays (ADR-0057) each own a DOM texture and a premultiplied plane
+	// texture, allocated when first captured and released by `retainPosedOverlays`.
+	#posedOverlayTextures = new Map<string, { dom: GPUTexture; plane: GPUTexture }>();
 	// Built in the constructor as closures over the compiled pipelines — same
 	// pattern as `compileEffect` in effect-chain.ts, so TypeGPU's generic
 	// pipeline/buffer types stay inferred rather than named on class fields.
-	#premultiply: () => void;
+	#premultiply: (domTexture: GPUTexture, planeTexture: GPUTexture) => void;
 	#composite: (input: CompositePlanesInput) => void;
 
 	constructor({ host, width, height }: CompositionPlanesOptions) {
@@ -383,6 +388,7 @@ export class CompositionPlanes {
 		this.#height = height;
 
 		const { device, root } = host;
+		this.#device = device;
 
 		this.#overlayDomTexture = device.createTexture({
 			size: [width, height, 1],
@@ -428,19 +434,18 @@ export class CompositionPlanes {
 			})
 			.$usage('uniform');
 
-		const overlayDomTexture = this.#overlayDomTexture;
 		const overlayPlaneTexture = this.#overlayPlaneTexture;
 		const compositeTexture = this.#compositeTexture;
 
-		this.#premultiply = () => {
+		this.#premultiply = (domTexture, planeTexture) => {
 			const bindGroup = root.createBindGroup(premultiplyLayout, {
-				domTexture: overlayDomTexture,
+				domTexture,
 				samp: sampler
 			});
 			premultiplyPipeline
 				.with(bindGroup)
 				.withColorAttachment({
-					view: overlayPlaneTexture.createView(),
+					view: planeTexture.createView(),
 					clearValue: [0, 0, 0, 0],
 					loadOp: 'clear',
 					storeOp: 'store'
@@ -491,7 +496,7 @@ export class CompositionPlanes {
 	 *  back-to-front into the composite texture. Result is premultiplied
 	 *  rgba16float — fed to the effect chain (which presents + dithers). */
 	composite(input: CompositePlanesInput): void {
-		this.#premultiply();
+		this.#premultiply(this.#overlayDomTexture, this.#overlayPlaneTexture);
 		this.#composite(input);
 	}
 
@@ -499,7 +504,60 @@ export class CompositionPlanes {
 	 *  WITHOUT the flat composite — the depth stage (ADR-0028) consumes the
 	 *  plane directly as a 3D quad texture (overlay-at-depth). */
 	premultiplyOverlay(): void {
-		this.#premultiply();
+		this.#premultiply(this.#overlayDomTexture, this.#overlayPlaneTexture);
+	}
+
+	/** Rasterize one posed Overlay's own root — a frame-sized direct canvas
+	 *  child, like the shared Overlay root — into that Overlay's DOM texture
+	 *  (ADR-0057). Allocates the pair on first use, up to the posed-plane limit. */
+	capturePosedOverlay(overlayId: string, element: HTMLElement): void {
+		const textures = this.#ensurePosedOverlayTextures(overlayId);
+		this.#domFrameCaptureQueue.captureElementToTexture(element, this.#width, this.#height, {
+			texture: textures.dom
+		});
+	}
+
+	/** Premultiply one posed Overlay's capture into its plane texture. */
+	premultiplyPosedOverlay(overlayId: string): void {
+		const textures = this.#ensurePosedOverlayTextures(overlayId);
+		this.#premultiply(textures.dom, textures.plane);
+	}
+
+	/** The premultiplied plane of one posed Overlay; null until it was captured. */
+	posedOverlayPlaneTexture(overlayId: string): GPUTexture | null {
+		return this.#posedOverlayTextures.get(overlayId)?.plane ?? null;
+	}
+
+	/** Release the textures of posed Overlays that left the composition. */
+	retainPosedOverlays(overlayIds: readonly string[]): void {
+		const keep = new Set(overlayIds);
+		for (const [overlayId, textures] of this.#posedOverlayTextures) {
+			if (keep.has(overlayId)) continue;
+			textures.dom.destroy();
+			textures.plane.destroy();
+			this.#posedOverlayTextures.delete(overlayId);
+		}
+	}
+
+	#ensurePosedOverlayTextures(overlayId: string): { dom: GPUTexture; plane: GPUTexture } {
+		const existing = this.#posedOverlayTextures.get(overlayId);
+		if (existing) return existing;
+		if (this.#posedOverlayTextures.size >= STAGE_POSED_OVERLAY_LIMIT) {
+			throw new Error(
+				`The depth stage carries at most ${STAGE_POSED_OVERLAY_LIMIT} posed Overlays; "${overlayId}" would be one more. Remove its pose or explicit depth so it shares the Overlay plane.`
+			);
+		}
+		const size: [number, number, number] = [this.#width, this.#height, 1];
+		const textures = {
+			dom: this.#device.createTexture({ size, format: 'rgba8unorm', usage: DOM_TEXTURE_USAGE }),
+			plane: this.#device.createTexture({
+				size,
+				format: INTERMEDIATE_FORMAT,
+				usage: PLANE_TEXTURE_USAGE
+			})
+		};
+		this.#posedOverlayTextures.set(overlayId, textures);
+		return textures;
 	}
 
 	/** The premultiplied overlay plane (transparent where no overlay). Exposed for
@@ -517,5 +575,6 @@ export class CompositionPlanes {
 		this.#overlayDomTexture.destroy();
 		this.#overlayPlaneTexture.destroy();
 		this.#compositeTexture.destroy();
+		this.retainPosedOverlays([]);
 	}
 }

@@ -20,6 +20,7 @@
 	import {
 		renderCompositionFrameTo,
 		shouldSplitCompositionPlanes,
+		type CompositionPosedOverlayRoot,
 		type CompositionFrameRenderRequest,
 		type CompositionFrameRenderResources,
 		type CompositionReadableProbeMode
@@ -100,6 +101,20 @@
 	// `.composition` so it can be captured on its own as the Overlay plane; the
 	// Surface plane is then `.composition` (surface-only). Null otherwise.
 	let overlayRootElement = $state<HTMLElement | null>(null);
+	// The posed Overlays' own capture roots (ADR-0057), keyed by Overlay id;
+	// Composition binds each frame-sized sibling here and nulls it on unmount.
+	let posedOverlayRootElements = $state<Record<string, HTMLElement | null>>({});
+
+	// The mounted posed roots in Layer order — what the frame request, the
+	// readiness wait, and the readable audit all address.
+	function livePosedOverlayRoots(): CompositionPosedOverlayRoot[] {
+		const roots: CompositionPosedOverlayRoot[] = [];
+		for (const overlay of engineState.overlays) {
+			const element = posedOverlayRootElements[overlay.id];
+			if (element) roots.push({ overlayId: overlay.id, element });
+		}
+		return roots;
+	}
 	let canvas = $state.raw<HTMLCanvasElement | null>(null);
 	let host = $state.raw<GpuHost | null>(null);
 	let renderResourceSet = $state.raw<CompositionRenderResourceSet | null>(null);
@@ -421,6 +436,7 @@
 	async function waitForActiveCompositionResources(signal?: AbortSignal): Promise<void> {
 		const localCompositionElement = compositionElement;
 		const localOverlayRootElement = overlayRootElement;
+		const localPosedOverlayRoots = livePosedOverlayRoots();
 		const localHost = host;
 		const localPackSlug = packState.slug;
 		const localPack = getPack(localPackSlug);
@@ -434,7 +450,11 @@
 		}
 		await waitForCompositionResourceReadiness({
 			pack: localPack,
-			roots: [localCompositionElement, localOverlayRootElement],
+			roots: [
+				localCompositionElement,
+				localOverlayRootElement,
+				...localPosedOverlayRoots.map((root) => root.element)
+			],
 			flushDom: tick,
 			waitForStage: () => localStageReadiness.promise,
 			waitForMedia: () => videoUnderlayRuntimeController.waitForReadiness(signal),
@@ -444,9 +464,14 @@
 		if (isWorkspaceDestroyed) {
 			throw new Error('Workspace was destroyed while composition resources were pending.');
 		}
+		const currentPosedOverlayRoots = livePosedOverlayRoots();
 		if (
 			compositionElement !== localCompositionElement ||
-			overlayRootElement !== localOverlayRootElement
+			overlayRootElement !== localOverlayRootElement ||
+			currentPosedOverlayRoots.length !== localPosedOverlayRoots.length ||
+			currentPosedOverlayRoots.some(
+				(root, index) => root.element !== localPosedOverlayRoots[index]?.element
+			)
 		) {
 			throw new Error('Composition roots changed while resource readiness was pending.');
 		}
@@ -495,6 +520,7 @@
 		outputView: GPUTextureView,
 		timestamp: number
 	): CompositionFrameRenderRequest {
+		const posedOverlayRoots = livePosedOverlayRoots();
 		return {
 			outputView,
 			timestamp,
@@ -503,12 +529,19 @@
 			paperVisibility: animState.paperVisibility,
 			compositionElement,
 			overlayRootElement,
+			posedOverlayRoots,
 			substrateTexture: stageSubstrateController.texture(),
 			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
 			readableProbeMode,
 			domCapture: {
 				surface: canvasPaintGenerationTracker.generationFor(compositionElement),
 				overlay: canvasPaintGenerationTracker.generationFor(overlayRootElement),
+				posedOverlays: Object.fromEntries(
+					posedOverlayRoots.map((root) => [
+						root.overlayId,
+						canvasPaintGenerationTracker.generationFor(root.element)
+					])
+				),
 				force: isExporting || forceReadableAuditDomCapture
 			},
 			resources: currentFrameRenderResources(),
@@ -750,8 +783,7 @@
 				}
 				// The `delivery` family exports through this handle, and waits on the
 				// same outcome the Export button produces (ADR-0054 §7).
-				compositionExportHandle.current = ({ request, signal }) =>
-					performExport(request, signal);
+				compositionExportHandle.current = ({ request, signal }) => performExport(request, signal);
 				// The inspector's keyframe rows navigate the playhead through this
 				// handle (prev/next jumps + add-at-playhead).
 				timelineHandle.current = timeline;
@@ -821,6 +853,7 @@
 		const baseAuthority: DeterministicRenderCaptureAuthority = {
 			compositionRoot: localCompositionRoot,
 			overlayRoot: localOverlayRoot,
+			posedOverlayRoots: livePosedOverlayRoots().map((root) => root.element),
 			seekExactFrame: (requestedAddress) =>
 				seekDeterministicTimelineFrame(requestedAddress, {
 					timeline: localTimeline,
@@ -1061,7 +1094,8 @@
 				(candidateId) => candidateId === 'overlay-root' || candidateId.startsWith('overlay:')
 			);
 			for (const candidateId of candidateIds) {
-				if (candidateId === 'composition-root') elements[candidateId] = { x: 0, y: 0, width, height };
+				if (candidateId === 'composition-root')
+					elements[candidateId] = { x: 0, y: 0, width, height };
 			}
 			measureWithin(localOverlayRoot ?? localCompositionRoot, overlayIds);
 			return { elements };
@@ -1400,12 +1434,14 @@
 				bind:element={compositionElement}
 				splitPlanes={planeSplitActive}
 				bind:overlayRootElement
+				bind:posedOverlayRootElements
 			/>
 		</VideoFrame>
 		{#if !deterministicRenderAuditMode}
 			<CanvasEditingOverlay
 				{compositionElement}
 				{overlayRootElement}
+				{posedOverlayRootElements}
 				{canvas}
 				compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
 				{zoom}

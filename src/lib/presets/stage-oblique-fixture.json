@@ -1,7 +1,7 @@
 {
 	"schema": "gfx@1",
 	"name": "Stage oblique fixture",
-	"description": "Verification fixture for the ADR-0057 filmed canvas: the depth-stage-demo construction (paper title card over the Pack field, a lower-third on its own plane at z 0.45) seen through an authored camera pose — low and to the left, aimed a little above centre — with one travel that eases toward square and pulls focus with the aim. Exercises the posed camera rig, the depth-tested plane-basis scene pass, plane-basis rake and cast shadow on a receding page, oblique mip/anisotropic sampling, and the widened depth encoding. The card holds to the end so every sampled frame carries the page. Not a deliverable: kind fixture.",
+	"description": "Verification fixture for the ADR-0057 filmed canvas: the depth-stage-demo construction (paper title card over the Pack field, a lower-third on its own plane at z 0.45, and a second lower-third lifted toward the camera at z -0.18 and posed off-axis) seen through an authored camera pose — low and to the left, aimed a little above centre — with one travel that eases toward square and pulls focus with the aim. Exercises the posed camera rig, the depth-tested plane-basis scene pass, plane-basis rake and cast shadow on a receding page, oblique mip/anisotropic sampling, and the widened depth encoding. The card holds to the end so every sampled frame carries the page. Not a deliverable: kind fixture.",
 	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
@@ -54,6 +54,39 @@
 				},
 				"enter": {
 					"start": 0.06,
+					"duration": 0.058,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.9,
+					"duration": 0.041,
+					"ease": "smooth"
+				}
+			},
+			{
+				"type": "lower-third",
+				"id": "posed-card",
+				"z": -0.18,
+				"pose": {
+					"yaw": 10,
+					"pitch": -3,
+					"roll": 0
+				},
+				"content": {
+					"variant": "standard",
+					"kicker": "POSED",
+					"title": "In front of the page",
+					"subtitle": "Own plane · yaw 10° · z −0.18"
+				},
+				"position": {
+					"anchor": "top-right",
+					"offset": {
+						"x": 0.06,
+						"y": 0.12
+					}
+				},
+				"enter": {
+					"start": 0.12,
 					"duration": 0.058,
 					"ease": "settled"
 				},

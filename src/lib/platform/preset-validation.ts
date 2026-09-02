@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 
 import { validateChartGroupSemantics } from './chart-validation';
-import type { Preset } from './engine-schema';
+import { STAGE_POSED_OVERLAY_LIMIT, type Preset } from './engine-schema';
 import { findPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
 import { PACK_SLUG_PATTERN } from './packs/types';
 import {
@@ -10,6 +10,7 @@ import {
 	getSurfaceDefinition
 } from './pipelines/definition-registry';
 import { getCompositionEffectRegistration } from './pipelines/composition-effect-registry';
+import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 import { getStageRegistration } from './pipelines/stage-registry';
 import {
 	getTransitionEffectDefinition,
@@ -271,6 +272,16 @@ function validateStageSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 		issues.push({
 			path: ['state', 'stage', 'backdrop', 'image', 'asset'],
 			message: `Unknown substrate asset "${asset}"`
+		});
+	}
+	// Each posed Overlay (an explicit z or a pose) rides its own capture plane
+	// (ADR-0057); the stage allocates at most STAGE_POSED_OVERLAY_LIMIT of them.
+	const posed = partitionStageOverlays(preset.state.overlays).posed;
+	if (posed.length > STAGE_POSED_OVERLAY_LIMIT) {
+		const overflow = posed[STAGE_POSED_OVERLAY_LIMIT];
+		issues.push({
+			path: ['state', 'overlays', preset.state.overlays.indexOf(overflow)],
+			message: `The depth stage carries at most ${STAGE_POSED_OVERLAY_LIMIT} posed Overlays (an explicit z or a pose); "${overflow.id}" is one more. Remove its z and pose so it shares the Overlay plane, or remove another posed Overlay.`
 		});
 	}
 }

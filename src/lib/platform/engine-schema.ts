@@ -1061,6 +1061,48 @@ const SurfaceSchema = z.object({
 export const SURFACE_CHROME_MODES = SurfaceSchema.shape.chrome.unwrap().options;
 export type SurfaceChromeMode = (typeof SURFACE_CHROME_MODES)[number];
 
+/**
+ * Authored limits of a pose on the depth stage (ADR-0057) — the camera's and
+ * an Overlay plane's alike: angles in degrees, distance as a fraction of the
+ * shipped rest distance. The schema, the camera rig's travel clamp, and the
+ * inspector all read these.
+ */
+export const STAGE_CAMERA_POSE_LIMITS = {
+	yawDegrees: 60,
+	pitchDegrees: 45,
+	rollDegrees: 30,
+	minDistance: 0.25,
+	maxDistance: 2
+} as const;
+
+/** At most this many Overlays may ride their own posed plane on the depth stage (ADR-0057). */
+export const STAGE_POSED_OVERLAY_LIMIT = 4;
+
+// Signed focal-distance plane (ADR-0021 semantics, signed by ADR-0057): 0 = the
+// Surface plane, 1 = the backdrop, negative = lifted toward the camera.
+const OverlayDepthSchema = z.number().min(-1).max(1);
+
+// The orientation of an Overlay's own plane on the depth stage, degrees about
+// its rendered centre. Positive yaw turns its right edge away from the camera,
+// positive pitch leans its top edge away, positive roll turns it clockwise.
+const OverlayPoseSchema = z.object({
+	yaw: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+		.default(0),
+	pitch: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+		.default(0),
+	roll: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+		.default(0)
+});
+
 const OverlayPlacementSchema = z.object({
 	anchor: z.enum([
 		'top-left',
@@ -1116,12 +1158,17 @@ const OverlaySchema = z.object({
 	// `animation.channels` is present the composition takes the pen: the
 	// overlay's intrinsic motion-form (Identity Spec `motion-form`) does not run.
 	animation: OverlayAnimationSchema.optional(),
-	// Focal-distance plane for depth-of-field (ADR-0021 semantics / ADR-0027 v1).
-	// 0 = focal plane (sharp), 1 = max defocus. Absent → the Overlay-Layer default
-	// (0.7) is applied at render; a per-instance value overrides it so one overlay
-	// can sit nearer the focal plane than another. Only consulted when a
-	// depth-of-field Effect is present; inert otherwise.
-	z: FractionSchema.optional()
+	// Focal-distance plane (ADR-0021 semantics / ADR-0027 v1), SIGNED since
+	// ADR-0057: 0 = the Surface plane, 1 = the backdrop, negative lifts the
+	// Overlay toward the camera (−1 = the full lift). Absent → the Overlay-Layer
+	// default (0.7) at render. The flat multiplane DOF reads |z − focusZ|; on the
+	// depth stage an explicit z gives the Overlay its own posed plane. Inert
+	// without a depth-of-field Effect or a stage.
+	z: OverlayDepthSchema.optional(),
+	// The Overlay's own plane orientation on the depth stage (ADR-0057).
+	// Declaring a pose, like an explicit z, gives the Overlay its own capture
+	// plane; without a stage it is inert.
+	pose: OverlayPoseSchema.optional()
 });
 
 const EffectSchema = z.object({
@@ -1301,19 +1348,6 @@ const TextAnimationsSchema = z
 // at their ADR-0021 z through a perspective camera with a real lens DOF. `type` is an
 // open string validated against the stage registry at load time (like Effect/Overlay
 // types, in preset.ts). Camera + focus drive frame-deterministically off the timeline.
-/**
- * Authored limits of the stage camera pose (ADR-0057): angles in degrees,
- * distance as a fraction of the shipped rest distance. The schema, the camera
- * rig's travel clamp, and the inspector all read these.
- */
-export const STAGE_CAMERA_POSE_LIMITS = {
-	yawDegrees: 60,
-	pitchDegrees: 45,
-	rollDegrees: 30,
-	minDistance: 0.25,
-	maxDistance: 2
-} as const;
-
 // The point on the Surface plane the camera orbits and looks at, in
 // composition fractions (u right, v down). Focus follows it: focusZ 0 keeps the
 // aimed page point sharp.
@@ -1765,6 +1799,7 @@ export type SurfaceState = z.infer<typeof SurfaceSchema>;
 export type SurfaceType = z.infer<typeof SurfaceTypeSchema>;
 export type WebDocumentSite = z.infer<typeof WebDocumentSiteSchema>;
 export type Overlay = z.infer<typeof OverlaySchema>;
+export type OverlayPose = z.infer<typeof OverlayPoseSchema>;
 export type OverlayPlacement = z.infer<typeof OverlayPlacementSchema>;
 export type OverlayPosition = z.infer<typeof OverlayPositionSchema>;
 export type Effect = z.infer<typeof EffectSchema>;

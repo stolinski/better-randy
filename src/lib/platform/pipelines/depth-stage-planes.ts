@@ -1,5 +1,18 @@
+import { mat4, vec4 } from 'wgpu-matrix';
+
+import {
+	STAGE_POSED_OVERLAY_LIMIT,
+	type Overlay,
+	type OverlayPose,
+	type StageCamera
+} from '$lib/platform/engine-schema';
 import { clampNumber } from '$lib/utils/math';
-import { STAGE_BACKDROP_DEPTH, STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import {
+	STAGE_BACKDROP_DEPTH,
+	STAGE_CAM_Z,
+	createStageCameraRig,
+	stagePlaneHalfExtents
+} from './depth-stage-camera';
 
 // Plane geometry of the depth stage (ADR-0057 phase 1). Every captured Layer
 // rides a quad described by one basis — centre, half-width vector, half-height
@@ -35,6 +48,7 @@ export type StagePlaneRole = 'backdrop' | 'surface' | 'overlay';
  */
 export const STAGE_PLANE_CEILINGS = {
 	maxPlanes: 8,
+	maxPosedOverlayPlanes: STAGE_POSED_OVERLAY_LIMIT,
 	maxCasters: 4,
 	maxMippedPlanes: 4,
 	maxPlaneTextureBytes: 512 * 1024 * 1024,
@@ -55,6 +69,7 @@ export class StagePlaneCeilingError extends Error {
 
 export interface StagePlaneBudget {
 	planeCount: number;
+	posedOverlayPlaneCount: number;
 	mippedPlaneCount: number;
 	textureBytes: number;
 	mipPasses: number;
@@ -64,6 +79,9 @@ export interface StagePlaneBudget {
 export function assertStagePlaneCeilings(budget: StagePlaneBudget): void {
 	if (budget.planeCount > STAGE_PLANE_CEILINGS.maxPlanes) {
 		throw new StagePlaneCeilingError('maxPlanes', budget.planeCount);
+	}
+	if (budget.posedOverlayPlaneCount > STAGE_PLANE_CEILINGS.maxPosedOverlayPlanes) {
+		throw new StagePlaneCeilingError('maxPosedOverlayPlanes', budget.posedOverlayPlaneCount);
 	}
 	if (budget.mippedPlaneCount > STAGE_PLANE_CEILINGS.maxMippedPlanes) {
 		throw new StagePlaneCeilingError('maxMippedPlanes', budget.mippedPlaneCount);
@@ -196,9 +214,104 @@ export function selectStagePlaneCasters<T extends { basis: StagePlaneBasis }>(
 		.map((entry) => entry.candidate);
 }
 
-/** Composition fraction (u right, v down) of the Overlay plane's ADR-0021 depth, world units behind the Surface. */
+/** World units an Overlay lifts toward the camera at z = −1 (ADR-0057). */
+export const STAGE_LIFT_DEPTH = 1;
+
+/**
+ * An Overlay's signed ADR-0021 depth as world units behind the Surface plane:
+ * 0..1 spans the gap to the backdrop, a negative z lifts toward the camera by
+ * up to `STAGE_LIFT_DEPTH`.
+ */
 export function stageOverlayPlaneDepth(overlayZ: number): number {
-	return clampNumber(overlayZ, 0, 1) * STAGE_BACKDROP_DEPTH;
+	const z = clampNumber(overlayZ, -1, 1);
+	return z >= 0 ? z * STAGE_BACKDROP_DEPTH : z * STAGE_LIFT_DEPTH;
+}
+
+/** An Overlay with a pose or an explicit depth rides its own plane on the depth stage. */
+export function isPosedStageOverlay(overlay: Overlay): boolean {
+	return overlay.pose !== undefined || overlay.z !== undefined;
+}
+
+export interface StageOverlayPartition {
+	/** Overlays that share the merged Overlay plane at the Layer default depth. */
+	shared: Overlay[];
+	/** Overlays that ride their own posed plane, in Layer order. */
+	posed: Overlay[];
+}
+
+/** Split a composition's Overlays into the shared plane and the posed planes. */
+export function partitionStageOverlays(overlays: readonly Overlay[]): StageOverlayPartition {
+	const shared: Overlay[] = [];
+	const posed: Overlay[] = [];
+	for (const overlay of overlays) (isPosedStageOverlay(overlay) ? posed : shared).push(overlay);
+	return { shared, posed };
+}
+
+/** A point on a plane in composition fractions (u right, v down — capture UV space). */
+export interface StagePlanePivot {
+	x: number;
+	y: number;
+}
+
+function rotateAboutY(v: StagePlaneVector, radians: number): StagePlaneVector {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
+}
+
+function rotateAboutX(v: StagePlaneVector, radians: number): StagePlaneVector {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c];
+}
+
+function rotateAboutZ(v: StagePlaneVector, radians: number): StagePlaneVector {
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+}
+
+/**
+ * A posed Overlay plane: the frame-sized quad at the Overlay's signed depth,
+ * rotated about the Overlay's own rendered centre (`pivot`) so the card turns
+ * in place. Positive yaw turns the right edge away from the camera, positive
+ * pitch leans the top edge away, positive roll turns the card clockwise on
+ * screen. A zero pose is exactly the frontal plane.
+ */
+export function createPosedOverlayPlaneBasis(
+	aspect: number,
+	overlayZ: number,
+	pose: OverlayPose | undefined,
+	pivot: StagePlanePivot
+): StagePlaneBasis {
+	const frontal = createFrontalStagePlaneBasis(aspect, stageOverlayPlaneDepth(overlayZ));
+	if (!pose || (pose.yaw === 0 && pose.pitch === 0 && pose.roll === 0)) return frontal;
+	const yaw = (pose.yaw * Math.PI) / 180;
+	const pitch = (pose.pitch * Math.PI) / 180;
+	const roll = (pose.roll * Math.PI) / 180;
+	const rotate = (v: StagePlaneVector): StagePlaneVector =>
+		rotateAboutY(rotateAboutX(rotateAboutZ(v, -roll), -pitch), yaw);
+	const { halfW, halfH } = stagePlaneHalfLengths(frontal);
+	const pivotWorld: StagePlaneVector = [
+		(2 * pivot.x - 1) * halfW,
+		(1 - 2 * pivot.y) * halfH,
+		frontal.origin[2]
+	];
+	const centreOffset = rotate([
+		frontal.origin[0] - pivotWorld[0],
+		frontal.origin[1] - pivotWorld[1],
+		frontal.origin[2] - pivotWorld[2]
+	]);
+	return {
+		origin: [
+			pivotWorld[0] + centreOffset[0],
+			pivotWorld[1] + centreOffset[1],
+			pivotWorld[2] + centreOffset[2]
+		],
+		u: rotate(frontal.u),
+		v: rotate(frontal.v),
+		normal: rotate(frontal.normal)
+	};
 }
 
 function dot(a: StagePlaneVector, b: StagePlaneVector): number {
@@ -207,4 +320,146 @@ function dot(a: StagePlaneVector, b: StagePlaneVector): number {
 
 function vectorLength(v: StagePlaneVector): number {
 	return Math.hypot(v[0], v[1], v[2]);
+}
+
+function subtractVectors(a: StagePlaneVector, b: StagePlaneVector): StagePlaneVector {
+	return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function addVectors(a: StagePlaneVector, b: StagePlaneVector): StagePlaneVector {
+	return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+
+function scaleVector(v: StagePlaneVector, s: number): StagePlaneVector {
+	return [v[0] * s, v[1] * s, v[2] * s];
+}
+
+// ---------------- Projection between composition planes and the frame ----------------
+
+/** A posed Overlay plane the projector must reproduce (the renderer builds the same basis). */
+export interface StageProjectorPosedOverlay {
+	overlayId: string;
+	z: number;
+	pose?: OverlayPose;
+	pivot: StagePlanePivot;
+}
+
+export interface StageProjectorInput {
+	/** Frame aspect (width / height). */
+	aspect: number;
+	camera: StageCamera;
+	/** The shared Overlay plane's depth (ADR-0021 scalar): 0 ⇒ the Surface plane, 1 ⇒ backdrop. */
+	overlayZ: number;
+	/** Overlays riding their own posed plane, keyed `overlay:<id>` in `StagePlane`. */
+	posedOverlayPlanes?: readonly StageProjectorPosedOverlay[];
+	/** Clip progress 0..1 — the same frame-deterministic time the renderer gets. */
+	time: number;
+}
+
+/** Which captured plane a composition point lives on: the Surface, the shared
+ *  Overlay plane, or one posed Overlay's own plane. */
+export type StagePlane = 'surface' | 'overlay' | `overlay:${string}`;
+
+/** The plane key of one Overlay's own posed plane. */
+export function posedOverlayStagePlane(overlayId: string): StagePlane {
+	return `overlay:${overlayId}`;
+}
+
+export interface StageProjector {
+	/** Composition fraction (u right, v down — capture UV space) → frame
+	 *  fraction under the staged camera. */
+	projectPoint(plane: StagePlane, u: number, v: number): { x: number; y: number };
+	/** Frame fraction → composition fraction: ray-cast the click through the
+	 *  camera onto the plane. Null only if the ray runs parallel to the plane. */
+	raycastPoint(plane: StagePlane, fx: number, fy: number): { x: number; y: number } | null;
+}
+
+/** Build the forward + inverse mapping between composition space and the
+ *  rendered frame for the depth stage's plane geometry at one instant. A
+ *  posed plane the input does not describe falls back to the shared Overlay
+ *  plane, so an editor asking about a just-removed pose still gets an answer. */
+export function createStageProjector(input: StageProjectorInput): StageProjector {
+	const rig = createStageCameraRig({
+		aspect: input.aspect,
+		camera: input.camera,
+		time: input.time
+	});
+	const { viewProjection } = rig;
+	const inverseViewProjection = mat4.invert(viewProjection) as Float32Array;
+
+	const bases = new Map<StagePlane, StagePlaneBasis>();
+	bases.set('surface', createFrontalStagePlaneBasis(input.aspect, 0));
+	bases.set(
+		'overlay',
+		createFrontalStagePlaneBasis(
+			input.aspect,
+			stageOverlayPlaneDepth(Math.min(1, Math.max(0, input.overlayZ)))
+		)
+	);
+	for (const posed of input.posedOverlayPlanes ?? []) {
+		bases.set(
+			posedOverlayStagePlane(posed.overlayId),
+			createPosedOverlayPlaneBasis(input.aspect, posed.z, posed.pose, posed.pivot)
+		);
+	}
+	const basisFor = (plane: StagePlane): StagePlaneBasis =>
+		bases.get(plane) ?? bases.get('overlay')!;
+
+	return {
+		projectPoint(plane, u, v) {
+			const { origin, u: axisU, v: axisV } = basisFor(plane);
+			// Capture UV → the plane's world point (the plane quad maps uv 0..1
+			// across its ±half-extents, v downward).
+			const su = 2 * u - 1;
+			const sv = 1 - 2 * v;
+			const world = vec4.transformMat4(
+				[
+					origin[0] + su * axisU[0] + sv * axisV[0],
+					origin[1] + su * axisU[1] + sv * axisV[1],
+					origin[2] + su * axisU[2] + sv * axisV[2],
+					1
+				],
+				viewProjection
+			);
+			return { x: (world[0] / world[3] + 1) / 2, y: (1 - world[1] / world[3]) / 2 };
+		},
+		raycastPoint(plane, fx, fy) {
+			const basis = basisFor(plane);
+			const hit = intersectFrameRayWithPlane(inverseViewProjection, fx, fy, basis);
+			if (!hit) {
+				return null;
+			}
+			return { x: (hit.u + 1) / 2, y: (1 - hit.v) / 2 };
+		}
+	};
+}
+
+// Unproject a frame point at both WebGPU clip depths into a world ray and
+// intersect it with a plane basis, returning the hit in the plane's local
+// ±1 coordinates. Null only when the ray runs parallel to the plane.
+function intersectFrameRayWithPlane(
+	inverseViewProjection: Float32Array,
+	fx: number,
+	fy: number,
+	basis: StagePlaneBasis
+): { u: number; v: number } | null {
+	const ndcX = 2 * fx - 1;
+	const ndcY = 1 - 2 * fy;
+	const near = vec4.transformMat4([ndcX, ndcY, 0, 1], inverseViewProjection);
+	const far = vec4.transformMat4([ndcX, ndcY, 1, 1], inverseViewProjection);
+	const n: StagePlaneVector = [near[0] / near[3], near[1] / near[3], near[2] / near[3]];
+	const f: StagePlaneVector = [far[0] / far[3], far[1] / far[3], far[2] / far[3]];
+	const direction = subtractVectors(f, n);
+	const denominator = dot(direction, basis.normal);
+	if (Math.abs(denominator) < 1e-8) {
+		return null;
+	}
+	const t = dot(subtractVectors(basis.origin, n), basis.normal) / denominator;
+	const hit = addVectors(n, scaleVector(direction, t));
+	const local = subtractVectors(hit, basis.origin);
+	const { halfW, halfH } = stagePlaneHalfLengths(basis);
+	// Unit axes keep the frontal case bit-identical to a plain divide by the half-extent.
+	const unitU = scaleVector(basis.u, 1 / halfW);
+	const unitV = scaleVector(basis.v, 1 / halfH);
+	return { u: dot(local, unitU) / halfW, v: dot(local, unitV) / halfH };
 }

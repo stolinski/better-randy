@@ -571,6 +571,8 @@ export interface DeterministicTransitionEndpointManifest {
 export interface DeterministicRenderCaptureAuthority {
 	compositionRoot: HTMLElement;
 	overlayRoot: HTMLElement | null;
+	/** The posed Overlays' own roots on the depth stage (ADR-0057); readable text lives there too. */
+	posedOverlayRoots?: readonly HTMLElement[];
 	seekExactFrame(request: DeterministicFrameRequest): Promise<DeterministicSettledFrame>;
 	captureTransitionEndpointManifests?(
 		settled: DeterministicSettledFrame
@@ -606,6 +608,7 @@ export function exposeDeterministicRenderAudit(
 		const manifest = await captureDeterministicRenderRegionManifest(state, settled, {
 			compositionRoot: authority.compositionRoot,
 			overlayRoot: authority.overlayRoot,
+			posedOverlayRoots: authority.posedOverlayRoots,
 			captureReadableCompositedMasks: includePixelMasks
 				? authority.captureReadableCompositedMasks
 				: undefined
@@ -821,12 +824,22 @@ function clippingRectForElement(
 	return clippingRect;
 }
 
+/** Every Overlay root the audit walks: the shared root plus each posed Overlay's own. */
+function overlayRootsOf(
+	authority: Pick<DeterministicRenderCaptureAuthority, 'overlayRoot' | 'posedOverlayRoots'>
+): HTMLElement[] {
+	return [
+		...(authority.overlayRoot ? [authority.overlayRoot] : []),
+		...(authority.posedOverlayRoots ?? [])
+	];
+}
+
 function compositionElements(
 	compositionRoot: HTMLElement,
-	overlayRoot: HTMLElement | null,
+	overlayRoots: readonly HTMLElement[],
 	selector: string
 ): HTMLElement[] {
-	const roots = overlayRoot ? [compositionRoot, overlayRoot] : [compositionRoot];
+	const roots = [compositionRoot, ...overlayRoots];
 	return roots.flatMap((root) => [
 		...(root.matches(selector) ? [root] : []),
 		...root.querySelectorAll<HTMLElement>(selector)
@@ -1132,7 +1145,7 @@ export async function captureDeterministicRenderRegionManifest(
 	settled: DeterministicSettledFrame,
 	authority: Pick<
 		DeterministicRenderCaptureAuthority,
-		'compositionRoot' | 'overlayRoot' | 'captureReadableCompositedMasks'
+		'compositionRoot' | 'overlayRoot' | 'posedOverlayRoots' | 'captureReadableCompositedMasks'
 	>
 ): Promise<DeterministicRenderRegionManifest> {
 	await document.fonts.ready;
@@ -1147,17 +1160,12 @@ export async function captureDeterministicRenderRegionManifest(
 	}
 	const frameSize = getVideoFrameSize(state.transport.orientation);
 	const frame = { x: 0, y: 0, width: frameSize.width, height: frameSize.height };
-	const rootElements = authority.overlayRoot
-		? [authority.compositionRoot, authority.overlayRoot]
-		: [authority.compositionRoot];
+	const overlayRoots = overlayRootsOf(authority);
+	const rootElements = [authority.compositionRoot, ...overlayRoots];
 	const nativeRoots = rootElements.map((root) => nativeRootGeometry(root, frame));
 	const candidates = [
 		...new Set([
-			...compositionElements(
-				authority.compositionRoot,
-				authority.overlayRoot,
-				READABLE_AUDIT_SELECTOR
-			),
+			...compositionElements(authority.compositionRoot, overlayRoots, READABLE_AUDIT_SELECTOR),
 			...foundDocumentTextOwners(rootElements)
 		])
 	].filter((element) => {
@@ -1268,11 +1276,7 @@ export async function captureDeterministicRenderRegionManifest(
 	});
 	let unownedShadowCount = 0;
 	const ownedShadowIds: string[] = [];
-	for (const element of compositionElements(
-		authority.compositionRoot,
-		authority.overlayRoot,
-		'*'
-	)) {
+	for (const element of compositionElements(authority.compositionRoot, overlayRoots, '*')) {
 		const style = getComputedStyle(element);
 		const rect = nativeRectForElement(element, nativeRoots);
 		if (rect.width <= 0 || rect.height <= 0) continue;

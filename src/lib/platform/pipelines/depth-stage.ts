@@ -1,7 +1,11 @@
 import tgpu, { d } from 'typegpu';
 import { mat4 } from 'wgpu-matrix';
 
-import type { StageCamera } from '$lib/platform/engine-schema';
+import {
+	STAGE_POSED_OVERLAY_LIMIT,
+	type OverlayPose,
+	type StageCamera
+} from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import {
@@ -27,6 +31,7 @@ import {
 	assertStagePlaneCeilings,
 	createBackdropStagePlaneBasis,
 	createFrontalStagePlaneBasis,
+	createPosedOverlayPlaneBasis,
 	selectStagePlaneCasters,
 	sortStagePlanesBackToFront,
 	stageOverlayPlaneDepth,
@@ -34,6 +39,7 @@ import {
 	stagePlaneModelMatrix,
 	stagePlaneTextureBytes,
 	type StagePlaneBasis,
+	type StagePlanePivot,
 	type StagePlaneRole
 } from './depth-stage-planes';
 
@@ -350,6 +356,18 @@ export interface DepthStageOptions {
 	height: number;
 }
 
+/** One Overlay riding its own posed plane (ADR-0057). */
+export interface DepthStagePosedOverlayPlane {
+	overlayId: string;
+	/** The Overlay's premultiplied capture (its own frame-sized root). */
+	planeView: GPUTextureView;
+	/** Signed ADR-0021 depth: 0 the Surface plane, 1 the backdrop, negative toward the camera. */
+	z: number;
+	pose?: OverlayPose;
+	/** The Overlay's rendered centre in composition fractions — the plane turns about it. */
+	pivot: StagePlanePivot;
+}
+
 export interface DepthStageInput {
 	/** The Surface pipeline's premultiplied composition output (surface-only while
 	 *  the Composition plane-split is on). Placed on the near plane. */
@@ -369,6 +387,10 @@ export interface DepthStageInput {
 	/** Overlay plane depth (ADR-0021 scalar): 0 ⇒ the Surface plane's distance,
 	 *  1 ⇒ the backdrop's. Defaults to 0.7, the Overlay Layer default. */
 	overlayZ?: number;
+	/** Overlays riding their own posed plane (ADR-0057): each capture placed at
+	 *  its signed z and turned by its pose about its rendered centre. The shared
+	 *  `overlayPlaneView` carries the rest. */
+	posedOverlayPlanes?: readonly DepthStagePosedOverlayPlane[];
 	/** Backdrop plane colour (rgb 0..1) — used when no backdrop image is given. */
 	backdropColor: [number, number, number];
 	/** Optional image substrate (dex p20) for the backdrop plane: a resident GPU
@@ -409,6 +431,8 @@ interface StagePlaneDraw {
 	fade: number;
 	darken: number;
 	castStrength: number;
+	/** Which uniform buffer of the fixed pool this plane writes. */
+	bufferIndex: number;
 }
 
 interface StageMipCopy {
@@ -513,14 +537,13 @@ export class DepthStage {
 			casterV: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 1, 0, 1)),
 			casterNormal: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 0, 1, 0))
 		});
-		const planeBuffers: Record<StagePlaneRole, ReturnType<typeof createPlaneBuffer>> = {
-			backdrop: createPlaneBuffer(),
-			surface: createPlaneBuffer(),
-			overlay: createPlaneBuffer()
-		};
-		function createPlaneBuffer() {
-			return root.createBuffer(StagePlaneUniforms, planeRest()).$usage('uniform');
-		}
+		// A fixed pool: backdrop, Surface, the shared Overlay plane, then one per
+		// posed Overlay up to the limit.
+		const POSED_BUFFER_OFFSET = 3;
+		const planeBuffers = Array.from(
+			{ length: POSED_BUFFER_OFFSET + STAGE_POSED_OVERLAY_LIMIT },
+			() => root.createBuffer(StagePlaneUniforms, planeRest()).$usage('uniform')
+		);
 		const dofUniform = root
 			.createBuffer(DofUniforms, {
 				params: d.vec4f(0, 0, maxCoc, 0),
@@ -694,11 +717,13 @@ export class DepthStage {
 					: source;
 			};
 
-			// Plane list in Layer order (backdrop, Surface, Overlay); the passes
-			// re-sort back to front, keeping this order at equal depth.
+			// Plane list in Layer order (backdrop, Surface, shared Overlay plane,
+			// posed Overlays); the passes re-sort back to front, keeping this order
+			// at equal depth.
 			const backdropView = input.backdropTextureView ?? input.surfacePlaneView;
 			const planes: StagePlaneDraw[] = [
 				{
+					bufferIndex: 0,
 					role: 'backdrop',
 					basis: createBackdropStagePlaneBasis(aspect, backdropCover),
 					planeView: backdropTextured ? planeSourceView('backdrop', backdropView) : backdropView,
@@ -710,6 +735,7 @@ export class DepthStage {
 					castStrength: 0
 				},
 				{
+					bufferIndex: 1,
 					role: 'surface',
 					basis: createFrontalStagePlaneBasis(aspect, 0),
 					planeView: planeSourceView('surface', input.surfacePlaneView),
@@ -724,6 +750,7 @@ export class DepthStage {
 			if (input.overlayPlaneView) {
 				const overlayDepth = stageOverlayPlaneDepth(input.overlayZ ?? 0.7);
 				planes.push({
+					bufferIndex: 2,
 					role: 'overlay',
 					basis: createFrontalStagePlaneBasis(aspect, overlayDepth),
 					planeView: input.overlayPlaneView,
@@ -735,9 +762,27 @@ export class DepthStage {
 					castStrength: shadowStrength
 				});
 			}
+			const posedOverlayPlanes = input.posedOverlayPlanes ?? [];
+			posedOverlayPlanes.forEach((posed, index) => {
+				if (index >= STAGE_POSED_OVERLAY_LIMIT) return;
+				planes.push({
+					bufferIndex: POSED_BUFFER_OFFSET + index,
+					role: 'overlay',
+					basis: createPosedOverlayPlaneBasis(aspect, posed.z, posed.pose, posed.pivot),
+					planeView: posed.planeView,
+					casterView: posed.planeView,
+					textured: true,
+					discardTransparent: true,
+					fade: 1,
+					darken: 0,
+					castStrength: shadowStrength
+				});
+			});
 			const sceneMipPasses = input.aperture > 0.001 ? mipLevels - 1 : 0;
 			assertStagePlaneCeilings({
-				planeCount: planes.length,
+				planeCount:
+					planes.length + Math.max(0, posedOverlayPlanes.length - STAGE_POSED_OVERLAY_LIMIT),
+				posedOverlayPlaneCount: posedOverlayPlanes.length,
 				mippedPlaneCount,
 				textureBytes,
 				mipPasses: mipPasses + sceneMipPasses
@@ -779,7 +824,7 @@ export class DepthStage {
 						? d.vec4f(caster.basis.normal[0], caster.basis.normal[1], caster.basis.normal[2], 0)
 						: d.vec4f(0, 0, 1, 0)
 				);
-				const buffer = planeBuffers[plane.role];
+				const buffer = planeBuffers[plane.bufferIndex];
 				buffer.write({
 					mvp: toMat4(
 						mat4.multiply(rig.viewProjection, stagePlaneModelMatrix(plane.basis)) as Float32Array

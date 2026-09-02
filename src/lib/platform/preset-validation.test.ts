@@ -284,3 +284,38 @@ describe('Pack semantic validation (ADR-0055 two-source chain)', () => {
 		assert.match(issues[0].message, /not loaded from the User Pack store/);
 	});
 });
+
+describe('depth stage posed Overlay limit (ADR-0057)', () => {
+	function stagedPreset(posedCount: number): Preset {
+		const state = createDefaultEngineState();
+		state.stage = {
+			type: 'depth',
+			camera: { move: 'static', amount: 0.5, ease: 'smooth' },
+			focus: { focusZ: 0, aperture: 0.5, band: 0 }
+		};
+		state.overlays = Array.from({ length: posedCount + 1 }, (_, index) => ({
+			type: 'lower-third',
+			id: `card-${index}`,
+			content: { variant: 'standard', title: `Card ${index}` },
+			position: { anchor: 'bottom-left' },
+			...(index < posedCount ? { z: -0.1 * (index + 1) } : {})
+		}));
+		return { schema: 'gfx@1', name: 'posed', pack: 'syntax', kind: 'fixture', state };
+	}
+
+	it('accepts four posed Overlays plus a shared one', () => {
+		const issues = validatePresetSemantics(stagedPreset(4));
+		assert.equal(
+			issues.some((issue) => issue.message.includes('posed Overlays')),
+			false
+		);
+	});
+
+	it('refuses the fifth posed Overlay by name and index', () => {
+		const issues = validatePresetSemantics(stagedPreset(5));
+		const posedIssue = issues.find((issue) => issue.message.includes('posed Overlays'));
+		assert.ok(posedIssue, 'reports the limit');
+		assert.deepEqual(posedIssue.path, ['state', 'overlays', 4]);
+		assert.ok(posedIssue.message.includes('"card-4"'));
+	});
+});

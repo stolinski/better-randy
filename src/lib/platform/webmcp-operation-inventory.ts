@@ -1128,7 +1128,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'placement',
 		toolName: 'gfx_placement_set_overlay_depth',
 		summary:
-			"Set one Overlay's focal distance, from sharp at the focal plane to fully defocused. Inert without a depth-of-field Effect.",
+			"Set one Overlay's depth: 0 at the Surface plane, 1 at the backdrop, negative lifted toward the camera. On the depth stage an explicit depth gives the Overlay its own plane; inert without a depth-of-field Effect or a stage.",
 		effect: 'write',
 		writes: ['/state/overlays/*/z'],
 		precondition: 'overlay-present',
