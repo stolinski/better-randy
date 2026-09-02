@@ -32,6 +32,7 @@ function makePreset(partial: {
 	surface?: Record<string, unknown>;
 	overlays?: unknown[];
 	timings?: unknown[];
+	stage?: Record<string, unknown>;
 }): Preset {
 	return {
 		schema: 'gfx@1',
@@ -50,9 +51,30 @@ function makePreset(partial: {
 			textAnimations: [],
 			overlays: partial.overlays ?? [],
 			effects: [],
-			audioCues: []
+			audioCues: [],
+			...(partial.stage ? { stage: partial.stage } : {})
 		}
 	} as unknown as Preset;
+}
+
+function filmedPagePreset(camera: Record<string, unknown>): Preset {
+	return makePreset({
+		surface: {
+			type: 'website-screenshot',
+			variant: 'filmed',
+			content: {
+				body: '',
+				sourceUrl: 'https://www.youtube.com/@syntaxfm/videos',
+				captureAsset: 'syntax-youtube-videos'
+			},
+			pageAnchor: { x: 0.5, y: 0.45 }
+		},
+		stage: {
+			type: 'depth',
+			camera: { move: 'static', amount: 0.5, ease: 'smooth', ...camera },
+			focus: { focusZ: 0, aperture: 0.5, band: 0.05 }
+		}
+	});
 }
 
 function rules(issues: RubricIssue[]): string[] {
@@ -235,6 +257,39 @@ describe('preset rubric', () => {
 
 		const websiteIssues = lintPreset(preset).filter((issue) => issue.rule.startsWith('WS'));
 		assert.deepEqual(websiteIssues, []);
+	});
+
+	it('holds a filmed page in shot across the move in both orientations (WS7)', () => {
+		const framed = filmedPagePreset({
+			pose: { yaw: -18, pitch: 6, roll: 0, distance: 0.5, aim: { x: 0.5, y: 0.5 } },
+			travel: {
+				to: { yaw: -12, pitch: 4, distance: 0.46, aim: { x: 0.45, y: 0.52 } },
+				start: 0,
+				duration: 0.85,
+				ease: 'smooth'
+			}
+		});
+		assert.deepEqual(
+			lintPreset(framed).filter((issue) => issue.rule.startsWith('WS')),
+			[],
+			'the browser-plate rules never apply to the filmed framing'
+		);
+
+		const pastTheEdge = filmedPagePreset({
+			pose: { yaw: -20, pitch: 6, roll: 0, distance: 0.5, aim: { x: 0.9, y: 0.4 } }
+		});
+		const issues = lintPreset(pastTheEdge).filter((issue) => issue.rule === 'WS7');
+		assert.equal(issues.length, 2, 'reported once per orientation');
+		assert.equal(issues[0].path, 'state.stage.camera');
+		assert.match(issues[0].message, /horizontal/);
+		assert.match(issues[1].message, /vertical/);
+
+		// The rest camera fills the frame with the page exactly; a flat, pulled-back
+		// filmed page is still in shot.
+		assert.deepEqual(
+			lintPreset(filmedPagePreset({})).filter((issue) => issue.rule === 'WS7'),
+			[]
+		);
 	});
 
 	it('enforces timing guardrails and reports cascade cycles', () => {

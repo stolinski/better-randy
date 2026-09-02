@@ -164,8 +164,12 @@
 		inset: 0;
 	}
 
+	/* The capture is laid at native density and is wider than the frame;
+	   Graffiti's `img { max-inline-size: 100% }` reset would clamp it to the
+	   frame width and squash it. */
 	.website-screenshot--filmed img {
 		display: block;
+		max-inline-size: none;
 		position: absolute;
 	}
 

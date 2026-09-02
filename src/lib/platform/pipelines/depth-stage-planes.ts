@@ -11,14 +11,16 @@ import {
 	STAGE_BACKDROP_DEPTH,
 	STAGE_CAM_Z,
 	createStageCameraRig,
-	stagePlaneHalfExtents
+	stageCameraFrameRay,
+	stagePlaneHalfExtents,
+	type StageCameraRig
 } from './depth-stage-camera';
 
 // Plane geometry of the depth stage (ADR-0057 phase 1). Every captured Layer
 // rides a quad described by one basis — centre, half-width vector, half-height
 // vector, unit normal — in stage world space. The shipped frontal planes are
-// the axis-aligned special case; posed Overlay planes (the next leaf) build
-// their basis from a placement and a pose. The scene pass, the received rake,
+// the axis-aligned special case; posed Overlay planes build their basis from
+// the camera's frame and a pose. The scene pass, the received rake,
 // the cast-shadow march, and the projector all read the same basis, so a
 // tilted plane is lit, shadowed, and hit-tested exactly like a frontal one.
 
@@ -271,46 +273,94 @@ function rotateAboutZ(v: StagePlaneVector, radians: number): StagePlaneVector {
 	return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
 }
 
+export interface PosedOverlayPlaneInput {
+	/** The camera at this instant — the plane is placed in its frame. */
+	rig: StageCameraRig;
+	/** Frame aspect (width / height). */
+	aspect: number;
+	/** The Overlay's signed depth (ADR-0021 scalar, signed by ADR-0057). */
+	overlayZ: number;
+	pose: OverlayPose | undefined;
+	/** The Overlay's rendered centre in frame fractions (u right, v down). */
+	pivot: StagePlanePivot;
+}
+
 /**
- * A posed Overlay plane: the frame-sized quad at the Overlay's signed depth,
- * rotated about the Overlay's own rendered centre (`pivot`) so the card turns
- * in place. Positive yaw turns the right edge away from the camera, positive
- * pitch leans the top edge away, positive roll turns the card clockwise on
- * screen. A zero pose is exactly the frontal plane.
+ * A posed Overlay plane, placed in the camera's frame (ADR-0057): the
+ * Overlay's placement means what it means everywhere else in GFX — where the
+ * element sits in the delivered frame — so the camera ray through the
+ * Overlay's rendered centre (`pivot`) is cast onto the page-parallel plane at
+ * the Overlay's signed depth, and the frame-sized quad is sized to subtend the
+ * frame at that axial distance so the Overlay keeps its authored size. The
+ * pose then turns the quad about that centre relative to the Surface plane:
+ * positive yaw turns the right edge away from the page's front, positive
+ * pitch leans the top edge away, positive roll turns the card clockwise. Under
+ * the shipped frontal camera this is the frontal plane at the Overlay's depth;
+ * under a posed camera the Overlay stays where the author put it in frame
+ * while the page moves behind it, so safe areas hold and a lower-third stays a
+ * lower-third. When the ray through the pivot never reaches the plane (an
+ * extreme pose looking past it) the quad falls back to the world-fixed frontal
+ * plane rather than inventing a position.
  */
-export function createPosedOverlayPlaneBasis(
-	aspect: number,
-	overlayZ: number,
-	pose: OverlayPose | undefined,
-	pivot: StagePlanePivot
-): StagePlaneBasis {
-	const frontal = createFrontalStagePlaneBasis(aspect, stageOverlayPlaneDepth(overlayZ));
-	if (!pose || (pose.yaw === 0 && pose.pitch === 0 && pose.roll === 0)) return frontal;
+export function createPosedOverlayPlaneBasis({
+	rig,
+	aspect,
+	overlayZ,
+	pose,
+	pivot
+}: PosedOverlayPlaneInput): StagePlaneBasis {
+	const depth = stageOverlayPlaneDepth(overlayZ);
+	const planeZ = -depth;
+	const ray = stageCameraFrameRay(rig, aspect, pivot.x, pivot.y);
+	const axial = Math.abs(ray[2]) > 1e-8 ? (planeZ - rig.eye[2]) / ray[2] : Number.NaN;
+	const unposed: StagePlaneBasis =
+		axial > 0
+			? framedPlaneBasis(rig, aspect, axial, ray, planeZ, pivot)
+			: createFrontalStagePlaneBasis(aspect, depth);
+	if (!pose || (pose.yaw === 0 && pose.pitch === 0 && pose.roll === 0)) return unposed;
 	const yaw = (pose.yaw * Math.PI) / 180;
 	const pitch = (pose.pitch * Math.PI) / 180;
 	const roll = (pose.roll * Math.PI) / 180;
 	const rotate = (v: StagePlaneVector): StagePlaneVector =>
 		rotateAboutY(rotateAboutX(rotateAboutZ(v, -roll), -pitch), yaw);
-	const { halfW, halfH } = stagePlaneHalfLengths(frontal);
+	const pivotWorld = addVectors(
+		unposed.origin,
+		addVectors(scaleVector(unposed.u, 2 * pivot.x - 1), scaleVector(unposed.v, 1 - 2 * pivot.y))
+	);
+	const centreOffset = rotate(subtractVectors(unposed.origin, pivotWorld));
+	return {
+		origin: addVectors(pivotWorld, centreOffset),
+		u: rotate(unposed.u),
+		v: rotate(unposed.v),
+		normal: rotate(unposed.normal)
+	};
+}
+
+// The page-parallel, frame-subtending quad whose `pivot` fraction sits where
+// the camera ray meets the plane at `planeZ`, `axial` camera units from the eye.
+function framedPlaneBasis(
+	rig: StageCameraRig,
+	aspect: number,
+	axial: number,
+	ray: StagePlaneVector,
+	planeZ: number,
+	pivot: StagePlanePivot
+): StagePlaneBasis {
+	const { halfW, halfH } = stagePlaneHalfExtents(axial, aspect);
 	const pivotWorld: StagePlaneVector = [
-		(2 * pivot.x - 1) * halfW,
-		(1 - 2 * pivot.y) * halfH,
-		frontal.origin[2]
+		rig.eye[0] + ray[0] * axial,
+		rig.eye[1] + ray[1] * axial,
+		planeZ
 	];
-	const centreOffset = rotate([
-		frontal.origin[0] - pivotWorld[0],
-		frontal.origin[1] - pivotWorld[1],
-		frontal.origin[2] - pivotWorld[2]
-	]);
 	return {
 		origin: [
-			pivotWorld[0] + centreOffset[0],
-			pivotWorld[1] + centreOffset[1],
-			pivotWorld[2] + centreOffset[2]
+			pivotWorld[0] - (2 * pivot.x - 1) * halfW,
+			pivotWorld[1] - (1 - 2 * pivot.y) * halfH,
+			planeZ
 		],
-		u: rotate(frontal.u),
-		v: rotate(frontal.v),
-		normal: rotate(frontal.normal)
+		u: [halfW, 0, 0],
+		v: [0, halfH, 0],
+		normal: [0, 0, 1]
 	};
 }
 
@@ -399,7 +449,13 @@ export function createStageProjector(input: StageProjectorInput): StageProjector
 	for (const posed of input.posedOverlayPlanes ?? []) {
 		bases.set(
 			posedOverlayStagePlane(posed.overlayId),
-			createPosedOverlayPlaneBasis(input.aspect, posed.z, posed.pose, posed.pivot)
+			createPosedOverlayPlaneBasis({
+				rig,
+				aspect: input.aspect,
+				overlayZ: posed.z,
+				pose: posed.pose,
+				pivot: posed.pivot
+			})
 		);
 	}
 	const basisFor = (plane: StagePlane): StagePlaneBasis =>

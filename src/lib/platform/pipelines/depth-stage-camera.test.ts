@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
+import { vec4 } from 'wgpu-matrix';
 
 import { StageSchema, type StageCamera } from '$lib/platform/engine-schema';
 import {
@@ -12,6 +13,7 @@ import {
 	STAGE_DEPTH_FAR,
 	STAGE_DEPTH_NEAR,
 	stageBackdropCover,
+	stageCameraFrameRay,
 	stageCameraMoveOffset,
 	stageDepthEncoding
 } from './depth-stage-camera';
@@ -203,6 +205,38 @@ describe('stage projector under a pose', () => {
 		const centre = projector.projectPoint('surface', 0.6, 0.4);
 		close(centre.x, 0.5, 1e-4);
 		close(centre.y, 0.5, 1e-4);
+	});
+
+	it('casts frame rays that agree with the rig matrices, one unit per unit of axial distance', () => {
+		for (const [cam, time] of [
+			[camera(), 0],
+			[posed, 0.4],
+			[camera({ pose: { yaw: 12, pitch: -9, roll: 15, distance: 1.4, aim: { x: 0.3, y: 0.7 } } }), 1]
+		] as const) {
+			const rig = createStageCameraRig({ aspect: ASPECT, camera: cam, time });
+			for (const [fx, fy] of [
+				[0.5, 0.5],
+				[0, 0],
+				[1, 1],
+				[0.2, 0.85]
+			]) {
+				const ray = stageCameraFrameRay(rig, ASPECT, fx, fy);
+				const axial =
+					ray[0] * rig.forward[0] + ray[1] * rig.forward[1] + ray[2] * rig.forward[2];
+				close(axial, 1, 1e-9, 'axial unit');
+				const along = 2.3;
+				const point = [
+					rig.eye[0] + ray[0] * along,
+					rig.eye[1] + ray[1] * along,
+					rig.eye[2] + ray[2] * along,
+					1
+				];
+				const clip = vec4.transformMat4(point, rig.viewProjection);
+				close((clip[0] / clip[3] + 1) / 2, fx, 1e-5, `frame x at ${fx},${fy}`);
+				close((1 - clip[1] / clip[3]) / 2, fy, 1e-5, `frame y at ${fx},${fy}`);
+				close(clip[3], along, 1e-5, 'clip.w is the axial distance');
+			}
+		}
 	});
 });
 

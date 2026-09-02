@@ -135,7 +135,7 @@ The authored rest position of the **Dimensional Stage** camera — `yaw`, `pitch
 _Avoid_: camera keyframes (not a v1 mechanism), plane tilt (the page stays put; the camera moves), scene camera, free camera.
 
 **Posed plane**:
-An **Overlay** riding its own capture plane on the **Dimensional Stage** because it declares a `pose` (`yaw`, `pitch`, `roll`) or an explicit signed `z` (negative is nearer the camera than the Surface plane). It keeps its Layer identity, placement vocabulary, and inspector; it casts and receives the scene light; at most four per composition. Unposed Overlays share the merged Overlay plane as before.
+An **Overlay** riding its own capture plane on the **Dimensional Stage** because it declares a `pose` (`yaw`, `pitch`, `roll`) or an explicit signed `z` (negative is nearer the camera than the Surface plane). The plane is placed in the camera's frame — the Overlay sits where its placement puts it in the delivered frame, at its depth, turned by its pose relative to the Surface plane — so under a **Stage camera pose** the page moves behind a card that stays put. It keeps its Layer identity, placement vocabulary, and inspector; it casts and receives the scene light; at most four per composition. Unposed Overlays share the merged Overlay plane as before.
 _Avoid_: 3D object, scene node, floating layer, card mesh (a posed plane is a captured plane, not geometry).
 
 **Stage geometry contribution**:

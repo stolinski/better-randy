@@ -265,6 +265,30 @@ export function createStageCameraRig({
 	};
 }
 
+/**
+ * The ray from the eye through a frame point (fractions, y down), in world
+ * units, scaled so one unit along it is one unit of camera-space (axial)
+ * distance — the quantity the plane pass writes as depth. Built from the same
+ * look-at basis and field of view the rig's matrices use, so a point placed
+ * along this ray projects back to exactly `fx, fy`.
+ */
+export function stageCameraFrameRay(
+	rig: StageCameraRig,
+	aspect: number,
+	fx: number,
+	fy: number
+): Vec3Tuple {
+	const right = normalize(cross(rig.forward, rig.up));
+	const trueUp = cross(right, rig.forward);
+	const tanHalf = Math.tan(STAGE_FOV / 2);
+	const ndcX = 2 * fx - 1;
+	const ndcY = 1 - 2 * fy;
+	return add(
+		rig.forward,
+		add(scale(right, ndcX * tanHalf * aspect), scale(trueUp, ndcY * tanHalf))
+	);
+}
+
 interface FrameRayPlaneHit {
 	x: number;
 	y: number;
@@ -330,6 +354,40 @@ export function stageBackdropCover(camera: StageCamera, aspect: number): number 
 		STAGE_BACKDROP_COVER_MIN,
 		STAGE_BACKDROP_COVER_MAX
 	);
+}
+
+/** How far the camera looks past the Surface plane in the authored move. */
+export interface StageSurfaceFootprint {
+	/** The largest fraction of the plane's width or height a frame corner lands
+	 *  beyond its edge across the move (0 when every corner stays on the page). */
+	overshoot: number;
+	/** Clip progress and frame corner of that worst overshoot. */
+	time: number;
+	corner: { x: number; y: number };
+}
+
+/** Where the frame corners land on the Surface plane over the authored move
+ *  — the check a filmed page needs, since the Surface plane stays frame-sized
+ *  and anything past its edge is backdrop. A corner whose ray never reaches
+ *  the plane counts as a full frame of overshoot. */
+export function stageSurfaceFootprint(camera: StageCamera, aspect: number): StageSurfaceFootprint {
+	const fill = stagePlaneHalfExtents(STAGE_CAM_Z, aspect);
+	let worst: StageSurfaceFootprint = { overshoot: 0, time: 0, corner: { x: 0, y: 0 } };
+	for (const time of MOVE_SAMPLE_TIMES) {
+		const rig = createStageCameraRig({ aspect, camera, time });
+		const inverse = mat4.invert(rig.viewProjection) as Float32Array;
+		for (const [fx, fy] of FRAME_CORNERS) {
+			const hit = intersectFrameRayWithPlaneZ(inverse, fx, fy, 0);
+			const overshoot =
+				!hit || hit.t < 0
+					? 1
+					: Math.max(0, Math.abs(hit.x) / fill.halfW - 1, Math.abs(hit.y) / fill.halfH - 1) / 2;
+			if (overshoot > worst.overshoot) {
+				worst = { overshoot, time, corner: { x: fx, y: fy } };
+			}
+		}
+	}
+	return worst;
 }
 
 /** The camera-space distances a stage encodes as depth 0 and 1. */

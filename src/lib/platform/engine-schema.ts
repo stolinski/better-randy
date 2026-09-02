@@ -1093,7 +1093,9 @@ export const STAGE_POSED_OVERLAY_LIMIT = 4;
 const OverlayDepthSchema = z.number().min(-1).max(1);
 
 // The orientation of an Overlay's own plane on the depth stage, degrees about
-// its rendered centre. Positive yaw turns its right edge away from the camera,
+// its rendered centre, relative to the Surface plane; the plane itself is
+// placed in the camera's frame, so `position` keeps meaning where the Overlay
+// sits in the delivered frame. Positive yaw turns its right edge away from the page's front,
 // positive pitch leans its top edge away, positive roll turns it clockwise.
 const OverlayPoseSchema = z.object({
 	yaw: z

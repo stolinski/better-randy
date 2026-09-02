@@ -20,6 +20,7 @@ import {
 	getSurfaceDefinition,
 	resolveSurfaceTypographyColors
 } from './pipelines/definition-registry';
+import { stageSurfaceFootprint } from './pipelines/depth-stage-camera.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import {
 	calculateWebsiteShowcaseLayout,
@@ -199,16 +200,42 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	return issues;
 }
 
+// A filmed page is a frame-sized Surface plane the camera films from close
+// and off-axis; past its edge there is only backdrop, so every frame corner
+// must stay on the page throughout the authored move in both orientations.
+function checkFilmedPageInShot(preset: Preset, issues: RubricIssue[]): void {
+	const stage = preset.state.stage;
+	if (!stage || stage.type !== 'depth') return;
+	for (const [orientation, frame] of [
+		['horizontal', FRAME_HORIZONTAL],
+		['vertical', FRAME_VERTICAL]
+	] as const) {
+		const footprint = stageSurfaceFootprint(stage.camera, frame.width / frame.height);
+		if (footprint.overshoot > 0) {
+			issues.push({
+				rule: 'WS7',
+				severity: 'error',
+				path: 'state.stage.camera',
+				message: `Filmed page leaves the shot in ${orientation}: the frame corner (${footprint.corner.x}, ${footprint.corner.y}) lands ${(footprint.overshoot * 100).toFixed(1)}% of the frame past the page at progress ${footprint.time}. Aim nearer the page centre, pull the camera back, or flatten the angle.`
+			});
+		}
+	}
+}
+
 function checkWebsiteShowcase(
 	preset: Preset,
 	cascadeWindows: Map<string, CascadeWindow>,
 	issues: RubricIssue[]
 ): void {
 	if (preset.state.surface.type !== 'website-screenshot') return;
-	// WS1–WS3 describe the browser showcase's browser-plus-plate stack. The
+	// WS1–WS6 describe the browser showcase's browser-plus-plate stack. The
 	// filmed framing (ADR-0057) is a crop into the page with no plate; its
-	// legibility is the depth stage camera's job and the render matrix judges it.
-	if (websiteScreenshotFraming(preset.state.surface.variant) === 'filmed') return;
+	// legibility is the depth stage camera's job and the render matrix judges
+	// it — WS7 only holds the camera to the page.
+	if (websiteScreenshotFraming(preset.state.surface.variant) === 'filmed') {
+		checkFilmedPageInShot(preset, issues);
+		return;
+	}
 
 	const sourceUrls = preset.state.overlays.filter((overlay) => overlay.type === 'source-url');
 	if (sourceUrls.length !== 1) {

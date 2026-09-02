@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
+import { vec4 } from 'wgpu-matrix';
 
-import { STAGE_BACKDROP_DEPTH, STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import {
+	createStageCameraRig,
+	STAGE_BACKDROP_DEPTH,
+	STAGE_CAM_Z,
+	stagePlaneHalfExtents
+} from './depth-stage-camera';
 import {
 	assertStagePlaneCeilings,
 	createBackdropStagePlaneBasis,
@@ -19,7 +25,8 @@ import {
 	stagePlaneHalfLengths,
 	stagePlaneModelMatrix,
 	stagePlaneTextureBytes,
-	stageOverlayPlaneDepth
+	stageOverlayPlaneDepth,
+	type StagePlaneBasis
 } from './depth-stage-planes';
 
 const ASPECT = 16 / 9;
@@ -196,27 +203,111 @@ describe('posed Overlay planes (ADR-0057)', () => {
 		assert.equal(stageOverlayPlaneDepth(0), 0);
 	});
 
-	it('is exactly the frontal plane at a zero pose', () => {
+	const restCamera = { move: 'static', amount: 0.5, ease: 'smooth' } as never;
+	const restRig = createStageCameraRig({ aspect: ASPECT, camera: restCamera, time: 0 });
+
+	function assertBasisClose(actual: StagePlaneBasis, expected: StagePlaneBasis): void {
+		for (const key of ['origin', 'u', 'v', 'normal'] as const) {
+			for (const axis of [0, 1, 2]) {
+				assert.ok(
+					Math.abs(actual[key][axis] - expected[key][axis]) < 1e-12,
+					`${key}[${axis}] ${actual[key][axis]} ≈ ${expected[key][axis]}`
+				);
+			}
+		}
+	}
+
+	it('is the frontal plane at a zero pose under the shipped frontal camera', () => {
 		const pivot = { x: 0.3, y: 0.8 };
-		assert.deepEqual(
-			createPosedOverlayPlaneBasis(ASPECT, -0.18, { yaw: 0, pitch: 0, roll: 0 }, pivot),
+		assertBasisClose(
+			createPosedOverlayPlaneBasis({
+				rig: restRig,
+				aspect: ASPECT,
+				overlayZ: -0.18,
+				pose: { yaw: 0, pitch: 0, roll: 0 },
+				pivot
+			}),
 			createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(-0.18))
 		);
-		assert.deepEqual(
-			createPosedOverlayPlaneBasis(ASPECT, 0.45, undefined, pivot),
+		assertBasisClose(
+			createPosedOverlayPlaneBasis({
+				rig: restRig,
+				aspect: ASPECT,
+				overlayZ: 0.45,
+				pose: undefined,
+				pivot
+			}),
 			createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(0.45))
+		);
+	});
+
+	it('places the Overlay in the camera frame under a pose: the pivot projects to its frame point at its authored size', () => {
+		const camera = {
+			move: 'static',
+			amount: 0.5,
+			ease: 'smooth',
+			pose: { yaw: -20, pitch: 6, roll: 0, distance: 0.5, aim: { x: 0.72, y: 0.4 } }
+		} as never;
+		const rig = createStageCameraRig({ aspect: ASPECT, camera, time: 0 });
+		const pivot = { x: 0.2, y: 0.85 };
+		const basis = createPosedOverlayPlaneBasis({
+			rig,
+			aspect: ASPECT,
+			overlayZ: -0.18,
+			pose: undefined,
+			pivot
+		});
+		const pivotWorld = [0, 1, 2].map(
+			(axis) =>
+				basis.origin[axis] + (2 * pivot.x - 1) * basis.u[axis] + (1 - 2 * pivot.y) * basis.v[axis]
+		);
+		const clip = vec4.transformMat4([...pivotWorld, 1], rig.viewProjection);
+		assert.ok(Math.abs((clip[0] / clip[3] + 1) / 2 - pivot.x) < 1e-6, 'lands at its frame x');
+		assert.ok(Math.abs((1 - clip[1] / clip[3]) / 2 - pivot.y) < 1e-6, 'lands at its frame y');
+		// Page-parallel, lifted toward the camera by its depth, sized to subtend
+		// the frame at the pivot's axial distance.
+		assert.deepEqual(basis.normal, [0, 0, 1]);
+		assert.ok(Math.abs(pivotWorld[2] - STAGE_LIFT_DEPTH * 0.18) < 1e-12);
+		const axial = stagePlaneAxialDistance(
+			{ ...basis, origin: pivotWorld as [number, number, number] },
+			rig.eye,
+			rig.forward
+		);
+		const fill = stagePlaneHalfExtents(axial, ASPECT);
+		assert.ok(Math.abs(stagePlaneHalfLengths(basis).halfW - fill.halfW) < 1e-9);
+		assert.ok(axial < STAGE_CAM_Z, 'the close camera makes the quad smaller in world units');
+	});
+
+	it('falls back to the world-fixed frontal plane when the ray through the pivot never reaches it', () => {
+		const camera = {
+			move: 'static',
+			amount: 0.5,
+			ease: 'smooth',
+			pose: { yaw: 60, pitch: 45, roll: 0, distance: 1, aim: { x: 0.5, y: 0.5 } }
+		} as never;
+		const rig = createStageCameraRig({ aspect: ASPECT, camera, time: 0 });
+		assertBasisClose(
+			createPosedOverlayPlaneBasis({
+				rig,
+				aspect: ASPECT,
+				overlayZ: -0.18,
+				pose: undefined,
+				pivot: { x: 0, y: 1 }
+			}),
+			createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(-0.18))
 		);
 	});
 
 	it('turns the plane about its pivot: the pivot stays put, the right edge recedes under yaw', () => {
 		const pivot = { x: 0.25, y: 0.75 };
 		const frontal = createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(-0.18));
-		const posed = createPosedOverlayPlaneBasis(
-			ASPECT,
-			-0.18,
-			{ yaw: 30, pitch: 0, roll: 0 },
+		const posed = createPosedOverlayPlaneBasis({
+			rig: restRig,
+			aspect: ASPECT,
+			overlayZ: -0.18,
+			pose: { yaw: 30, pitch: 0, roll: 0 },
 			pivot
-		);
+		});
 		const { halfW, halfH } = stagePlaneHalfLengths(frontal);
 		const pivotWorld = [(2 * pivot.x - 1) * halfW, (1 - 2 * pivot.y) * halfH, frontal.origin[2]];
 		// The pivot's local coordinates on the frontal quad.

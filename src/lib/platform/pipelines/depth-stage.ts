@@ -768,7 +768,13 @@ export class DepthStage {
 				planes.push({
 					bufferIndex: POSED_BUFFER_OFFSET + index,
 					role: 'overlay',
-					basis: createPosedOverlayPlaneBasis(aspect, posed.z, posed.pose, posed.pivot),
+					basis: createPosedOverlayPlaneBasis({
+						rig,
+						aspect,
+						overlayZ: posed.z,
+						pose: posed.pose,
+						pivot: posed.pivot
+					}),
 					planeView: posed.planeView,
 					casterView: posed.planeView,
 					textured: true,
