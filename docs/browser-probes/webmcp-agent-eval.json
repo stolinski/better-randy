@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"generatedAt": "2026-09-02T18:47:24.916Z",
+	"generatedAt": "2026-09-02T21:05:39.449Z",
 	"probe": "webmcp-agent-eval",
 	"origin": "http://127.0.0.1:7364",
-	"release": "gfx@7c746c0174ffc6b960c0cea908d1c97096601a7f",
+	"release": "gfx@20888f296f6b30cb29f4ed5cd50886a23de151e6",
 	"harness": {
 		"browser": "Chrome/153.0.8010.12",
 		"protocolVersion": "1.3",
@@ -16,7 +16,8 @@
 			"registerTool"
 		],
 		"secureContext": true,
-		"canvasDrawElement": true
+		"canvasDrawElement": true,
+		"exposureRefusal": null
 	},
 	"toolSchemaDigest": "bad09ae48dce5054ec4a79543e418863e224e5f4f5529731c00de1859d1827c4",
 	"inventory": {
@@ -87,10 +88,57 @@
 		"contentTrust": { "inspect": "untrusted", "exportJson": "untrusted" }
 	},
 	"framedDocument": {
-		"frameRefusedByPolicy": true,
-		"framedContextExposed": false,
+		"frameRefusedByPolicy": false,
+		"framedContextExposed": true,
 		"toolsOwnedByFrame": [],
-		"toolsOwnedByTopDocument": null
+		"toolsOwnedByTopDocument": 22
+	},
+	"renderlessBrowser": {
+		"harness": {
+			"browser": "Chrome/153.0.8010.12",
+			"protocolVersion": "1.3",
+			"modelContext": true,
+			"modelContextMembers": [
+				"constructor",
+				"executeTool",
+				"getTools",
+				"ontoolchange",
+				"registerTool"
+			],
+			"secureContext": true,
+			"canvasDrawElement": false,
+			"exposureRefusal": null
+		},
+		"capabilityGateShown": true,
+		"coldPageRegistered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_import_json",
+			"gfx_composition_open",
+			"gfx_session_inspect"
+		],
+		"openCoreRegistered": [
+			"gfx_capability_inspect_limits",
+			"gfx_capability_inspect_vocabulary",
+			"gfx_capability_prepare_family",
+			"gfx_composition_create_blank",
+			"gfx_composition_create_from_starter",
+			"gfx_composition_export_json",
+			"gfx_composition_import_json",
+			"gfx_composition_inspect",
+			"gfx_composition_open",
+			"gfx_composition_set_identity",
+			"gfx_delivery_export_video",
+			"gfx_playhead_inspect",
+			"gfx_playhead_seek_frame",
+			"gfx_session_clear",
+			"gfx_session_delete_composition",
+			"gfx_session_inspect",
+			"gfx_validation_inspect_findings"
+		],
+		"inspectRevision": 0
 	},
 	"failures": []
 }
