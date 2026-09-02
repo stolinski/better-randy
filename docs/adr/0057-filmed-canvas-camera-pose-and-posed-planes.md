@@ -1,0 +1,56 @@
+# ADR-0057 — The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry
+
+## Status
+
+**Designed (phase 1 building 2026-09-01); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) into two phases.** Direction plate: [`direction/3d-canvas/perspective.png`](../../direction/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. Phase-1 Brief: [`docs/briefs/filmed-canvas.md`](../briefs/filmed-canvas.md).
+
+Date: 2026-09-01
+
+Builds on: [ADR-0021](0021-z-plane-semantics.md) (z as focal distance), [ADR-0028](0028-dimensional-depth-stage.md) (the shipped depth Stage and its camera-as-data rule), [ADR-0035](0035-generalized-keyframes-and-cascade.md) (authored motion windows), [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) (Pipeline-defined geometry), [ADR-0056](0056-newspaper-photographed-page.md) (the frame is a crop into a photographed page)
+
+## Context
+
+ADR-0051 planned the 3D Canvas Upgrade as a geometry contract: registered Pipelines contribute bounded TypeGPU meshes into a depth-tested Stage, and the first proving Pipeline is a procedural `dimensional-form` Overlay. That remains the right architecture for real volume.
+
+The direction plate shows something the shipped Stage cannot make and the geometry contract does not address: a flat web page filmed by a real camera from a low oblique angle, close, with focus falling off continuously across the receding page. Every shipped Stage plane is fronto-parallel; the camera only pushes on axis or drifts sideways; the lighting and cast-shadow math assume axis-aligned quads; every Overlay shares one plane; and a captured page is sampled without mips, so a tilted 4K page would shimmer. On 2026-09-01 Scott confirmed the plate is one facet of a larger idea whose parts are: an obliquely posed camera, elements posed in 3D (a card floating angled in front of the page), real 3D forms, physical screens and paper, and one lit scene. He chose to build the camera and posed planes first, then the geometry contract.
+
+The ordering matters for quality, not just sequencing. A camera pose, per-Overlay planes, plane-basis lighting, and oblique-safe sampling lift every existing depth Preset immediately and are prerequisites for judging geometry: a mesh contributed into a fronto-parallel stage can only be looked at head-on.
+
+## Decision
+
+The 3D Canvas Upgrade ships in two ordered phases under one Dex epic (`sh9b6qxd`). ADR-0051 stays the phase-2 design; this ADR is the phase-1 decision and the ordering rule.
+
+### Phase 1 — the filmed canvas
+
+1. **The Stage camera gets a pose.** `stage.camera` gains an optional rest `pose` — `yaw`, `pitch`, `roll` in bounded degrees, `distance` as a fraction of the shipped rest distance, and an `aim` point in composition fractions on the Surface plane — and an optional `travel` to a second pose over one authored window with the constrained ease enum. The camera orbits the aim point; `lookAt` targets it. The defaults (`yaw` 0, `pitch` 0, `roll` 0, `distance` 1, `aim` centre) reproduce the shipped frontal camera exactly, and the legacy `move: push | drift` composes on top, so no existing Preset changes a pixel. The math lives once, in `depth-stage-camera.ts`, and the renderer, the frame resolver, and the GUI hit-test projector all consume it. Camera remains data scoped to the Stage that renders it (ADR-0028); Surface transforms stay camera territory.
+
+2. **Focus follows the aim.** When a pose is authored, the focal plane passes through the aim point's camera-space distance; `focusZ` and the rack-focus `pull` measure from there toward the backdrop. A travel that moves the aim racks focus with it by construction.
+
+3. **Overlays can be posed.** Overlay `z` becomes signed: negative is nearer the camera than the Surface plane, positive is toward the backdrop, and the flat multiplane path reads `|z − focusZ|` unchanged. Overlays gain an optional `pose` (`yaw`, `pitch`, `roll`). Any Overlay with a `pose` or an explicit `z` rides its own capture plane, positioned in world space at its composition placement, lifted along the Surface normal by `z`, rotated about its own anchor, casting and receiving shadow. Unposed default-`z` Overlays keep sharing the merged plane exactly as today. At most four posed Overlay planes per composition; the fifth is a corrective semantic error. This is not a scene tree: an Overlay keeps its Layer identity, its placement vocabulary, and its inspector.
+
+4. **The Stage becomes a depth-tested plane-basis compositor.** A real depth attachment with alpha-tested depth writes and premultiplied blending replaces painter's order, so posed planes that intersect resolve per pixel and transparent texels never occlude what is behind them. The received rake, the cast-shadow march, the partial-presence reconstruction, and the backdrop reconstruction are rewritten against a general plane basis (origin, U, V, normal). Plane textures get mip chains and an anisotropic sampler so receding native-4K text stays clean. Plane count, plane-texture bytes, and per-frame mip passes have explicit ceilings enforced before GPU work.
+
+5. **`website-screenshot` gets a `filmed` framing over bundled captures.** A `framing: 'filmed'` variant lays the stored capture at native density covering the frame with no browser chrome, anchored by an authored page point, so the frame is a crop into the page (ADR-0056's rule applied to a screen). A capture registry under `src/lib/assets/captures/` mirrors the substrate registry so a corpus deliverable never depends on the gitignored local user-asset store; `content.captureAsset` and `content.imageUrl` are mutually exclusive. The Surface keeps its stored-image fidelity and full Pack immunity.
+
+6. **One lit scene, from Pack Roles.** The Pack's `light-treatment` remains the only light; it now lights tilted planes and posed cards the way it lights the frontal ones. No new Role lands in phase 1.
+
+### Phase 2 — Pipeline geometry
+
+ADR-0051 as designed, viewed through the phase-1 camera: the geometry-contribution contract, deterministic TypeGPU procedural geometry, the bounded material and light vocabulary, the `dimensional-form` Overlay, and — added by this ADR — physical bodies contributed by existing Surfaces (a monitor bezel and glass for the filmed screen, sheet thickness for paper) as the first Surface-owned contributions. Phase 2 starts only after phase 1's deterministic verification and human approval, and it authors its own Brief then.
+
+## Considered options
+
+- **Build the geometry contract first (the epic as written)** — rejected: it cannot make the direction plate, it would be judged through a frontal camera, and it front-loads the largest engine change ahead of the capability every existing depth Preset benefits from.
+- **A per-plane transform instead of a camera pose** — rejected for the page: tilting the Surface plane while the camera stays frontal produces the same image but breaks camera-as-data (ADR-0028), makes the aim point meaningless, and forces every Overlay to be re-posed to stay with the page. Overlays do get their own pose because a card genuinely floats at its own angle.
+- **Keyframed camera channels** — rejected for v1: the shipped motion vocabulary for depth pieces is one decisive move; a rest pose plus one travel covers the documentary shot and keeps the inspector bounded. Channels can arrive later behind a consumer.
+- **Cropping the page with the camera alone** — rejected: a 1440-wide capture magnified by a close camera is soft at 4K. The page must be laid at native density by the Surface; the camera adds pose and modest dolly, the way a real camera sees a real monitor.
+- **A user-asset capture for the corpus deliverable** — rejected: `user-assets/` is gitignored, so a clean worktree cannot render it; the existing `website-showcase` already carries that defect and is out of scope here.
+
+## Consequences
+
+- Every existing depth Preset renders pixel-identical at the default pose; that identity is a gate (frame diffs across the existing stage Presets) on each phase-1 leaf.
+- `DepthStage` grows a depth attachment, a plane basis, per-plane mip chains, and N overlay planes; `CompositionPlanes` owns N overlay textures; `Composition.svelte` hoists posed Overlays into their own direct canvas children.
+- The GUI projector (`createStageProjector`) becomes pose-aware and per-plane; the canvas gains an editor-only aim handle.
+- `website-screenshot` gains a variant and a capture registry; its Identity Spec gains a `filmed-page-crop` dimension.
+- The deliverable `website-filmed` is the phase-1 acceptance evidence, rendered at native horizontal and vertical under every Pack.
+- ADR-0051's status stays designed until phase 2 builds it; the ADR index and roadmap carry both phases.

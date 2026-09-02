@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built.**
+**Designed, not built.** Ordered as phase 2 of the 3D Canvas Upgrade by [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) (2026-09-01): the stage camera pose, posed Overlay planes, depth-tested plane-basis compositor, and filmed page framing land first, and the geometry contract below is built through that camera. ADR-0057 also adds physical screen and paper bodies as the first Surface-owned contributions.
 
 Date: 2026-08-26
 
