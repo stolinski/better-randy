@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
+	import { page } from '$app/state';
 
 	import GfxMarkHomeLink from '$lib/identity/GfxMarkHomeLink.svelte';
 	import { AnimationManager } from './animation-manager';
@@ -867,11 +868,17 @@
 				if (!localCanvas || !localHost) {
 					throw new Error('Readable capture requires the active canvas and GPU host.');
 				}
+				// Every direct canvas child the readable audit may need to suppress or
+				// paint: the composition root, the shared Overlay root, and each posed
+				// Overlay's own root (ADR-0057) — a card riding its own plane is still
+				// readable content.
 				return deterministicRenderCaptureController.capture(settled, targets, {
 					canvas: localCanvas,
-					compositionRoots: localOverlayRoot
-						? [localCompositionRoot, localOverlayRoot]
-						: [localCompositionRoot],
+					compositionRoots: [
+						localCompositionRoot,
+						...(localOverlayRoot ? [localOverlayRoot] : []),
+						...livePosedOverlayRoots().map((root) => root.element)
+					],
 					waitForGpu: () => localHost.device.queue.onSubmittedWorkDone(),
 					forcePaint: forceAuditPaint,
 					setDomCaptureForced: (forced) => {
@@ -1337,7 +1344,7 @@
 <main class="workspace" style:--timeline-h="{effectiveTimelineHeight}px">
 	<header class="workspace__topbar">
 		<GfxMarkHomeLink />
-		<span class="topbar__name"
+		<span class="topbar__name" data-composition-slug={page.params.slug ?? ''}
 			>{presetBase.name || (compositionMeta.userCompositionSlug ?? 'Untitled')}</span
 		>
 		<span class="topbar__chip">{presetBase.kind}</span>

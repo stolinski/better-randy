@@ -7,7 +7,7 @@
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
-			"durationSeconds": 7,
+			"durationSeconds": 8,
 			"fps": 30,
 			"format": "webm"
 		},
@@ -59,22 +59,22 @@
 							"anchor": "bottom-center",
 							"offset": {
 								"x": 0,
-								"y": 0.1
+								"y": 0.18
 							}
 						}
 					}
 				},
 				"enter": {
-					"start": 0.18,
-					"duration": 0.12,
+					"start": 0.12,
+					"duration": 0.1,
 					"ease": "settled",
 					"sound": {
 						"event": "impact"
 					}
 				},
 				"exit": {
-					"start": 0.86,
-					"duration": 0.1,
+					"start": 0.93,
+					"duration": 0.07,
 					"ease": "smooth",
 					"sound": {
 						"mute": true

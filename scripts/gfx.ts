@@ -192,10 +192,12 @@ export async function renderJob(page: Page, job: RenderJob): Promise<void> {
 			waitUntil: 'networkidle',
 			timeout: READY_TIMEOUT_MS
 		});
+		// The Workspace names the composition it opened by slug on the topbar; the
+		// visible text is the Preset's name, which rarely equals its slug.
 		await page.waitForFunction(
 			(slug) =>
 				typeof (window as Window & { __gfxExport?: unknown }).__gfxExport === 'function' &&
-				document.querySelector('.topbar__name')?.textContent?.trim() === slug,
+				document.querySelector('.topbar__name')?.getAttribute('data-composition-slug') === slug,
 			prepared.slug,
 			{ timeout: READY_TIMEOUT_MS }
 		);
