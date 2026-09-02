@@ -602,10 +602,7 @@ function renderDofFrame(
 	compositionPlanes.composite({
 		surfacePlaneView: surfaceOutput.createView(),
 		focusZ: dof.focusZ,
-		// The readable mask is glyph geometry, not the lens: a defocused white
-		// glyph bloats past its core and the audit reads the canonical text as
-		// occluded. Canonical and background renders keep the authored aperture.
-		aperture: request.readableProbeMode === 'readable-mask' ? 0 : dof.aperture,
+		aperture: dof.aperture,
 		surfaceZ: dof.surfaceZ,
 		overlayZ: dof.overlayZ,
 		backdrop: dof.backdrop,
@@ -694,8 +691,7 @@ function renderStageFrame(
 		overlayZ: stage.overlayZ,
 		posedOverlayPlanes,
 		focusZ: stage.focusZ,
-		// Same rule as the DOF branch: the readable mask carries no defocus.
-		aperture: request.readableProbeMode === 'readable-mask' ? 0 : stage.aperture,
+		aperture: stage.aperture,
 		focusBand: stage.focusBand,
 		backdropColor: stage.backdropColor,
 		backdropTextureView:

@@ -91,6 +91,19 @@ function suppressAllPaint(element: HTMLElement | SVGElement): void {
 	element.style.setProperty('box-shadow', 'none', 'important');
 	if (element instanceof SVGElement)
 		element.style.setProperty('stop-color', 'transparent', 'important');
+	// Replaced content has no colour to clear: a photo, a website capture, or a
+	// video frame under the readable text would otherwise stay painted in the
+	// mask pass, and every bright pixel of it would count as glyph core (the mask
+	// threshold is relative to the peak). Visibility is paint-only, so layout —
+	// and therefore every measured region — is unchanged.
+	if (
+		element instanceof HTMLImageElement ||
+		element instanceof HTMLVideoElement ||
+		element instanceof HTMLCanvasElement ||
+		element instanceof SVGImageElement
+	) {
+		element.style.setProperty('visibility', 'hidden', 'important');
+	}
 }
 
 function whiteShadow(shadow: string): string {
