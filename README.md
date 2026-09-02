@@ -44,6 +44,16 @@ pnpm test            # vitest
 pnpm verify-presets  # render and measure the Preset corpus
 ```
 
+## License
+
+Copyright 2026 Break Code LLC.
+
+Except for third-party components that carry their own license notices, GFX is
+available under the [Functional Source License 1.1 with an Apache 2.0 Future
+License](LICENSE.md) (`FSL-1.1-ALv2`). The source is Fair Source rather than Open
+Source while the FSL terms apply. Each version gains Apache 2.0 as an additional
+license on the second anniversary of the date that version was made available.
+
 ## Where to read next
 
 - [`AGENTS.md`](AGENTS.md) — the binding rules, and which doc to read for which task.
