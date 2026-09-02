@@ -67,7 +67,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0054](0054-webmcp-operation-transaction-and-security-contract.md) | Canon (contract ratified; operation layer, controller, and parity gate are separate changes) | Fifteen non-overlapping WebMCP operation families over one revisioned atomic transaction core           |
 | [0055](0055-user-defined-packs.md)                                 | Canon (built 2026-09-01)                                                                     | User Packs as validated JSON documents behind a UserPackStore; renderable, never catalog                |
 | [0056](0056-newspaper-photographed-page.md)                        | Canon (built 2026-09-01)                                                                     | The newspaper is a full-bleed photographed page, fully Pack-immune, with a camera instead of a card     |
-| [0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)         | Designed, not built (phase 1 building 2026-09-01)                                            | The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry                       |
+| [0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)         | Canon (phase 1 built 2026-09-02); phase 2 is 0051, still designed                            | The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry                       |
 
 ## Supersession And Refinement
 

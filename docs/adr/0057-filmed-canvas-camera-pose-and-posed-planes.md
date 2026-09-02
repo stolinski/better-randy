@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built (phase 1 building 2026-09-01); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) into two phases.** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. Phase-1 Brief: [`docs/briefs/filmed-canvas.md`](../briefs/filmed-canvas.md).
+**Canon (phase 1 built 2026-09-02, approved on gfx-review); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) as phase 2, still designed.** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. The phase-1 Brief `filmed-canvas` was retired with the landing change on 2026-09-02, as the Brief lifecycle requires.
 
 Date: 2026-09-01
 
@@ -48,7 +48,8 @@ ADR-0051 as designed, viewed through the phase-1 camera: the geometry-contributi
 
 ## Consequences
 
-- Every existing depth Preset renders pixel-identical at the default pose; that identity is a gate (frame diffs across the existing stage Presets) on each phase-1 leaf.
+- Every existing depth Preset renders pixel-identical at the default pose at its first and last frames; that identity was the gate on the camera leaf. The depth-tested compositor leaves a small mid-clip residue on the four shipped stage Presets (soft plane edges, the shadow march, and the DOF gather reading the depth sidecar: mean 1.5–5 levels over defocused regions), which Scott accepted as the new baseline on 2026-09-02.
+- The proving piece `website-filmed` shipped as the page alone: a lower-third floating on a posed plane was tried, read as a graphic, and was removed. Posed planes remain in the vocabulary (the oblique fixture exercises them) and the lens scales with the camera's nearness under a pose.
 - `DepthStage` grows a depth attachment, a plane basis, per-plane mip chains, and N overlay planes; `CompositionPlanes` owns N overlay textures; `Composition.svelte` hoists posed Overlays into their own direct canvas children.
 - The GUI projector (`createStageProjector`) becomes pose-aware and per-plane. The aim is edited as a field in the stage section; an on-canvas aim handle was built and removed, because dragging the aim re-projects the whole page under the pointer.
 - `website-screenshot` gains a variant and a capture registry; its Identity Spec gains a `filmed-page-crop` dimension.
