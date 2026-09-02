@@ -1,11 +1,11 @@
 {
 	"schemaVersion": 1,
-	"generatedAt": "2026-09-01T21:57:00.809Z",
+	"generatedAt": "2026-09-02T18:42:10.298Z",
 	"probe": "webmcp-agent-eval",
-	"origin": "http://localhost:7263",
-	"release": "gfx@f58a6b924907227d79f031b563188e81803e60ec",
+	"origin": "http://127.0.0.1:7364",
+	"release": "gfx@c7500952b8eb8bc1a7823d41811f328a178cc77c",
 	"harness": {
-		"browser": "Chrome/152.0.7977.65",
+		"browser": "Chrome/153.0.8010.12",
 		"protocolVersion": "1.3",
 		"modelContext": true,
 		"modelContextMembers": [
@@ -18,10 +18,11 @@
 		"secureContext": true,
 		"canvasDrawElement": true
 	},
-	"toolSchemaDigest": "02695b7d814a6f0f819b49480a533c091d42ddaa6528c4d918cd633ecc3836c4",
+	"toolSchemaDigest": "bad09ae48dce5054ec4a79543e418863e224e5f4f5529731c00de1859d1827c4",
 	"inventory": {
-		"rows": 83,
-		"agentTools": 81,
+		"rows": 86,
+		"agentTools": 84,
+		"agentContext": ["capability.prepare-authoring-family"],
 		"internalOnly": ["verification.render-frame", "verification.inspect-readable-text"]
 	},
 	"coldPage": {
@@ -32,22 +33,16 @@
 			"gfx_composition_create_from_starter",
 			"gfx_composition_import_json",
 			"gfx_composition_open",
-			"gfx_session_clear",
-			"gfx_session_delete_composition",
 			"gfx_session_inspect"
 		],
 		"ceiling": 9
 	},
 	"openComposition": {
-		"slug": "untitled-3",
-		"registered": [
-			"gfx_appearance_set_backdrop_visibility",
-			"gfx_appearance_set_mark_defaults",
-			"gfx_appearance_set_pack",
-			"gfx_appearance_set_stage",
-			"gfx_appearance_set_typography",
+		"slug": "untitled",
+		"coreRegistered": [
 			"gfx_capability_inspect_limits",
 			"gfx_capability_inspect_vocabulary",
+			"gfx_capability_prepare_family",
 			"gfx_composition_create_blank",
 			"gfx_composition_create_from_starter",
 			"gfx_composition_export_json",
@@ -55,34 +50,17 @@
 			"gfx_composition_inspect",
 			"gfx_composition_open",
 			"gfx_composition_set_identity",
-			"gfx_content_set_captions",
-			"gfx_content_set_surface_content",
 			"gfx_delivery_export_video",
-			"gfx_layer_add_annotation_mark",
-			"gfx_layer_add_chart_block",
-			"gfx_layer_add_diagram_primitive",
-			"gfx_layer_add_effect",
-			"gfx_layer_add_overlay",
-			"gfx_layer_add_text_animation",
-			"gfx_layer_set_surface",
-			"gfx_media_inspect_library",
-			"gfx_motion_set_cascade_anchor",
-			"gfx_motion_set_composition_transition",
-			"gfx_motion_set_keyframe_channel",
-			"gfx_motion_set_surface_timing",
 			"gfx_playhead_inspect",
 			"gfx_playhead_seek_frame",
 			"gfx_session_clear",
 			"gfx_session_delete_composition",
 			"gfx_session_inspect",
-			"gfx_sound_set_cue",
-			"gfx_sound_set_motion_override",
-			"gfx_transport_set_background",
-			"gfx_transport_set_format",
-			"gfx_transport_set_orientation",
-			"gfx_transport_set_timing",
 			"gfx_validation_inspect_findings"
 		],
+		"coreCeiling": 20,
+		"disclosedCeiling": 35,
+		"familyRegisteredCounts": { "transport": 21, "layer": 25, "content": 21, "transportAgain": 22 },
 		"verificationToolsRegistered": []
 	},
 	"calls": {
@@ -103,14 +81,16 @@
 		],
 		"staleWriteCode": "stale_revision",
 		"appliedRevision": 1,
-		"exportedCharacterCount": 438,
+		"nestedContentRevision": 3,
+		"reversibleFamilyRegistration": true,
+		"exportedCharacterCount": 1017,
 		"contentTrust": { "inspect": "untrusted", "exportJson": "untrusted" }
 	},
 	"framedDocument": {
-		"frameRefusedByPolicy": false,
-		"framedContextExposed": true,
+		"frameRefusedByPolicy": true,
+		"framedContextExposed": false,
 		"toolsOwnedByFrame": [],
-		"toolsOwnedByTopDocument": 42
+		"toolsOwnedByTopDocument": null
 	},
 	"failures": []
 }
