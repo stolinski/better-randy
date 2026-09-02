@@ -34,6 +34,13 @@
  *   here at all, and a definition naming one is refused at construction rather
  *   than skipped — an operation the page keeps to itself is a disposition the
  *   contract records, not a registration this module gets to choose.
+ * - **The renderer is not a registration input.** The CanvasDrawElement gate
+ *   decides whether the app mounts, not whether tools exist: a WebMCP browser
+ *   without that flag — a headless agent browser, say — registers the same
+ *   menu behind the notice, and only an operation that has to render fails
+ *   there, at call time. The one silent outcome is an exposure refusal, which
+ *   `startWebmcpToolController` hands back so the root layout can publish it
+ *   on `window.__gfxWebmcpExposureRefusal` for a harness to read.
  *
  * Tool handlers themselves live with their families. This module never edits
  * engine state, never resolves an operation's targets, and never invents a
@@ -567,22 +574,34 @@ function isFailedOutcome(value: unknown): boolean {
 	);
 }
 
+/** What starting a document's controller produced: the controller, or why none started. */
+export interface WebmcpToolControllerStart {
+	controller: WebmcpToolController | null;
+	/** Why this document registers no tools; `null` whenever `controller` is set. */
+	refusal: WebmcpExposureRefusal | null;
+}
+
 /**
  * Start the controller for this document, or answer why it stays inert. An
- * absent, pre-Chrome-153, framed, insecure, or opaque-origin document gets
- * `null` and no console noise: the page is expected to run without an agent.
+ * absent, pre-Chrome-153, framed, insecure, or opaque-origin document gets no
+ * controller and no console noise: the page is expected to run without an
+ * agent. The refusal comes back beside the controller because silence alone
+ * cannot tell a harness whether the page chose not to register or failed to.
  */
 export function startWebmcpToolController(options: {
 	view: WebmcpExposureView;
 	definitions: readonly WebmcpToolDefinition[];
 	lifetime: AbortSignal;
-}): WebmcpToolController | null {
+}): WebmcpToolControllerStart {
 	const exposure = readWebmcpToolExposure(options.view);
-	if (!exposure.host) return null;
-	return new WebmcpToolController({
-		host: exposure.host,
-		definitions: options.definitions,
-		lifetime: options.lifetime,
-		readCompositionPreconditions: readWebmcpCompositionPreconditions
-	});
+	if (!exposure.host) return { controller: null, refusal: exposure.refusal };
+	return {
+		controller: new WebmcpToolController({
+			host: exposure.host,
+			definitions: options.definitions,
+			lifetime: options.lifetime,
+			readCompositionPreconditions: readWebmcpCompositionPreconditions
+		}),
+		refusal: null
+	};
 }

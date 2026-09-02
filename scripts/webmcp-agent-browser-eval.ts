@@ -7,9 +7,11 @@
 //
 // This is a deterministic script on the sanctioned CDP harness — one invocation,
 // no interactive tooling. It needs Chrome 153 or newer and a server already
-// answering for this build, then starts (or reuses) the combined `agent` mode
-// (CanvasDrawElement + WebMCP): tools register only
-// where the real renderer runs, so this is the one harness that offers them:
+// answering for this build, then starts (or reuses) two sanctioned browsers: the
+// combined `agent` mode (CanvasDrawElement + WebMCP) for the authoring walk,
+// because those operations render, and the `standard-webmcp` mode (WebMCP alone,
+// CDP 9225) to prove the same tools register for a browser the CanvasDrawElement
+// gate keeps out of the Workspace — the headless agent case:
 //
 //   pnpm eval:webmcp                                   # the dev server on :7263
 //   GFX_EVAL_ORIGIN=http://localhost:7266 pnpm eval:webmcp   # any other build
@@ -48,6 +50,10 @@ import type { WebmcpRegisteredToolDescriptor } from '../src/lib/platform/webmcp-
 const COMBINED_AGENT_PORT = Number(process.env.GFX_WEBMCP_CDP_PORT ?? 9229);
 if (!Number.isSafeInteger(COMBINED_AGENT_PORT) || COMBINED_AGENT_PORT < 1) {
 	throw new TypeError('GFX_WEBMCP_CDP_PORT must be a positive integer.');
+}
+const STANDARD_WEBMCP_PORT = Number(process.env.GFX_WEBMCP_STANDARD_CDP_PORT ?? 9225);
+if (!Number.isSafeInteger(STANDARD_WEBMCP_PORT) || STANDARD_WEBMCP_PORT < 1) {
+	throw new TypeError('GFX_WEBMCP_STANDARD_CDP_PORT must be a positive integer.');
 }
 const PAGE_ORIGIN = process.env.GFX_EVAL_ORIGIN ?? 'http://localhost:7263';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -289,11 +295,20 @@ async function callTool(
 	})()`);
 }
 
-/** Whether this CDP session is the combined-flag agent one the eval is written for. */
-async function readHarnessCapabilities(page: CdpPage): Promise<Record<string, unknown>> {
-	const version = (await (
-		await fetch(`http://localhost:${COMBINED_AGENT_PORT}/json/version`)
-	).json()) as Record<string, string>;
+/**
+ * What one CDP session can do, and what the page decided about it. The exposure
+ * refusal is the layout's published verdict (`window.__gfxWebmcpExposureRefusal`):
+ * `null` where tools may register, a reason where they may not, and
+ * `'unpublished'` on a page whose layout never ran.
+ */
+async function readHarnessCapabilities(
+	page: CdpPage,
+	port: number
+): Promise<Record<string, unknown>> {
+	const version = (await (await fetch(`http://localhost:${port}/json/version`)).json()) as Record<
+		string,
+		string
+	>;
 	const capabilities = await page.evaluate<Record<string, unknown>>(`({
 		modelContext: typeof document.modelContext === 'object',
 		modelContextMembers: document.modelContext
@@ -301,7 +316,9 @@ async function readHarnessCapabilities(page: CdpPage): Promise<Record<string, un
 			: [],
 		secureContext: isSecureContext,
 		canvasDrawElement:
-			typeof GPUQueue === 'function' && 'copyElementImageToTexture' in GPUQueue.prototype
+			typeof GPUQueue === 'function' && 'copyElementImageToTexture' in GPUQueue.prototype,
+		exposureRefusal:
+			'__gfxWebmcpExposureRefusal' in window ? window.__gfxWebmcpExposureRefusal : 'unpublished'
 	})`);
 	return {
 		browser: version.Browser,
@@ -371,12 +388,16 @@ if (!Number.isSafeInteger(chromeMajor) || chromeMajor < WEBMCP_MINIMUM_CHROME_MA
 }
 await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
 const coldPageTools = await awaitRegistration(page, ALWAYS_REGISTERED_TOOL_NAMES);
-const harness = await readHarnessCapabilities(page);
+const harness = await readHarnessCapabilities(page, COMBINED_AGENT_PORT);
 
 check(harness.modelContext === true, 'the CDP session does not expose document.modelContext');
 check(
 	harness.canvasDrawElement === true,
 	'the CDP session does not enable CanvasDrawElement, so it is not the combined agent harness'
+);
+check(
+	harness.exposureRefusal === null,
+	`the agent page published a WebMCP exposure refusal: ${String(harness.exposureRefusal)}`
 );
 
 // The cold page: a short menu of real rows, and nothing that needs a composition.
@@ -622,6 +643,90 @@ check(
 	`deleting the eval composition refused: ${String(deleted.payload.message)}`
 );
 
+// The headless agent case. A WebMCP browser without CanvasDrawElement never
+// mounts the Workspace — the capability gate replaces it with the notice — yet
+// the root layout registers the same cold menu behind that notice, and an agent
+// can create, read, and edit a composition through it. Only operations that
+// render need the flagged browser, which is why the walk above ran there.
+runCommand('scripts/launch-cdp-chrome.sh', [], {
+	CDP_PORT: String(STANDARD_WEBMCP_PORT),
+	CDP_BROWSER_MODE: 'standard-webmcp'
+});
+const renderlessPage = await openCdpPage(STANDARD_WEBMCP_PORT);
+await renderlessPage.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
+const renderlessColdTools = await awaitRegistration(renderlessPage, ALWAYS_REGISTERED_TOOL_NAMES);
+const renderlessHarness = await readHarnessCapabilities(renderlessPage, STANDARD_WEBMCP_PORT);
+const renderlessGateShown = await renderlessPage.evaluate<boolean>(
+	`document.querySelector('.capability-gate') !== null && document.querySelector('canvas') === null`
+);
+check(
+	renderlessHarness.canvasDrawElement === false,
+	'the standard WebMCP session enables CanvasDrawElement, so it is not the renderless harness'
+);
+check(
+	renderlessGateShown,
+	'the renderless browser mounted the app instead of the capability-gate notice'
+);
+check(
+	renderlessHarness.exposureRefusal === null,
+	`the renderless page published a WebMCP exposure refusal: ${String(renderlessHarness.exposureRefusal)}`
+);
+check(
+	renderlessColdTools.length <= WEBMCP_ALWAYS_REGISTERED_CEILING,
+	`the renderless cold page registered ${renderlessColdTools.length} tools, past the ceiling of ${WEBMCP_ALWAYS_REGISTERED_CEILING}`
+);
+for (const tool of renderlessColdTools) {
+	check(
+		COLD_PAGE_TOOL_NAMES.has(tool.name),
+		`${tool.name} is registered on the renderless cold page but needs an open composition`
+	);
+}
+
+const renderlessCreated = await callTool(
+	renderlessPage,
+	toolNameFor('composition.create-blank'),
+	{}
+);
+check(
+	!renderlessCreated.isError,
+	`creating a composition without the renderer refused: ${String(renderlessCreated.payload.message)}`
+);
+const renderlessSlug = String(renderlessCreated.payload.slug ?? '');
+const renderlessOpenTools = await awaitRegistration(
+	renderlessPage,
+	new Set(OPEN_COMPOSITION_OPERATION_IDS.map(toolNameFor))
+);
+const renderlessInspected = await callTool(renderlessPage, toolNameFor('composition.inspect'), {});
+check(
+	!renderlessInspected.isError,
+	`inspecting a composition without the renderer refused: ${String(renderlessInspected.payload.message)}`
+);
+for (const row of INTERNAL_ONLY_ROWS) {
+	check(
+		!renderlessOpenTools.some((tool) => tool.name === row.toolName),
+		`${row.id} is marked internal-only but reached the renderless browser as ${row.toolName}`
+	);
+}
+
+await renderlessPage.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
+await awaitRegistration(
+	renderlessPage,
+	new Set([...ALWAYS_REGISTERED_TOOL_NAMES, toolNameFor('session.delete-composition')])
+);
+const renderlessDeleted = await callTool(
+	renderlessPage,
+	toolNameFor('session.delete-composition'),
+	{
+		slug: renderlessSlug,
+		expectedRevision: 0
+	}
+);
+check(
+	!renderlessDeleted.isError,
+	`deleting the renderless eval composition refused: ${String(renderlessDeleted.payload.message)}`
+);
+await renderlessPage.close();
+
 const release = await readServedRelease();
 check(release !== null, 'the measured origin did not report a release at /api/health');
 
@@ -678,6 +783,13 @@ const evidence = {
 		}
 	},
 	framedDocument: framed,
+	renderlessBrowser: {
+		harness: renderlessHarness,
+		capabilityGateShown: renderlessGateShown,
+		coldPageRegistered: renderlessColdTools.map((tool) => tool.name).sort(),
+		openCoreRegistered: renderlessOpenTools.map((tool) => tool.name).sort(),
+		inspectRevision: renderlessInspected.payload.revision
+	},
 	failures
 };
 
@@ -695,6 +807,6 @@ if (failures.length > 0) {
 	process.exitCode = 1;
 } else {
 	console.log(
-		`WebMCP agent eval passed: ${coldPageTools.length} cold-page tools, ${openPageToolNames.size} in the open core, reversible family disclosure, ${INTERNAL_ONLY_ROWS.length} internal-only rows unexposed.`
+		`WebMCP agent eval passed: ${coldPageTools.length} cold-page tools, ${openPageToolNames.size} in the open core, reversible family disclosure, ${INTERNAL_ONLY_ROWS.length} internal-only rows unexposed, ${renderlessColdTools.length} cold-page tools without CanvasDrawElement.`
 	);
 }

@@ -41,19 +41,24 @@
 
 	// WebMCP is progressive enhancement in one direction only (ADR-0054 §4):
 	// without `document.modelContext`, or inside a frame, an insecure context, or
-	// an opaque origin, this resolves to null and the app behaves exactly as it
-	// does with no agent attached. Nothing below the layout may depend on it. A
-	// capability-gated page registers no tools either — every tool authors against
-	// a renderer this browser does not have.
+	// an opaque origin, no controller starts and the app behaves exactly as it
+	// does with no agent attached. Nothing below the layout may depend on it.
+	// The capability gate above is not an input: a WebMCP browser without
+	// CanvasDrawElement — a headless agent browser, say — registers the same
+	// tools behind the notice, so an agent can still create, read, and edit a
+	// composition there; only the operations that have to render fail on such
+	// a page. A refusal is silent by design, so it is published where a harness
+	// can read it.
 	const webmcpLifetime = new AbortController();
-	const webmcpToolController =
-		browser && isCompositionCaptureAvailable
-			? startWebmcpToolController({
-					view: window,
-					definitions: listWebmcpToolDefinitions(),
-					lifetime: webmcpLifetime.signal
-				})
-			: null;
+	const webmcpStart = browser
+		? startWebmcpToolController({
+				view: window,
+				definitions: listWebmcpToolDefinitions(),
+				lifetime: webmcpLifetime.signal
+			})
+		: null;
+	const webmcpToolController = webmcpStart?.controller ?? null;
+	if (webmcpStart) window.__gfxWebmcpExposureRefusal = webmcpStart.refusal;
 
 	onDestroy(() => webmcpLifetime.abort());
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (built).** **Amended 2026-08-31:** the body opens on gfx.computer going public, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. Nothing in the operation, transaction, or security contract depends on that: a browser agent authors through `document.modelContext` on whichever origin serves the app. **Amended 2026-09-02:** Chrome 153 is now the minimum WebMCP host; registration and execution cancellation use its separate signals, Chrome annotation hints ship, direct time units and nested runtime objects supplement the storage-native arguments, and one prepared authoring family at a time joins a bounded core tool menu.
+**Canon (built).** **Amended 2026-08-31:** the body opens on gfx.computer going public, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. Nothing in the operation, transaction, or security contract depends on that: a browser agent authors through `document.modelContext` on whichever origin serves the app. **Amended 2026-09-02:** Chrome 153 is now the minimum WebMCP host; registration and execution cancellation use its separate signals, Chrome annotation hints ship, direct time units and nested runtime objects supplement the storage-native arguments, and one prepared authoring family at a time joins a bounded core tool menu. **Amended 2026-09-02 (later the same day):** registration no longer waits on the CanvasDrawElement capability gate, so a headless WebMCP browser without the renderer flag gets the same tools.
 
 Date: 2026-08-28
 
@@ -92,7 +92,8 @@ Read-only operations carry no revision requirement and record no history. Destro
 
 Tools are registered against `document.modelContext` by a controller that owns the whole lifecycle:
 
-- **Feature and version detection first.** No `document.modelContext`, or Chrome earlier than 153, means no registration and no console noise.
+- **Feature and version detection first.** No `document.modelContext`, or Chrome earlier than 153, means no registration and no console noise; the refusal is published on `window.__gfxWebmcpExposureRefusal` so a harness can read what the console does not say.
+- **The renderer is not a registration input** (amended 2026-09-02). The CanvasDrawElement capability gate decides whether the Workspace mounts, not whether tools exist: a WebMCP browser without the renderer flag — a headless agent browser — registers the same tools behind the gate notice and can create, read, and edit a composition through them. Only operations that render need the flagged browser, and `pnpm eval:webmcp` proves both browsers.
 - **Dynamic membership.** A tool is registered only in a state where it can succeed. `gfx_layer_remove_overlay` does not exist until an Overlay does; `gfx_composition_undo` exists only while history holds an edit to replay.
 - **Progressive family disclosure.** `capability`, `composition`, `session`, `playhead`, `validation`, and `delivery` form the core menu. `transport`, `layer`, `content`, `placement`, `appearance`, `motion`, `sound`, and `media` are on-demand. `gfx_capability_prepare_family` selects one on-demand family; its currently usable tools join the core and replace the previous family. This is agent context management, not a GUI gesture or authoring decision.
 - **Three hard ceilings.** A cold page stays within `WEBMCP_ALWAYS_REGISTERED_CEILING`; an open core stays within `WEBMCP_CORE_REGISTERED_CEILING`; core plus one family stays within `WEBMCP_DISCLOSED_REGISTERED_CEILING`. The controller rejects an overrun instead of truncating the menu.

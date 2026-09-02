@@ -2,8 +2,9 @@
 // GFX fallback without letting the fallback use CanvasDrawElement.
 //
 // PUBLIC-DEMO-ONLY OPT-IN (Dex qju2qity): the DOM-rasterization fallback this
-// probe measures is mothballed — the app hard-gates on CanvasDrawElement, so a
-// standard WebMCP browser only ever sees the capability-gate notice. The probe
+// probe measures is mothballed — the app hard-gates rendering on
+// CanvasDrawElement, so a standard WebMCP browser only ever sees the
+// capability-gate notice (its WebMCP tools still register behind it). The probe
 // refuses to run unless GFX_PUBLIC_DEMO_LANE=1 is set, and is meaningful only
 // against a future public-demo build that re-enables the lane. The recorded
 // selection evidence lives in docs/standard-browser-rendering-probe.md.

@@ -4,8 +4,9 @@
 # `CDP_BROWSER_MODE=agent` enables CanvasDrawElement AND WebMCP together — the
 # default local agent mode: WebMCP tools drive the real renderer (qju2qity).
 # `CDP_BROWSER_MODE=standard-webmcp` enables WebMCP without CanvasDrawElement;
-# since qju2qity the app hard-gates there, so this mode only ever sees the
-# capability-gate notice (kept for the mothballed public-demo lane probes).
+# since qju2qity the app hard-gates rendering there, so this mode sees the
+# capability-gate notice — with GFX's WebMCP tools still registered behind it,
+# which is what `pnpm eval:webmcp` proves for the headless agent case.
 # `CDP_BROWSER_MODE=standard` enables neither experimental feature.
 #
 # Always use a distinct CDP port per mode. The script is idempotent: if Chrome

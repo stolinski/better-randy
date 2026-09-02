@@ -1,6 +1,9 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
-import type { WebmcpModelContextHost } from '$lib/platform/webmcp-tool-controller';
+import type {
+	WebmcpExposureRefusal,
+	WebmcpModelContextHost
+} from '$lib/platform/webmcp-tool-controller';
 
 declare global {
 	interface Document {
@@ -10,6 +13,16 @@ declare global {
 		 * `WebmcpToolController` touches it.
 		 */
 		modelContext?: WebmcpModelContextHost;
+	}
+
+	interface Window {
+		/**
+		 * Why this document registers no WebMCP tools, or `null` when it may. A
+		 * refusal is silent by design (ADR-0054 §5), so this is the one place a
+		 * headless harness can read it. Set once by the root layout, before any
+		 * route mounts and whether or not the CanvasDrawElement gate is open.
+		 */
+		__gfxWebmcpExposureRefusal?: WebmcpExposureRefusal | null;
 	}
 
 	interface CanvasRenderingContext2D {

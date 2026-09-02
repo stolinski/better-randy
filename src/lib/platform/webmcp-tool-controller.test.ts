@@ -265,15 +265,25 @@ describe('WebMCP exposure', () => {
 		);
 	});
 
-	it('starts no controller where it may not expose tools, leaving the GUI untouched', () => {
+	it('starts no controller where it may not expose tools, and names the refusal instead', () => {
 		const view = exposedView(new FakeModelContext());
 		view.document = {};
-		const controller = startWebmcpToolController({
+		const start = startWebmcpToolController({
 			view,
 			definitions: [definition('composition.create-blank')],
 			lifetime: new AbortController().signal
 		});
-		expect(controller).toBeNull();
+		expect(start).toEqual({ controller: null, refusal: 'model-context-absent' });
+	});
+
+	it('starts a controller with no refusal wherever the document exposes tools', () => {
+		const start = startWebmcpToolController({
+			view: exposedView(new FakeModelContext()),
+			definitions: [definition('composition.create-blank')],
+			lifetime: new AbortController().signal
+		});
+		expect(start.controller).toBeInstanceOf(WebmcpToolController);
+		expect(start.refusal).toBeNull();
 	});
 });
 
