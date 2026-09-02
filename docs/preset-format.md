@@ -145,8 +145,12 @@ When a color is absent, the active Pack's core `fill-treatment` / `ink-treatment
     "author":    "...",   // optional
     "source":    "...",   // optional
     "dateLabel": "...",   // optional
-    "logoUrl":   "..."    // optional uploaded-image URL; checklist uses it in place of title
+    "logoUrl":   "...",   // optional uploaded-image URL; checklist uses it in place of title
+    "imageUrl":  "...",   // website-screenshot: a content-addressed /api/user-assets capture
+    "captureAsset": "..." // website-screenshot: a bundled capture slug (capture-assets.ts); never with imageUrl
   },
+  "variant": "...",                                              // optional; website-screenshot: "browser" (default) | "filmed"
+  "pageAnchor": { "x": 0..1, "y": 0..1 },                       // optional; the page point at frame centre in the filmed framing
   "enter": { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "exit":  { "start": 0..1, "duration": 0..1, "ease": Ease },  // optional
   "animation": { "channels": { "opacity": [ ... ] } },          // optional (see Animation; opacity only)
@@ -494,7 +498,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 - **`title-sequence`** — full-frame title-sequence Surface.
 - **`type-hero`** — full-frame typographic hero; variants `single` / `pair`.
 - **`web-document`** — structured site mock selected by `surface.site`.
-- **`website-screenshot`** — stored 1440×900 website capture in controls-only browser chrome. Slots: `sourceUrl` (author-time capture URL), `imageUrl` (content-addressed `/api/user-assets/...` bytes). Reflows one browser-plus-plate stack across both transports.
+- **`website-screenshot`** — a stored website capture. Slots: `sourceUrl` (author-time capture URL) and exactly one capture source — `imageUrl` (content-addressed `/api/user-assets/...` bytes, the GUI's capture) or `captureAsset` (a bundled capture from `src/lib/platform/capture-assets.ts`, the corpus form, authored with `scripts/capture-website.ts <url> --out src/lib/assets/captures/<slug>.png --scale 2 --height 2560`). Framings via `variant`: `browser` (default) presents the 1440×900 capture in controls-only browser chrome and reflows one browser-plus-plate stack across both transports; `filmed` ([ADR-0057](adr/0057-filmed-canvas-camera-pose-and-posed-planes.md)) lays the capture at native density covering the whole frame with no chrome, `pageAnchor` choosing which page point sits at frame centre — the frame is a crop into the page for the depth stage's camera to film.
 - **`imessage`** — choreographed Messages conversation; `chrome: "window" | "none"`.
 - **`checklist`** — timed checklist/progress Surface; `chrome: "window" | "none"`.
 

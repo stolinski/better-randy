@@ -21,7 +21,10 @@ import {
 	resolveSurfaceTypographyColors
 } from './pipelines/definition-registry';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
-import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
+import {
+	calculateWebsiteShowcaseLayout,
+	websiteScreenshotFraming
+} from '../utils/website-showcase.ts';
 import { resolveChartBarColumnGeometry } from '../utils/chart-bar-column-geometry.ts';
 import { resolveChartFrameLayout, type ChartLayoutOverflow } from '../utils/chart-layout.ts';
 import { resolveChartLineGeometry } from '../utils/chart-line-geometry.ts';
@@ -202,6 +205,10 @@ function checkWebsiteShowcase(
 	issues: RubricIssue[]
 ): void {
 	if (preset.state.surface.type !== 'website-screenshot') return;
+	// WS1–WS3 describe the browser showcase's browser-plus-plate stack. The
+	// filmed framing (ADR-0057) is a crop into the page with no plate; its
+	// legibility is the depth stage camera's job and the render matrix judges it.
+	if (websiteScreenshotFraming(preset.state.surface.variant) === 'filmed') return;
 
 	const sourceUrls = preset.state.overlays.filter((overlay) => overlay.type === 'source-url');
 	if (sourceUrls.length !== 1) {

@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises';
+
 import { chromium } from 'playwright';
 
 import { storeUserImage } from './user-image-asset-store.server.ts';
@@ -24,13 +26,24 @@ export function parseWebsiteCaptureRequest(value: unknown): WebsiteCaptureReques
 	return { url: normalizeWebsiteCaptureUrl(value.url) };
 }
 
-export async function captureWebsite(value: string): Promise<WebsiteCaptureResult> {
-	const url = normalizeWebsiteCaptureUrl(value);
+/** How a capture is taken: the CSS viewport height and the device scale. */
+export interface WebsiteCaptureOptions {
+	viewportHeight?: number;
+	deviceScaleFactor?: number;
+}
+
+async function captureWebsiteBytes(
+	url: string,
+	options: WebsiteCaptureOptions
+): Promise<Uint8Array> {
 	const browser = await chromium.launch({ headless: true });
 	try {
 		const context = await browser.newContext({
-			viewport: { width: WEBSITE_CAPTURE_WIDTH, height: WEBSITE_CAPTURE_HEIGHT },
-			deviceScaleFactor: 1
+			viewport: {
+				width: WEBSITE_CAPTURE_WIDTH,
+				height: options.viewportHeight ?? WEBSITE_CAPTURE_HEIGHT
+			},
+			deviceScaleFactor: options.deviceScaleFactor ?? 1
 		});
 		const page = await context.newPage();
 		await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -45,10 +58,49 @@ export async function captureWebsite(value: string): Promise<WebsiteCaptureResul
 			);
 		});
 		const bytes = await page.screenshot({ type: 'png', fullPage: false, animations: 'disabled' });
-		const imageUrl = await storeUserImage(new Uint8Array(bytes), 'image/png');
 		await context.close();
-		return localWebsiteCaptureResult(url, imageUrl);
+		return new Uint8Array(bytes);
 	} finally {
 		await browser.close();
 	}
+}
+
+/** Capture a page into the local user-asset store (the GUI's website capture). */
+export async function captureWebsite(value: string): Promise<WebsiteCaptureResult> {
+	const url = normalizeWebsiteCaptureUrl(value);
+	const bytes = await captureWebsiteBytes(url, {});
+	const imageUrl = await storeUserImage(bytes, 'image/png');
+	return localWebsiteCaptureResult(url, imageUrl);
+}
+
+export interface BundledWebsiteCapture {
+	url: string;
+	displayUrl: string;
+	path: string;
+	byteLength: number;
+	viewportHeight: number;
+	deviceScaleFactor: number;
+}
+
+/**
+ * Capture a page into a file for the bundled capture registry
+ * (`capture-assets.ts`, ADR-0057) — the corpus form of a website capture, taken
+ * tall and at device scale 2 so a filmed page keeps native density.
+ */
+export async function captureWebsiteToFile(
+	value: string,
+	outputPath: string,
+	options: WebsiteCaptureOptions = {}
+): Promise<BundledWebsiteCapture> {
+	const url = normalizeWebsiteCaptureUrl(value);
+	const bytes = await captureWebsiteBytes(url, options);
+	await writeFile(outputPath, bytes);
+	return {
+		url,
+		displayUrl: localWebsiteCaptureResult(url, '/api/user-assets/bundled.png').displayUrl,
+		path: outputPath,
+		byteLength: bytes.byteLength,
+		viewportHeight: options.viewportHeight ?? WEBSITE_CAPTURE_HEIGHT,
+		deviceScaleFactor: options.deviceScaleFactor ?? 1
+	};
 }

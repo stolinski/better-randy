@@ -29,6 +29,7 @@ src/lib/
     composition-render-resources.ts # atomic Surface/effect/stage GPU resource lifecycle
     composition-export-controller.ts # deterministic media plan/stepping/encoding handoff + cleanup
     stage-substrate-controller.ts # identity-guarded depth-stage image readiness
+    capture-assets.ts            # bundled website captures (the corpus form of a website-screenshot capture)
     poster-capture-controller.ts # cancellable content-keyed poster capture lifecycle
     export-session.server.ts      # bounded local PNG/WAV -> ffmpeg session + output cleanup
     video-asset-decoder.ts        # Source time -> presentation sample; decoder cache by asset

@@ -63,7 +63,12 @@ import type { WebmcpOperationRow } from './webmcp-operation-inventory';
  * slots the inspector renders, plus the two image slots a Surface captures into
  * — every one of them a string field on `surface.content`.
  */
-export const SURFACE_CONTENT_SLOTS = [...DOCUMENT_SLOTS, 'imageUrl', 'logoUrl'] as const;
+export const SURFACE_CONTENT_SLOTS = [
+	...DOCUMENT_SLOTS,
+	'imageUrl',
+	'captureAsset',
+	'logoUrl'
+] as const;
 export type SurfaceContentSlot = (typeof SURFACE_CONTENT_SLOTS)[number];
 
 export interface SetCompositionSurfaceContentRequest {
@@ -267,7 +272,7 @@ function listDeclaredSurfaceContentSlots(surface: SurfaceState): readonly Surfac
 	const slots: SurfaceContentSlot[] = DOCUMENT_SLOTS.filter((slot: DocumentSlot) =>
 		isDocumentSlotDeclared(controls, slot, surface, activeVariant)
 	);
-	if (controls.websiteCapture) slots.push('imageUrl');
+	if (controls.websiteCapture) slots.push('imageUrl', 'captureAsset');
 	if (controls.items) slots.push('logoUrl');
 	return slots;
 }

@@ -1,6 +1,21 @@
 import type { VideoOrientation } from './video-frame.ts';
 import { getLayoutSafeArea } from './safe-area.ts';
 
+/**
+ * Framings of the website-screenshot Surface (variants-as-data, ADR-0020):
+ * `browser` is the shipped showcase — a browser window inside the safe area
+ * with every capture edge visible; `filmed` (ADR-0057) lays the capture at
+ * native density covering the frame with no chrome, anchored by
+ * `surface.pageAnchor`, for a page the camera films up close.
+ */
+export const WEBSITE_SCREENSHOT_FRAMINGS = ['browser', 'filmed'] as const;
+
+export type WebsiteScreenshotFraming = (typeof WEBSITE_SCREENSHOT_FRAMINGS)[number];
+
+export function websiteScreenshotFraming(variant: string | undefined): WebsiteScreenshotFraming {
+	return variant === 'filmed' ? 'filmed' : 'browser';
+}
+
 export const WEBSITE_CAPTURE_WIDTH = 1440;
 export const WEBSITE_CAPTURE_HEIGHT = 900;
 export const WEBSITE_CAPTURE_ASPECT = WEBSITE_CAPTURE_WIDTH / WEBSITE_CAPTURE_HEIGHT;
@@ -110,6 +125,44 @@ export function calculateWebsiteShowcaseLayout(
 		},
 		overlapHeight
 	};
+}
+
+/** Where a filmed page lands in the frame: the capture scaled to cover the frame, offset so the anchored page point sits at centre. */
+export interface FilmedPageLayout {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+	/** Frame pixels per capture pixel. */
+	scale: number;
+}
+
+/**
+ * The `filmed` framing of the website-screenshot Surface (ADR-0057): the
+ * capture is laid at the smallest scale that covers the whole frame (native
+ * density wherever the capture is at least frame-sized), with no browser
+ * chrome, and shifted so the authored page anchor (capture fractions) sits at
+ * the frame centre — clamped so a frame edge never sees past the page. The
+ * frame is a crop into the page, the way ADR-0056 crops into the newspaper.
+ */
+export function calculateFilmedPageLayout(
+	frameWidth: number,
+	frameHeight: number,
+	captureWidth: number,
+	captureHeight: number,
+	anchor: { x: number; y: number } = { x: 0.5, y: 0.5 }
+): FilmedPageLayout {
+	if (frameWidth <= 0 || frameHeight <= 0 || captureWidth <= 0 || captureHeight <= 0) {
+		throw new RangeError('Filmed page frame and capture dimensions must be positive');
+	}
+	const scale = Math.max(frameWidth / captureWidth, frameHeight / captureHeight);
+	const width = captureWidth * scale;
+	const height = captureHeight * scale;
+	const anchorX = Math.min(1, Math.max(0, anchor.x));
+	const anchorY = Math.min(1, Math.max(0, anchor.y));
+	const left = Math.min(0, Math.max(frameWidth - width, frameWidth / 2 - anchorX * width));
+	const top = Math.min(0, Math.max(frameHeight - height, frameHeight / 2 - anchorY * height));
+	return { left, top, width, height, scale };
 }
 
 export interface EnterBlurCommitDeduper {

@@ -11,9 +11,9 @@ export const websiteScreenshotIdentity: IdentitySpec = {
 		{
 			name: 'stored-image-fidelity',
 			definition:
-				'Preview and export sample the persisted capture bytes and never navigate to the live website.',
+				'Preview and export sample the persisted capture bytes — a content-addressed user asset or a bundled capture — and never navigate to the live website.',
 			implementation:
-				'src/lib/pipelines/surfaces/website-screenshot/CanvasSource.svelte renders only surface.content.imageUrl from /api/user-assets; live navigation exists only in website-capture.server.ts.',
+				'src/lib/pipelines/surfaces/website-screenshot/CanvasSource.svelte renders only surface.content.imageUrl from /api/user-assets or the bundled surface.content.captureAsset from src/lib/platform/capture-assets.ts; live navigation exists only in website-capture.server.ts and scripts/capture-website.ts.',
 			probe: {
 				kind: 'named-observation',
 				region: 'the complete captured viewport',
@@ -24,14 +24,27 @@ export const websiteScreenshotIdentity: IdentitySpec = {
 		{
 			name: 'complete-viewport-preservation',
 			definition:
-				'The entire 16:10 capture remains visible without crop, stretch, or alternate orientation image.',
+				'In the browser framing the entire capture remains visible without crop, stretch, or alternate orientation image.',
 			implementation:
-				'src/lib/utils/website-showcase.ts computes a 1.6:1 screenshot box for both transports; CanvasSource uses object-fit: contain.',
+				'src/lib/utils/website-showcase.ts computes a 1.6:1 screenshot box for both transports; CanvasSource uses object-fit: contain in the browser framing (surface.variant absent or "browser").',
 			probe: {
 				kind: 'named-observation',
 				region: 'all four screenshot edges',
 				expectation:
-					'all four captured viewport edges are visible at 16:10 in horizontal and vertical renders.'
+					'all four captured viewport edges are visible at 16:10 in horizontal and vertical renders of the browser framing.'
+			}
+		},
+		{
+			name: 'filmed-page-crop',
+			definition:
+				'In the filmed framing (ADR-0057) the capture is laid at native density covering the whole frame with no browser chrome, the authored page anchor at frame centre, so the frame is a crop into the page and no page edge is in shot.',
+			implementation:
+				'src/lib/utils/website-showcase.ts calculateFilmedPageLayout scales the capture to cover the frame and clamps the anchored offset so every frame edge lies inside the page; CanvasSource renders the frame-sized article with the positioned img and no chrome header when surface.variant is "filmed".',
+			probe: {
+				kind: 'named-observation',
+				region: 'all four frame edges',
+				expectation:
+					'page pixels reach every frame edge with no chrome bar, corner radius, or exposed field, in horizontal and vertical renders; text near the anchored point is at native capture density or larger.'
 			}
 		},
 		{

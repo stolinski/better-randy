@@ -1,6 +1,7 @@
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
 import type { SurfacePipelineDefinition } from '$lib/platform/pipelines/definition-types';
+import { WEBSITE_SCREENSHOT_FRAMINGS } from '$lib/utils/website-showcase';
 
 function defaults(): SurfaceState {
 	return {
@@ -17,6 +18,7 @@ function defaults(): SurfaceState {
 export const websiteScreenshotSurfaceDefinition = {
 	type: 'website-screenshot',
 	label: 'Website screenshot',
+	variantIds: WEBSITE_SCREENSHOT_FRAMINGS,
 	controls: {
 		body: 'never',
 		typography: false,

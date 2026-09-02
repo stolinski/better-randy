@@ -319,3 +319,45 @@ describe('depth stage posed Overlay limit (ADR-0057)', () => {
 		assert.ok(posedIssue.message.includes('"card-4"'));
 	});
 });
+
+describe('website-screenshot capture sources (ADR-0057)', () => {
+	function websitePreset(content: Record<string, unknown>): Preset {
+		const state = createDefaultEngineState();
+		state.surface = {
+			type: 'website-screenshot',
+			content: {
+				body: state.surface.content.body,
+				sourceUrl: 'https://github.com/syntaxfm',
+				...content
+			}
+		} as typeof state.surface;
+		return { schema: 'gfx@1', name: 'website', pack: 'syntax', kind: 'fixture', state };
+	}
+	const captureIssues = (preset: Preset) =>
+		validatePresetSemantics(preset).filter((issue) => issue.path.includes('content'));
+
+	it('accepts a bundled capture on its own', () => {
+		assert.deepEqual(captureIssues(websitePreset({ captureAsset: 'syntax-youtube-videos' })), []);
+	});
+
+	it('refuses an unknown bundled capture, both sources, and neither', () => {
+		assert.ok(
+			captureIssues(websitePreset({ captureAsset: 'missing' })).some((issue) =>
+				issue.message.includes('Unknown capture asset')
+			)
+		);
+		assert.ok(
+			captureIssues(
+				websitePreset({
+					captureAsset: 'syntax-youtube-videos',
+					imageUrl: `/api/user-assets/${'a'.repeat(64)}.png`
+				})
+			).some((issue) => issue.message.includes('one capture source'))
+		);
+		assert.ok(
+			captureIssues(websitePreset({})).some((issue) =>
+				issue.message.includes('bundled captureAsset')
+			)
+		);
+	});
+});

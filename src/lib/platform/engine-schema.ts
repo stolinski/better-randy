@@ -995,6 +995,10 @@ const SurfaceContentSchema = z.object({
 	// page is author-time input only; preview/export read this content-addressed
 	// user-assets URL.
 	imageUrl: z.string().optional(),
+	// A bundled website capture (`capture-assets.ts`) for the website-screenshot
+	// Surface — the corpus form of `imageUrl`, so a shipped Preset never depends
+	// on the local user-asset store. Exactly one of the two is declared.
+	captureAsset: z.string().optional(),
 	// Ordered conversation for the `imessage` Surface (ignored by every other
 	// surface). The thread-level contact name reuses `author`; each message
 	// carries its own side/text/tapback/receipt. Per ADR-0031.
@@ -1036,6 +1040,12 @@ const SurfaceSchema = z.object({
 	// Surfaces. The Surface\'s Pipeline validates the value against its
 	// VARIANT_IDS at render time.
 	variant: z.string().optional(),
+	// The page point (capture fractions, u right, v down) that sits at the frame
+	// centre when the `website-screenshot` Surface is framed `filmed`
+	// (ADR-0057): the capture covers the frame at native density and this
+	// chooses which part of the page is in shot. Ignored by every other framing
+	// and Surface. Absent means the page centre.
+	pageAnchor: z.object({ x: FractionSchema, y: FractionSchema }).optional(),
 	enter: TransitionSchema.optional(),
 	exit: TransitionSchema.optional(),
 	// Composition-owned motion channels (ADR-0035). When `animation.channels`

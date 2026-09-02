@@ -16,6 +16,7 @@ import {
 	getTransitionEffectDefinition,
 	isTransitionEffectType
 } from './pipelines/transition-definition-registry';
+import { isCaptureAsset, listCaptureAssets } from './capture-assets';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
@@ -180,11 +181,27 @@ function validateSurfaceSemantics(preset: Preset, issues: PresetSemanticIssue[])
 	}
 
 	if (preset.state.surface.type === 'website-screenshot') {
-		const imageUrl = preset.state.surface.content.imageUrl;
-		if (!imageUrl || !/^\/api\/user-assets\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(imageUrl)) {
+		const { imageUrl, captureAsset } = preset.state.surface.content;
+		// One capture source: the local user-asset store (GUI authoring) or a
+		// bundled capture (corpus deliverables, ADR-0057) — never both, never none.
+		if (imageUrl !== undefined && captureAsset !== undefined) {
+			issues.push({
+				path: ['state', 'surface', 'content', 'captureAsset'],
+				message:
+					'website-screenshot takes one capture source: remove either imageUrl or captureAsset'
+			});
+		} else if (captureAsset !== undefined) {
+			if (!isCaptureAsset(captureAsset)) {
+				issues.push({
+					path: ['state', 'surface', 'content', 'captureAsset'],
+					message: `Unknown capture asset "${captureAsset}". Bundled captures: ${listCaptureAssets().join(', ')}`
+				});
+			}
+		} else if (!imageUrl || !/^\/api\/user-assets\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(imageUrl)) {
 			issues.push({
 				path: ['state', 'surface', 'content', 'imageUrl'],
-				message: 'website-screenshot requires a content-addressed /api/user-assets imageUrl'
+				message:
+					'website-screenshot requires a content-addressed /api/user-assets imageUrl or a bundled captureAsset'
 			});
 		}
 		try {
