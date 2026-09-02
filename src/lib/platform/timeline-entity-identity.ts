@@ -69,6 +69,25 @@ function requireIdentityIndex(value: number, name: string): number {
 	return value;
 }
 
+function describeTrackIdentity(value: unknown): string {
+	if (typeof value !== 'object' || value === null) return String(value);
+	return 'kind' in value ? `kind ${String(value.kind)}` : 'an identity without a kind';
+}
+
+/**
+ * Track identities cross a trust boundary here: the GUI, WebMCP focus moves,
+ * and parsed ids all mint their row and canvas selection ids through
+ * `createTimelineTrackId`, and the branded return type hides a missing value
+ * from the compiler at every call site downstream.
+ */
+function requireTrackIdentity(value: unknown): void {
+	if (typeof value !== 'object' || value === null || !('kind' in value)) {
+		throw new TypeError(
+			`Timeline entity identity: track identity must name a kind, received ${describeTrackIdentity(value)}.`
+		);
+	}
+}
+
 function decodeIdentitySegment(value: string): string | null {
 	try {
 		const decoded = decodeURIComponent(value);
@@ -87,6 +106,7 @@ function parseIdentityIndex(value: string): number | null {
 }
 
 export function createTimelineTrackId(identity: TimelineTrackIdentity): TimelineTrackId {
+	requireTrackIdentity(identity);
 	switch (identity.kind) {
 		case 'surface':
 		case 'captions':
@@ -115,6 +135,10 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 			return `block-subtrack:${requireIdentitySegment(identity.blockId, 'Block id')}:${identity.subtrack.kind}` as TimelineTrackId;
 		case 'text-animation':
 			return `text-animation:${requireIdentitySegment(identity.textAnimationId, 'Text animation id')}` as TimelineTrackId;
+		default:
+			throw new TypeError(
+				`Timeline entity identity: unsupported track ${describeTrackIdentity(identity)}.`
+			);
 	}
 }
 

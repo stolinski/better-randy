@@ -130,4 +130,24 @@ describe('timeline entity identity', () => {
 		assert.throws(() => createSoundRailReferenceId({ kind: 'manual', cueId: '' }), TypeError);
 		assert.throws(() => createVideoClipSelectionId(''), TypeError);
 	});
+
+	// A missing identity used to surface as `Cannot read properties of undefined
+	// (reading 'kind')` from inside a Svelte derivation, and an unhandled kind
+	// returned `undefined` wearing the `TimelineTrackId` brand (GFX-COMPUTER-22).
+	it('names the offending value instead of minting an undefined track id', () => {
+		const missing = undefined as unknown as TimelineTrackIdentity;
+		assert.throws(() => createTimelineTrackId(missing), {
+			name: 'TypeError',
+			message: 'Timeline entity identity: track identity must name a kind, received undefined.'
+		});
+		assert.throws(() => createTimelineTrackId({} as unknown as TimelineTrackIdentity), {
+			name: 'TypeError',
+			message:
+				'Timeline entity identity: track identity must name a kind, received an identity without a kind.'
+		});
+		assert.throws(() => createTimelineTrackId({ kind: 'stage' } as unknown as TimelineTrackIdentity), {
+			name: 'TypeError',
+			message: 'Timeline entity identity: unsupported track kind stage.'
+		});
+	});
 });
