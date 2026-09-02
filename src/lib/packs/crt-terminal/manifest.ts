@@ -186,15 +186,9 @@ export const crtTerminalPack: PackManifest = {
 			value: { top: '#030704', bottom: '#050b07', light: '#67f58b', sweep: '#a9ffbe' }
 		},
 
-		// ---------------- newspaper Surface ----------------
-		// Partial substrate immunity (ADR-0039 §2) retired the terminal-readout
-		// re-skin of the clipping body (glass fill / phosphor ink / green print /
-		// die-cut edge): a quoted newspaper stays newsprint on this Pack's glass
-		// too. Remaining claimable chrome: the kicker chip in phosphor voices,
-		// and depth via the core glow rig — the edge pass synthesizes the bloom
-		// halo around the torn silhouette in the Pack's phosphor ink.
-		'newspaper.accent': { kind: 'style', value: '#d9ffe0' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#2fb352' },
+		// (No newspaper Roles: the photographed page is a fully immune faithful
+		// artifact — ADR-0056 — so a quoted newspaper stays newsprint on this
+		// Pack's glass too.)
 
 		// ---------------- title-sequence Surface ----------------
 		// The drop title is the overdriven moment: hot core over the deepest
@@ -415,8 +409,8 @@ export const crtTerminalPack: PackManifest = {
 		'chapter-card.weight': { kind: 'style', value: '600' },
 
 		// (newspaper form dress — border/radius/tracking/case/weight — retired
-		// with the body re-skin: a bezeled, tracked-out clipping is not a
-		// newspaper. ADR-0039 §2.)
+		// with the body re-skin: a bezeled, tracked-out page is not a
+		// newspaper. ADR-0039 §2, ADR-0056.)
 
 		'title-sequence.tracking': { kind: 'style', value: '0.34em' },
 		'title-sequence.case': { kind: 'style', value: 'uppercase' },

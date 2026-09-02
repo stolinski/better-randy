@@ -1,55 +1,46 @@
 import type { SurfaceState } from '$lib/platform/engine-schema';
 import { parseAnnotationBodyText } from '$lib/annotations/annotation-body-text';
-import {
-	NEWSPRINT_EDGE_TREATMENT,
-	NEWSPRINT_INK_HEX,
-	NEWSPRINT_PAPER_HEX
-} from './newsprint-substrate';
+import { NEWSPRINT_INK_HEX, NEWSPRINT_PAPER_HEX } from './newsprint-substrate';
 import type { SurfacePipelineDefinition } from '$lib/platform/pipelines/definition-types';
 
 /**
- * Newspaper Surface — aged newsprint clipping. Reuses the `paper` Surface's
+ * Newspaper Surface — a broadsheet page photographed up close (ADR-0056). The
+ * frame is a tight crop INTO the page: the sheet overshoots every frame edge,
+ * so no silhouette, tear, or card shadow ever exists — the headline, byline,
+ * and justified columns bleed off the frame the way a documentary insert of a
+ * real newspaper does (`docs/inspo/newspaper/`). Reuses the `paper` Surface's
  * runtime scaffolding (HTML-in-canvas DOM upload + focal-slot composite +
- * marks textures + drop shadow) so focal annotations and decorative marks
- * work identically. The eight material physics dimensions this Surface owes
- * are declared in `./identity.ts` (per ADR-0015) and implemented as follows:
+ * marks textures) so highlighter and other annotation marks work identically.
  *
- *   - **CanvasSource HTML/CSS** — intrinsic newsprint substrate
- *     (`newsprint-substrate.ts`, ADR-0039 §2 partial immunity: sheet/ink/
- *     print/tear are document physics), condensed serif body, heavy
- *     slab/serif display, Pack-claimable mono kicker chip
- *     (`newspaper.accent` / `.kicker-ink`), mono byline + dateline, 1–3°
- *     seeded camera rotation (dim 6 `surface-rotation`). The Pack's
- *     claimable `newspaper.depth` shadow is synthesized by the shared edge
- *     pass against the intrinsic torn silhouette (coexists with the
- *     Pipeline-side `edge-occlusion-shadow`).
- *   - **`shaderPass: newspaperPhysics`** — single fragment pass running
- *     between the surface's DOM upload and the effect chain via the
- *     ShaderPassDispatcher (ADR-0010). Implements dims 1–5, 7, 8 in one
- *     pass — newsprint mottling, halftone screen, ink bleed, edge
- *     occlusion shadow, optical misregistration, camera defocus, lens
- *     vignette. WGSL at `shader-passes/newspaper-physics.ts`; the
- *     saturation-based mask skips overlay pixels (washi tape, kicker
- *     chips) for the substrate-only dimensions.
+ * Content slots map onto real page furniture: `dateLabel` and `source` print
+ * on the folio line above the heavy masthead rule, `kicker` is the section
+ * label over the headline, `title` is the grotesque headline, `author` +
+ * `affiliation` form the byline, and `body` flows through justified serif
+ * columns separated by column rules.
  *
- * Identity Spec contract: see `./identity.ts`. Wave 6 wires the engine-side
- * registration validator that refuses Pipelines whose dimensions are not
- * all implemented and probed.
+ * The material physics this Surface owes are declared in `./identity.ts` (per
+ * ADR-0015) and implemented across the CanvasSource (page geometry, seeded
+ * camera tilt, camera push), the paper compositor (fine grain), and the
+ * `newspaperPhysics` ShaderPass (mottling, halftone, ink bleed, camera
+ * defocus, lens vignette, scan grain — `shader-passes/newspaper-physics.ts`,
+ * dispatched between the DOM upload and the effect chain per ADR-0010).
  */
 
 function defaults(): SurfaceState {
 	return {
 		type: 'newspaper',
 		content: {
-			kicker: 'SECTION',
+			kicker: '',
 			title: 'Headline',
-			author: 'BY STAFF',
-			dateLabel: 'JAN 01 2026',
+			author: 'By STAFF WRITER',
+			affiliation: '',
+			source: '',
+			dateLabel: 'Monday, January 1, 2026',
 			body: parseAnnotationBodyText('')
 		},
-		// Tear-on enter + smooth exit. At a 2.8 s transport this lands
-		// 302 ms enter / 238 ms exit, inside G6 (250–400 / 180–280) with
-		// the 20 % shorter-than-enter ratio.
+		// Camera-landing enter + push-out exit. At a 2.8 s transport this lands
+		// 302 ms enter / 238 ms exit, inside G6 (250–400 / 180–280) with the
+		// 20 % shorter-than-enter ratio.
 		enter: { start: 0, duration: 0.108, ease: 'settled' },
 		exit: { start: 0.915, duration: 0.085, ease: 'smooth' }
 	};
@@ -57,11 +48,13 @@ function defaults(): SurfaceState {
 
 export const newspaperSurfaceDefinition = {
 	type: 'newspaper',
-	label: 'Newspaper clipping',
+	label: 'Newspaper page',
 	controls: {
 		title: true,
 		kicker: true,
 		author: true,
+		affiliation: true,
+		source: true,
 		dateLabel: true,
 		body: 'optional',
 		typography: false,
@@ -71,13 +64,8 @@ export const newspaperSurfaceDefinition = {
 		enterExit: true
 	},
 	defaults,
-	// The clipping's outer silhouette runs the shared edge pass BEFORE
-	// newspaperPhysics so the edge-occlusion shadow and defocus operate on the
-	// treated silhouette. Since ADR-0039 §2 the cut character is document
-	// physics — the intrinsic tear below applies under EVERY pack (the `edge`
-	// slot is absent from the Identity Spec's claimable list), replacing the
-	// retired `newspaper.edge` Role.
-	edgeTreatment: true,
-	intrinsicEdgeTreatment: NEWSPRINT_EDGE_TREATMENT,
+	// No edge treatment: the page has no silhouette inside the frame (the sheet
+	// overshoots every edge), so the shared edge pass would only ever carve the
+	// canvas boundary. Intentionally absent — see `identity.ts` § page-crop.
 	substrateColors: { paperHex: NEWSPRINT_PAPER_HEX, inkHex: NEWSPRINT_INK_HEX }
 } satisfies SurfacePipelineDefinition;

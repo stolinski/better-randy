@@ -131,12 +131,8 @@ export const sentryPack: PackManifest = {
 			value: { top: '#2f1c48', bottom: '#181225', light: '#4e2a9a', sweep: '#000000' }
 		},
 
-		// ---------------- newspaper Surface ----------------
-		// Partial substrate immunity (ADR-0039 §2): the clipping stays newsprint.
-		// Claimable chrome only: a hot-pink kicker chip with the field's dark ink
-		// on it — the site's dark-on-bright button grammar.
-		'newspaper.accent': { kind: 'style', value: '#fd44b0' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#1f1633' },
+		// (No newspaper Roles: the photographed page is a fully immune faithful
+		// artifact — ADR-0056.)
 
 		// ---------------- title-sequence Surface ----------------
 		// Display type stays crisp: the neon is the cards' property, never the

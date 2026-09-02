@@ -1,45 +1,27 @@
 /**
- * The newspaper's intrinsic substrate physics — the aged-newsprint constants
- * that stopped being Pack-claimable under partial substrate immunity
- * (ADR-0039 §2): a white-and-blue "newspaper" is not a newspaper, so the
- * document's own fill, ink, print tints, and tear character are the
- * Pipeline's, not the active Pack's. Channel chrome ON the clipping — the
- * kicker chip (`newspaper.accent` / `newspaper.kicker-ink`) and the
- * depth/shadow rig (`newspaper.depth`) — remains Pack-resolved through the
- * `claimable` slots on `newspaperIdentity.packImmunity`.
+ * The newspaper's intrinsic substrate physics — the photographed-newsprint
+ * constants that are the Pipeline's, never the active Pack's. The Surface is a
+ * FULLY immune faithful artifact (ADR-0056, extending ADR-0039 §2's doctrine
+ * to its conclusion): a page photographed up close carries no channel chrome
+ * at all — no kicker chip, no card shadow — so nothing on it re-dresses under a
+ * Pack swap. Annotation marks laid on the page (the highlighter) stay
+ * Pack-resolved through their own Pipelines.
  *
- * Values are render-is-truth: the exact hexes the syntax-era Pack claims
- * carried, which were themselves measured FROM this substrate's render (the
- * syntax manifest notes its fill/ink cores "ground in what syntax actually
- * renders" — the newspaper). Retiring the Roles returns the numbers home.
+ * Values are read off the direction plates in `docs/inspo/newspaper/` — an old
+ * broadsheet photographed for a documentary cut: a neutral grey sheet (the
+ * paper compositor's warmth multiply nudges it faintly warm), dark grey ink
+ * that reads near-black at headline weight and softens to charcoal in the
+ * body once the physics pass bleeds it.
  */
 
-import type { EdgeTreatment } from '$lib/platform/packs/resolve';
+/** Photographed-newsprint sheet colour, before the compositor's grain and warmth. */
+export const NEWSPRINT_PAPER_HEX = '#dadada';
 
-/** Aged-newsprint sheet colour (was the `newspaper.fill` Role). */
-export const NEWSPRINT_PAPER_HEX = '#f0e8d6';
-
-/** Newsprint body ink (was the `newspaper.ink` Role). */
-export const NEWSPRINT_INK_HEX = '#1a1612';
+/** Newsprint ink — headline, masthead, byline, body, column rules. */
+export const NEWSPRINT_INK_HEX = '#1b1b1b';
 
 /**
- * WGSL print tints for the newspaper-physics pass (was the `newspaper.print`
- * Role): cool near-black halftone ink, faintly warm edge-occlusion shadow —
- * exact byte conversions of the pass's original vec3f constants.
+ * WGSL halftone ink for the newspaper-physics pass: the cool near-black the
+ * mid-tone screen prints with.
  */
-export const NEWSPRINT_PRINT_INK_HEX = '#0a0a0d';
-export const NEWSPRINT_PRINT_SHADOW_HEX = '#0d0a0a';
-
-/**
- * The clipping is TORN from its source, never cropped (was the syntax
- * `newspaper.edge` Role; aesthetic.md § Cut behavior — tear path ~3–8% of the
- * card's smaller dimension, interior fiber rim at the torn boundary). Under
- * partial immunity the cut character is document physics: every Pack gets the
- * same tear.
- */
-export const NEWSPRINT_EDGE_TREATMENT: EdgeTreatment = {
-	mode: 'torn',
-	amplitudePx: 40,
-	wavelengthPx: 150,
-	fiber: 1
-};
+export const NEWSPRINT_PRINT_INK_HEX = '#0f0f11';

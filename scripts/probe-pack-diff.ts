@@ -520,14 +520,12 @@ const REPRESENTATIVE_OVERRIDES: Readonly<Record<string, string>> = {
 	'overlay:watermark': 'watermark-channel-sig',
 	'surface:plain': 'watermark-demo',
 	'captions:track': 'captions-pack-style-demo',
-	// Partial substrate immunity (ADR-0039 §2) recalibrations: the newspaper
-	// row now measures chrome-only deltas, so its representative must carry
-	// the claimable kicker chip (title-card-newspaper is title-only — its
-	// chrome-free region diffs ~0.77%, under the floor, telling us nothing).
-	// block:paragraph and annotation:highlight lose their document-surface
-	// bleed-through evidence (the body no longer re-skins) and move to
-	// plain-surface presets where the ink they ride is genuinely claimable.
-	'surface:newspaper': 'server-renders-again',
+	// Substrate immunity (ADR-0039 §2 → ADR-0056) recalibrations: the newspaper
+	// is now a fully immune photographed page, so its row sits in the
+	// stability set with no override. block:paragraph and annotation:highlight
+	// lost their document-surface bleed-through evidence (the body no longer
+	// re-skins) and live on plain-surface presets where the ink they ride is
+	// genuinely claimable.
 	'block:paragraph': 'watermark-demo',
 	'annotation:highlight': 'keyframes-cascade-demo'
 };

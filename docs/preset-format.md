@@ -473,7 +473,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 
 - **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.
 - **`plain`** — transparent background that hosts a body without chrome. Slots: `author`, `source`, `dateLabel` (decorative metadata only).
-- **`newspaper`** — reflective newspaper clipping with print/substrate physics and Pack-claimable chrome.
+- **`newspaper`** — a broadsheet page photographed up close: full-bleed crop, intrinsic newsprint physics, fully Pack-immune ([ADR-0056](adr/0056-newspaper-photographed-page.md)). Slots: `title`, `kicker`, `author`, `affiliation`, `source`, `dateLabel`, `body`. Full-frame — Presets declare `backgroundFill`.
 - **`pullquote-on-photo`** — pullquote staged against the dimensional depth stage's photographic backdrop.
 - **`chapter-card`** — full-frame chapter introduction Surface.
 - **`brand-mark`** — full-frame chapter break carrying a registered brand silhouette in the active Pack's accent; variant `syntax-fm`.

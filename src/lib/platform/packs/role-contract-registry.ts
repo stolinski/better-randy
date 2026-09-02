@@ -247,7 +247,6 @@ function pipelineKeyForType(pipelineType: string): string {
 		'chapter-card',
 		'checklist',
 		'pullquote-on-photo',
-		'newspaper',
 		'title-sequence',
 		'type-hero'
 	]);
@@ -474,8 +473,6 @@ const colorRoleFallbacks: Readonly<Record<string, string>> = {
 	'lower-third.kickerInk': 'accent-treatment',
 	'lower-third.plate': 'fill-treatment',
 	'lower-third.roleInk': 'ink-treatment',
-	'newspaper.accent': 'accent-treatment',
-	'newspaper.kicker-ink': 'ink-treatment',
 	'node.accent': 'accent-treatment',
 	'node.fill': 'fill-treatment',
 	'node.ink': 'ink-treatment',
@@ -673,7 +670,6 @@ for (const [role, core, pipelineKey] of [
 	['plain.depth', 'depth-treatment', 'surface:plain'],
 	['chapter-card.depth', 'depth-treatment', 'surface:chapter-card'],
 	['checklist.depth', 'depth-treatment', 'surface:checklist'],
-	['newspaper.depth', 'depth-treatment', 'surface:newspaper'],
 	['title-sequence.depth', 'depth-treatment', 'surface:title-sequence'],
 	['type-hero.depth', 'depth-treatment', 'surface:type-hero'],
 	['node.depth', 'depth-treatment', 'block:node']
@@ -683,7 +679,7 @@ for (const [role, core, pipelineKey] of [
 		core,
 		core === 'edge-treatment' ? isPackEdgeTreatmentValue : isPackDepthTreatmentValue,
 		pipelineKey,
-		role === 'newspaper.depth' ? 'optional' : 'reference-identity'
+		'reference-identity'
 	);
 
 const chartPipelines = [

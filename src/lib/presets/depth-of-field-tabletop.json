@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Depth of field — tabletop title card",
-	"description": "Multiplane DOF (ADR-0027) tabletop/macro look. The newspaper title card sits tack-sharp on the focal plane (z 0.0) while a procedural defocused-material backdrop fills the frame behind it: a soft warm surface that loses detail and gains bright bokeh specks toward the edges (defocused highlights receding into depth), plus a vignette. The card's drop shadow falls onto the backdrop, so it reads as a real newspaper lying on a textured surface shot with a shallow macro lens — edge blur + depth, almost 3D. The washi-tape sits at z 0.0 too, sharp with the card.",
+	"description": "Multiplane DOF (ADR-0027) tabletop/macro look. The paper title card sits tack-sharp on the focal plane (z 0.0) while a procedural defocused-material backdrop fills the frame behind it: a soft warm surface that loses detail and gains bright bokeh specks toward the edges (defocused highlights receding into depth), plus a vignette. The card's drop shadow falls onto the backdrop, so it reads as a real paper lying on a textured surface shot with a shallow macro lens — edge blur + depth, almost 3D. The washi-tape sits at z 0.0 too, sharp with the card.",
 	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
@@ -22,7 +22,7 @@
 			"timings": []
 		},
 		"surface": {
-			"type": "newspaper",
+			"type": "paper",
 			"content": {
 				"title": "Why Bun Quietly Replaced npm",
 				"dateLabel": "JUN 2026",

@@ -1,9 +1,6 @@
 import { d } from 'typegpu';
 
-import {
-	NEWSPRINT_PRINT_INK_HEX,
-	NEWSPRINT_PRINT_SHADOW_HEX
-} from '$lib/pipelines/surfaces/newspaper/newsprint-substrate';
+import { NEWSPRINT_PRINT_INK_HEX } from '$lib/pipelines/surfaces/newspaper/newsprint-substrate';
 
 import type { ShaderPass } from '$lib/platform/pipelines/types';
 import type { SurfaceState } from '$lib/platform/engine-schema';
@@ -11,33 +8,33 @@ import { hexToRgbaFloat } from '$lib/utils/color';
 import { hashStringToUnitInterval } from '$lib/utils/seeded';
 
 /**
- * `newspaper-physics` — single-pass surface shader carrying the two material
- * tells the `newspaper` Surface needs that the existing paper compositor
- * doesn't supply:
+ * `newspaper-physics` — single-pass surface shader carrying the material tells
+ * of a broadsheet page photographed up close (ADR-0056) that the paper
+ * compositor doesn't supply:
  *
  *   1. **Halftone dot screen at body sizes.** Mid-tones (gray ink) read as a
- *      pattern of dots whose coverage tracks the underlying luminance.
- *      Black ink (titles, byline) stays solid; near-white paper stays clean;
- *      gray mid-tones break into dots. Reference: aesthetic.md § Newspaper
- *      clipping ("halftone dot at body sizes").
- *   2. **Ink bleed at glyph edges.** A sub-pixel dilate + soft blur on dark
- *      glyphs simulates the way newsprint ink wicks into porous paper
- *      fibres. Quantified as one screen-space pixel of dilation followed by
- *      a 2-tap gaussian. Reference: aesthetic.md § Newspaper clipping
- *      ("ink bleed at glyph edges").
+ *      pattern of dots whose coverage tracks the underlying luminance. Black
+ *      ink (headline) stays solid; near-white paper stays clean; gray
+ *      mid-tones break into dots.
+ *   2. **Ink bleed at glyph edges.** A sub-pixel dilate on dark glyphs
+ *      simulates the way newsprint ink wicks into porous paper fibres.
+ *   3. **Newsprint mottling.** Low-frequency ink-absorption variation across
+ *      the sheet.
+ *   4. **Camera optics.** Radial defocus, lens vignette, and a per-pixel scan
+ *      grain across the whole photographed frame — the frame IS the
+ *      photograph, so these apply to every opaque pixel, highlighter included.
  *
- * Declared via the `SurfaceRenderer.shaderPass` field added in ADR-0008
- * (which mirrors ADR-0005's `OverlayRenderer.shaderPass` for the surface
- * layer). `Workspace` feeds this pass to the ShaderPassDispatcher between DOM
- * upload and the effect chain (invocation wired per ADR-0010).
+ * Declared via the `SurfaceRenderer.shaderPass` field added in ADR-0008.
+ * `Workspace` feeds this pass to the ShaderPassDispatcher between DOM upload
+ * and the effect chain (invocation wired per ADR-0010).
  */
 
 export const NewspaperPhysicsUniforms = d.struct({
 	/**
-	 * Per-instance seed in [0, 1) — derived from the preset id so multiple
-	 * newspaper-surface compositions in one session don't share the same
-	 * jitter pattern. Used to phase-shift the halftone grid and to seed the
-	 * ink-bleed noise so adjacent glyph edges don't all wick identically.
+	 * Per-instance seed in [0, 1) — derived from the headline so multiple
+	 * newspaper compositions in one session don't share the same jitter
+	 * pattern. Phase-shifts the halftone grid, the mottling lattice, and the
+	 * scan grain.
 	 */
 	seed: d.f32,
 	/**
@@ -46,19 +43,13 @@ export const NewspaperPhysicsUniforms = d.struct({
 	 * dithering, larger as poster halftone.
 	 */
 	halftonePitchPx: d.f32,
-	/**
-	 * Bleed dilation radius in screen-space pixels. ~1.0 px at 4K gives the
-	 * soft glyph swell of porous-paper printing without losing legibility.
-	 */
+	/** Bleed dilation radius in screen-space pixels. */
 	bleedRadiusPx: d.f32,
 	/** Composition canvas width / height in pixels, used to map UV to px. */
 	canvasWidth: d.f32,
 	canvasHeight: d.f32,
-	// Intrinsic newsprint print tints (partial substrate immunity, ADR-0039 §2
-	// retired the Pack-routed `newspaper.print` Role): the halftone screen's
-	// ink and the edge-occlusion shadow.
-	inkColor: d.vec3f,
-	shadowColor: d.vec3f
+	// Intrinsic newsprint print tint: the halftone screen's ink.
+	inkColor: d.vec3f
 });
 
 export interface NewspaperPhysicsParams {
@@ -68,15 +59,15 @@ export interface NewspaperPhysicsParams {
 	canvasWidth: number;
 	canvasHeight: number;
 	inkColor: ReturnType<typeof d.vec3f>;
-	shadowColor: ReturnType<typeof d.vec3f>;
 }
 
 const HALFTONE_PITCH_PX = 10;
-// Ink-bleed dilation in screen-space pixels. At 4K, ~3 px maps to ~0.5 mm
-// of physical wicking if the composition is read as a real newspaper page
-// (~60 cm wide → 6400 px/m). Below 2 px the effect is imperceptible at
-// half-zoom previews; above 5 px glyphs lose legibility.
-const BLEED_RADIUS_PX = 3;
+// Ink-bleed dilation in screen-space pixels. At 4K, 2 px maps to ~0.3 mm of
+// physical wicking if the composition is read as a real newspaper page
+// (~60 cm wide → 6400 px/m). Below 1.5 px the effect is imperceptible at
+// half-zoom previews; at 3 px and up the body serif reads a weight heavier
+// than it was set.
+const BLEED_RADIUS_PX = 2;
 
 /**
  * Fallback composition dimensions used only when the dispatcher hands the
@@ -88,13 +79,9 @@ const BLEED_RADIUS_PX = 3;
 const FALLBACK_CANVAS_WIDTH = 3840;
 const FALLBACK_CANVAS_HEIGHT = 2160;
 
-// The print tints are document physics (ADR-0039 §2): every pack prints the
-// same cool near-black ink and faintly warm occlusion shadow. Converted once
-// from the substrate constants at module scope.
+// The print tint is document physics: every pack prints the same cool
+// near-black halftone ink. Converted once from the substrate constant.
 const [PRINT_INK_R, PRINT_INK_G, PRINT_INK_B] = hexToRgbaFloat(NEWSPRINT_PRINT_INK_HEX);
-const [PRINT_SHADOW_R, PRINT_SHADOW_G, PRINT_SHADOW_B] = hexToRgbaFloat(
-	NEWSPRINT_PRINT_SHADOW_HEX
-);
 
 const wgsl = /* wgsl */ `
 	let seed = layout.$.uniforms.seed;
@@ -103,86 +90,41 @@ const wgsl = /* wgsl */ `
 	let pxUv = vec2f(1.0 / canvasW, 1.0 / canvasH);
 	let bleedPx = max(layout.$.uniforms.bleedRadiusPx, 0.0);
 
-	// ----- Surface-pixel mask -----
+	// ----- Pixel classes -----
 	//
-	// The shader runs on the full composition texture (surface + any
-	// overlays composited on top by HTML-in-canvas), but the halftone +
-	// ink-bleed physics only belong on the newspaper substrate. Overlays
-	// like washi tape carry high color saturation; the newspaper substrate
-	// is desaturated (cream paper, dark ink, AA-grey edges between them).
-	// A max-min saturation check separates the two without needing
-	// surface-bounds or rotation uniforms. Transparent off-card pixels
-	// (alpha < 0.5) are also skipped so the bleed never dilates into the
-	// transparent frame.
+	// The page overshoots the frame, so every pixel with alpha is part of the
+	// photograph and takes the camera optics (defocus, vignette, scan grain).
+	// The ink physics (bleed, halftone) belong only to ink on paper: the
+	// desaturated pixels. The marker highlight the annotation layer multiplies
+	// onto the page is saturated and is left with its clean marker edge.
 	let chMax = max(max(inputSample.r, inputSample.g), inputSample.b);
 	let chMin = min(min(inputSample.r, inputSample.g), inputSample.b);
 	let centerSaturation = chMax - chMin;
-	let isNewspaperPixel = centerSaturation < 0.3 && inputSample.a > 0.5;
+	let isPhotographedPixel = inputSample.a > 0.5;
+	let isInkOnPaper = centerSaturation < 0.3 && isPhotographedPixel;
 
 	// ----- Ink bleed at glyph edges -----
 	//
-	// Sample the input texture at the centre plus four diagonal pixel
-	// offsets; the dilated alpha is the max of the five, the dilated colour
-	// is the alpha-weighted blend. Then a 1-tap gaussian softens the new
-	// edge so the bleed reads as wicking ink, not as a hard outline.
+	// Ink wicks OUTWARD into the paper: every pixel takes on a share of the
+	// darkest ink within the bleed radius (a component-wise min over the
+	// centre and four diagonal taps), so paper touching a stroke darkens and
+	// the stroke grows by a soft ramp. Never the other way round — averaging
+	// the neighbourhood would lighten the stroke from the inside and print a
+	// grey rim around every glyph.
 	let bleedOffset = bleedPx * pxUv;
 	let centre = inputSample;
 	let s1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( bleedOffset.x,  bleedOffset.y));
 	let s2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-bleedOffset.x,  bleedOffset.y));
 	let s3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( bleedOffset.x, -bleedOffset.y));
 	let s4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-bleedOffset.x, -bleedOffset.y));
-
-	// Ink bleeds where it's already dark; bias by inverse-luminance so we
-	// only dilate ink, not the warm-white substrate. Newsprint paper itself
-	// doesn't "wick"; the ink does.
-	let lumaCentre = dot(centre.rgb, vec3f(0.2126, 0.7152, 0.0722));
-	let inkMask = 1.0 - smoothstep(0.45, 0.85, lumaCentre);
-
+	let darkestRgb = min(min(centre.rgb, s1.rgb), min(min(s2.rgb, s3.rgb), s4.rgb));
 	let dilatedAlpha = max(max(centre.a, s1.a), max(max(s2.a, s3.a), s4.a));
-	let dilatedRgb = (centre.rgb * centre.a + s1.rgb * s1.a + s2.rgb * s2.a + s3.rgb * s3.a + s4.rgb * s4.a)
-		/ max(centre.a + s1.a + s2.a + s3.a + s4.a, 0.0001);
 
-	let bledRgb = mix(centre.rgb, dilatedRgb, inkMask);
-	let bledAlpha = mix(centre.a, dilatedAlpha, inkMask);
-	var bled = vec4f(bledRgb, bledAlpha);
-
-	// ----- Chrome-neighborhood mask (halftone exclusion) -----
-	//
-	// The kicker chip prints desaturated label ink ON a saturated Pack plate,
-	// and per-pixel saturation cannot tell that ink from newsprint body ink —
-	// so the dot screen used to chew mid-luma chip labels (clean-light's
-	// slate #5b6472 sat squarely in the mid-tone band; verified at native 4K,
-	// dex lbwpnf69). Four wide diagonal taps: if any lands saturated, this
-	// pixel sits inside saturated chrome and the screen must not fire. 12 px
-	// clears a 700-weight label stroke while staying inside the chip plate;
-	// saturated inks themselves (crt's phosphor chip ink) are already caught
-	// by the per-pixel isNewspaperPixel gate. Cost: body ink within ~12 px of
-	// a saturated mark/overlay boundary also skips the screen — a hairline
-	// halo, invisible against losing whole glyphs.
-	let chromeOffset = 12.0 * pxUv;
-	let n1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x,  chromeOffset.y));
-	let n2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x,  chromeOffset.y));
-	let n3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x, -chromeOffset.y));
-	let n4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x, -chromeOffset.y));
-	// Axis-aligned ring closes stroke-junction gaps where every diagonal tap
-	// still lands in ink (an N's crossing at 4K weight).
-	let n5 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( chromeOffset.x, 0.0));
-	let n6 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-chromeOffset.x, 0.0));
-	let n7 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  chromeOffset.y));
-	let n8 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -chromeOffset.y));
-	let nSat1 = max(max(n1.r, n1.g), n1.b) - min(min(n1.r, n1.g), n1.b);
-	let nSat2 = max(max(n2.r, n2.g), n2.b) - min(min(n2.r, n2.g), n2.b);
-	let nSat3 = max(max(n3.r, n3.g), n3.b) - min(min(n3.r, n3.g), n3.b);
-	let nSat4 = max(max(n4.r, n4.g), n4.b) - min(min(n4.r, n4.g), n4.b);
-	let nSat5 = max(max(n5.r, n5.g), n5.b) - min(min(n5.r, n5.g), n5.b);
-	let nSat6 = max(max(n6.r, n6.g), n6.b) - min(min(n6.r, n6.g), n6.b);
-	let nSat7 = max(max(n7.r, n7.g), n7.b) - min(min(n7.r, n7.g), n7.b);
-	let nSat8 = max(max(n8.r, n8.g), n8.b) - min(min(n8.r, n8.g), n8.b);
-	let neighborSaturation = max(
-		max(max(nSat1, nSat2), max(nSat3, nSat4)),
-		max(max(nSat5, nSat6), max(nSat7, nSat8))
-	);
-	let outsideSaturatedChrome = select(0.0, 1.0, neighborSaturation < 0.3);
+	// Only paper next to ink wicks: a pixel already at ink density has
+	// nothing darker to take on, and open paper far from a stroke finds only
+	// paper in its taps (the min is a no-op there).
+	let bleedStrength = 0.4;
+	let bled = vec4f(mix(centre.rgb, darkestRgb, bleedStrength), max(centre.a, dilatedAlpha * bleedStrength));
 
 	// ----- Halftone dot screen at body sizes -----
 	//
@@ -193,7 +135,6 @@ const wgsl = /* wgsl */ `
 	let pitch = max(layout.$.uniforms.halftonePitchPx, 1.0);
 	let gridPos = vec2f(in.uv.x * canvasW / pitch + seed * 13.0,
 	                    in.uv.y * canvasH / pitch + seed * 17.0);
-	let cell = floor(gridPos);
 	let cellLocal = fract(gridPos) - vec2f(0.5);
 	let cellRadius = length(cellLocal);
 
@@ -202,53 +143,62 @@ const wgsl = /* wgsl */ `
 	// "wet ink, slightly bloomed" appearance into the halftone pattern.
 	let luma = dot(bled.rgb, vec3f(0.2126, 0.7152, 0.0722));
 
-	// The screen only fires in mid-tones. Hard blacks (titles) and near-
-	// whites (paper) pass through unmodified.
-	let inMidtone = smoothstep(0.05, 0.30, luma) * (1.0 - smoothstep(0.70, 0.92, luma));
+	// The screen only fires in mid-tones: the anti-aliased ramp at a stroke's
+	// edge. Hard blacks (headline interiors) pass through, and so does the
+	// open sheet — grey newsprint sits at luma ≈ 0.70–0.76 after the
+	// compositor's grain, so the upper band closes well below it.
+	let inMidtone = smoothstep(0.05, 0.30, luma) * (1.0 - smoothstep(0.50, 0.64, luma));
 	let dotRadius = 0.50 * (1.0 - luma);
 	let dotCoverage = smoothstep(dotRadius + 0.02, dotRadius - 0.02, cellRadius);
 
-	// Mid-tone substitution: where the screen fires, replace the pixel
-	// with a binary ink-or-paper choice based on the dot mask. Outside
-	// mid-tones, keep the bled sample. Mix in by inMidtone so the screen
-	// blends gracefully into the surrounding tone ramp. The halftone ink is
-	// intrinsic newsprint physics (a cool near-black — newsprint-substrate.ts).
+	// Mid-tone substitution: where the screen fires, replace the pixel with a
+	// binary ink-or-paper choice based on the dot mask, mixed in by inMidtone
+	// so the screen blends into the surrounding tone ramp. Only ink on paper
+	// screens — the marker highlight keeps its clean edge.
 	let inkColor = layout.$.uniforms.inkColor;
-	let paperColor = bled.rgb;
-	let screened = mix(paperColor, inkColor, dotCoverage);
-	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a * outsideSaturatedChrome);
+	let screened = mix(bled.rgb, inkColor, dotCoverage);
+	let halftonedRgb = mix(bled.rgb, screened, inMidtone * bled.a * f32(isInkOnPaper));
+	let inkedRgb = select(inputSample.rgb, halftonedRgb, isInkOnPaper);
+	let inkedAlpha = select(inputSample.a, bled.a, isInkOnPaper);
 
 	// ----- Camera defocus -----
 	//
-	// Subtle radial DOF: pixels far from the implied focal centre get a
-	// progressively larger 4-tap box blur. Implies the paper was photographed
-	// with a real aperture, not rasterized to vector edges. Holds the centre
-	// of the composition sharp (where attention lives) and softens the corners
-	// where the paper plane bends out of focus. Future refinement: derive the
-	// focal centre from a focal slot rather than UV (0.5, 0.5).
+	// Radial DOF: pixels far from the frame centre get a progressively larger
+	// 9-tap blur (centre, an axis ring, and a tighter diagonal ring, weighted
+	// like a small gaussian). Implies the page was photographed with a real
+	// macro aperture, not rasterized to vector edges. Holds the centre sharp
+	// (where the headline lives) and softens the corners where the page plane
+	// bends out of focus. The ring radius stays small — a few taps spread
+	// wide read as a double image, not a blur.
 	let focalCentre = vec2f(0.5, 0.5);
 	let distFromFocal = distance(in.uv, focalCentre);
-	let defocusMix = smoothstep(0.30, 0.70, distFromFocal);
-	let defocusRadiusPx = defocusMix * 5.0;
-	let defocusOffsetUv = defocusRadiusPx * pxUv;
-	let d1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( defocusOffsetUv.x,  defocusOffsetUv.y));
-	let d2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-defocusOffsetUv.x,  defocusOffsetUv.y));
-	let d3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( defocusOffsetUv.x, -defocusOffsetUv.y));
-	let d4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-defocusOffsetUv.x, -defocusOffsetUv.y));
-	let defocusedRgb = (d1.rgb + d2.rgb + d3.rgb + d4.rgb) * 0.25;
-	let mixedRgb = mix(halftonedRgb, defocusedRgb, defocusMix);
+	let defocusMix = smoothstep(0.32, 0.72, distFromFocal);
+	let defocusRadiusPx = defocusMix * 4.5;
+	let axisUv = defocusRadiusPx * pxUv;
+	let diagUv = axisUv * 0.7;
+	let a1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( axisUv.x, 0.0));
+	let a2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-axisUv.x, 0.0));
+	let a3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0,  axisUv.y));
+	let a4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(0.0, -axisUv.y));
+	let g1 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( diagUv.x,  diagUv.y));
+	let g2 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-diagUv.x,  diagUv.y));
+	let g3 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f( diagUv.x, -diagUv.y));
+	let g4 = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + vec2f(-diagUv.x, -diagUv.y));
+	let defocusedRgb = inputSample.rgb * 0.25
+		+ (a1.rgb + a2.rgb + a3.rgb + a4.rgb) * 0.125
+		+ (g1.rgb + g2.rgb + g3.rgb + g4.rgb) * 0.0625;
+	let mixedRgb = mix(inkedRgb, defocusedRgb, defocusMix);
 
 	// ----- Newsprint mottling -----
 	//
-	// Newsprint stock has uneven ink absorption at the ~5–15 cm scale on
-	// the printed page (≈500–1500 px at 4K). The paper Pipeline's grain
-	// covers fine + medium + fibre scales, but lacks this coarsest layer —
-	// without it, newspaper paper reads as clean stock with grain rather
-	// than as printed newsprint with ink density variation. Inline 2D value
-	// noise: hash four corners of a unit cell, smoothstep-interp between
-	// them so the mottling reads as organic patches rather than the
-	// periodic banding a summed-sin approach produced. ±3% multiplicative
-	// band; seed phase-shifts the noise grid per-instance.
+	// Newsprint stock has uneven ink absorption at the ~5–15 cm scale on the
+	// printed page (≈500–1500 px at 4K). The paper Pipeline's grain covers
+	// fine + medium + fibre scales, but lacks this coarsest layer — without it
+	// the sheet reads as clean stock with grain rather than printed newsprint
+	// with ink density variation. Inline 2D value noise: hash four corners of
+	// a unit cell, smoothstep-interp between them so the mottling reads as
+	// organic patches rather than periodic banding. ±3% multiplicative band;
+	// seed phase-shifts the noise grid per-instance.
 	let noiseScale = 6.0;
 	let noiseUv = in.uv * noiseScale + vec2f(seed * 13.0, seed * 19.0);
 	let noiseCell = floor(noiseUv);
@@ -261,87 +211,26 @@ const wgsl = /* wgsl */ `
 	let mottle = mix(mix(h00, h10, noiseLerp.x), mix(h01, h11, noiseLerp.x), noiseLerp.y);
 	let mottledRgb = mixedRgb * (1.0 + (mottle - 0.5) * 0.06);
 
+	// ----- Scan grain -----
+	//
+	// The finest grain octave: a static per-2px-cell hash, ±2.5% luma, the
+	// sensor/scan noise of the footage the page was photographed for. Static
+	// (seeded, not per-frame) — a photographed still does not crawl.
+	let grainCell = floor(in.uv * vec2f(canvasW, canvasH) / 2.0) + vec2f(seed * 7.0, seed * 3.0);
+	let grainHash = fract(sin(dot(grainCell, vec2f(12.9898, 78.233))) * 43758.5453);
+	let grainedRgb = mottledRgb * (1.0 + (grainHash - 0.5) * 0.05);
+
 	// ----- Lens vignette -----
 	//
-	// Multiplicative corner darkening on newspaper pixels — same UV-distance
-	// metric as defocus. Implies a real camera lens, not a flat rasterizer.
-	// Zero at the focal centre; up to 18% darkening at the far corners.
-	// Vignette never touches transparent or overlay pixels (the final select
-	// gates this), so the composited NLE output sees darkening only on the
-	// paper itself.
-	let vignetteAmount = smoothstep(0.30, 0.85, distFromFocal) * 0.18;
-	let outRgb = mottledRgb * (1.0 - vignetteAmount);
+	// Multiplicative corner darkening across the photographed frame — same
+	// UV-distance metric as defocus. Zero at the centre; up to 27% darkening
+	// at the far corners, the way the direction plates fall off. Alpha is
+	// untouched.
+	let vignetteAmount = smoothstep(0.25, 0.85, distFromFocal) * 0.27;
+	let opticsRgb = grainedRgb * (1.0 - vignetteAmount);
 
-	// ----- Edge occlusion shadow -----
-	//
-	// For pixels outside the paper (alpha < 0.5), sample at progressively
-	// larger offsets toward the implied light source (upper-left). If any
-	// sample lands on an opaque newspaper pixel, this pixel is in the
-	// paper's directional occlusion shadow — strongest near the paper edge,
-	// fading with quadratic falloff to the shadow radius. The lit edge of
-	// the paper (upper-left) gets no shadow because samples toward the light
-	// find no paper there; the shadow side (lower-right) accumulates.
-	//
-	// Lives alongside (not replacing) the CSS hard offset shadow on the
-	// newspaper CanvasSource — the hard offset is Syntax-aesthetic chrome
-	// (ADR-0016 / Pack-side), while edge-occlusion is the material physics
-	// dimension every Pack inherits.
-	let lightDirUv = vec2f(-1.0, -1.0) * pxUv;
-	let shadowRadiusPx = 60.0;
-	let shadowStrength = 0.45;
-	var shadowMask = 0.0;
-	for (var i = 1; i <= 8; i = i + 1) {
-		let t = f32(i) / 8.0;
-		let offUv = lightDirUv * shadowRadiusPx * t;
-		let probe = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + offUv);
-		let probeMax = max(max(probe.r, probe.g), probe.b);
-		let probeMin = min(min(probe.r, probe.g), probe.b);
-		let probeSat = probeMax - probeMin;
-		if (probe.a > 0.5 && probeSat < 0.3) {
-			let strength = (1.0 - t) * (1.0 - t);
-			shadowMask = max(shadowMask, strength);
-		}
-	}
-	// Occlusion-shadow tint is intrinsic newsprint physics — faintly warm, the
-	// way newsprint shadow picks up stock (newsprint-substrate.ts).
-	let shadowColor = layout.$.uniforms.shadowColor;
-	let isOutsidePaper = inputSample.a < 0.5;
-	let inShadow = isOutsidePaper && shadowMask > 0.0;
-	let shadowedAlpha = shadowMask * shadowStrength;
-
-	// ----- Optical misregistration -----
-	//
-	// Print-plate misalignment on saturated pixels (highlights, marks, washi
-	// tape) — sample R and B channels at small opposite offsets so the
-	// saturated colour shows a chromatic fringe at its edges, the way real
-	// newsprint shows a yellow/red plate offset from the dark ink plate.
-	// Newspaper substrate pixels are unaffected (mix factor goes to 0 when
-	// centerSaturation < 0.3). Loadbearing per ADR-0016 — chromatic offset
-	// is banned as decorative chrome but required when claimed by an
-	// Identity Spec dimension on a material-kind Surface.
-	let regOffsetR = vec2f( 1.5,  0.5) * pxUv;
-	let regOffsetB = vec2f(-1.5, -0.5) * pxUv;
-	let rChannel = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + regOffsetR).r;
-	let bChannel = textureSample(layout.$.inputTexture, layout.$.samp, in.uv + regOffsetB).b;
-	let isSaturatedPixel = centerSaturation > 0.3 && inputSample.a > 0.5;
-	let chromaticRgb = vec3f(rChannel, inputSample.g, bChannel);
-	let regShiftedRgb = mix(inputSample.rgb, chromaticRgb, f32(isSaturatedPixel));
-
-	// Three-way composite: newspaper pixel takes halftone+bleed; outside-
-	// paper-in-shadow takes the directional occlusion; saturated overlays
-	// take the chromatic-offset misregistration; everything else passes
-	// through unchanged.
-	let finalRgb = select(
-		select(regShiftedRgb, shadowColor, inShadow),
-		outRgb,
-		isNewspaperPixel
-	);
-	let finalAlpha = select(
-		select(inputSample.a, shadowedAlpha, inShadow),
-		bled.a,
-		isNewspaperPixel
-	);
-	return vec4f(finalRgb, finalAlpha);
+	let finalRgb = select(inputSample.rgb, opticsRgb, isPhotographedPixel);
+	return vec4f(finalRgb, inkedAlpha);
 `;
 
 export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
@@ -362,8 +251,7 @@ export function createNewspaperPhysicsPass(): ShaderPass<SurfaceState> {
 				bleedRadiusPx: BLEED_RADIUS_PX,
 				canvasWidth: bounds.width > 0 ? bounds.width : FALLBACK_CANVAS_WIDTH,
 				canvasHeight: bounds.height > 0 ? bounds.height : FALLBACK_CANVAS_HEIGHT,
-				inkColor: d.vec3f(PRINT_INK_R, PRINT_INK_G, PRINT_INK_B),
-				shadowColor: d.vec3f(PRINT_SHADOW_R, PRINT_SHADOW_G, PRINT_SHADOW_B)
+				inkColor: d.vec3f(PRINT_INK_R, PRINT_INK_G, PRINT_INK_B)
 			} satisfies NewspaperPhysicsParams;
 		}
 	};

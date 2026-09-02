@@ -66,6 +66,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0053](0053-gfx-namespace-and-legacy-supers-compatibility.md)      | Canon (contract ratified; renames are separate changes)                                      | GFX namespace, one disposition per Legacy Supers name, and the public-session boundary                  |
 | [0054](0054-webmcp-operation-transaction-and-security-contract.md) | Canon (contract ratified; operation layer, controller, and parity gate are separate changes) | Fifteen non-overlapping WebMCP operation families over one revisioned atomic transaction core           |
 | [0055](0055-user-defined-packs.md)                                 | Canon (built 2026-09-01)                                                                     | User Packs as validated JSON documents behind a UserPackStore; renderable, never catalog                |
+| [0056](0056-newspaper-photographed-page.md)                        | Canon (built 2026-09-01)                                                                     | The newspaper is a full-bleed photographed page, fully Pack-immune, with a camera instead of a card     |
 
 ## Supersession And Refinement
 

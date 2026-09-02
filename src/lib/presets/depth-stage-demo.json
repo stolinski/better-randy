@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Dimensional depth stage — title card",
-	"description": "Verification fixture for the ADR-0028 dimensional depth stage. The newspaper title card sits on a near 3D plane over a backdrop plane at depth; a slow camera push makes the two reproject at different rates (real parallax), and a rack focus pulls from the backdrop onto the title. A lower-third overlay rides its own plane mid-scene (z 0.45, overlay-at-depth), parallaxing and defocusing with the camera. Drives the depth-stage render path via state.stage (the flat multiplane path, ADR-0027, is untouched). backgroundFill is the backdrop colour — the surface composite stays card-on-transparent.",
+	"description": "Verification fixture for the ADR-0028 dimensional depth stage. The paper title card sits on a near 3D plane over a backdrop plane at depth; a slow camera push makes the two reproject at different rates (real parallax), and a rack focus pulls from the backdrop onto the title. A lower-third overlay rides its own plane mid-scene (z 0.45, overlay-at-depth), parallaxing and defocusing with the camera. Drives the depth-stage render path via state.stage (the flat multiplane path, ADR-0027, is untouched). backgroundFill is the backdrop colour — the surface composite stays card-on-transparent.",
 	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
@@ -22,10 +22,9 @@
 			"timings": []
 		},
 		"surface": {
-			"type": "newspaper",
+			"type": "paper",
 			"content": {
 				"title": "Why Bun Quietly Replaced npm",
-				"kicker": "SYNTAX · ISSUE 02",
 				"dateLabel": "JUN 2026",
 				"body": ""
 			},

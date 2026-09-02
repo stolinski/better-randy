@@ -123,15 +123,9 @@ export const cleanLightPack: PackManifest = {
 			value: { top: '#f6f7f8', bottom: '#eef0f2', light: '#000000', sweep: '#000000' }
 		},
 
-		// ---------------- newspaper Surface ----------------
-		// Partial substrate immunity (ADR-0039 §2) retired the clean-sheet
-		// re-skin of the clipping body (white stock / cool ink / die-cut edge /
-		// digital print): a quoted newspaper stays newsprint in the white studio
-		// too. Remaining claimable chrome: the kicker chip (product-blue plate,
-		// slate chip ink); depth falls through to the core quiet float,
-		// synthesized against the intrinsic torn silhouette.
-		'newspaper.accent': { kind: 'style', value: '#0075de' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#5b6472' },
+		// (No newspaper Roles: the photographed page is a fully immune faithful
+		// artifact — ADR-0056 — so a quoted newspaper stays newsprint in the
+		// white studio too.)
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },

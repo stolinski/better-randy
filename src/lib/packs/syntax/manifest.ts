@@ -50,11 +50,11 @@ export const syntaxPack: PackManifest = {
 		// the ADR-0024 fallback floor every Pack must supply; the boot validator
 		// (`validatePackCoreVocabulary`) refuses a Pack missing any of them.
 		// ---------------------------------------------------------------
-		// Colour cores ground in what syntax actually renders: the newspaper
-		// clipping is the channel's dominant paper/ink read (render-is-truth —
-		// `newspaper.fill` / `newspaper.ink` below carry the same values), and
-		// the accent is the canonical channel yellow (aesthetic.md § Palette,
-		// the highlighter/kicker yellow).
+		// Colour cores ground in what syntax actually renders: the warm cream
+		// paper and near-black ink of the channel's card system (render-is-truth
+		// — measured from the pre-ADR-0056 newsprint clipping, which the paper
+		// family still prints), and the accent is the canonical channel yellow
+		// (aesthetic.md § Palette, the highlighter/kicker yellow).
 		'fill-treatment': { kind: 'style', value: '#f0e8d6' },
 		'ink-treatment': { kind: 'style', value: '#1a1612' },
 		// The full-frame FIELD (ADR-0039 §3, `backgroundFill: 'pack'`): the flat
@@ -76,7 +76,7 @@ export const syntaxPack: PackManifest = {
 		// Core structural edge vocabulary (five values: clean/soft/irregular/
 		// torn/none, resolved by resolveEdgeTreatment → the shared edge-treatment
 		// ShaderPass). Brand ruling 2026-07-09: chrome never tears — clean is the
-		// default; a quoted-document substrate (newspaper) claims its own torn edge.
+		// default; quoted-document substrates keep their own edge physics.
 		'edge-treatment': {
 			kind: 'style',
 			value: 'clean'
@@ -149,23 +149,9 @@ export const syntaxPack: PackManifest = {
 			value: { top: '#0e0e0d', bottom: '#0e0e0d', light: '#000000', sweep: '#000000' }
 		},
 
-		// ---------------- newspaper Surface ----------------
-		// Partial substrate immunity (ADR-0039 §2): the document body — sheet
-		// fill, body ink, print tints, tear character — is intrinsic newsprint
-		// (`newsprint-substrate.ts`; this Pack's former claims carried the same
-		// values and folded back in). Only the claimable channel chrome remains:
-		// the kicker chip and the depth rig.
-		'newspaper.accent': { kind: 'style', value: '#fabf47' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#1a1612' },
-		// Structural depth — the signature zine hard-offset shadow under the card
-		// (aesthetic.md § Collage System / Hard offset shadow). `dx`/`dy` are
-		// 4K-reference px; `color:'fg'` resolves to the card's intrinsic
-		// newsprint ink so the shadow tracks the foreground. The edge pass
-		// synthesizes it as an offset duplicate of the intrinsic torn silhouette.
-		'newspaper.depth': {
-			kind: 'style',
-			value: { hardOffset: { dx: 12, dy: 12, blur: 0, color: 'fg' } }
-		},
+		// (No newspaper Roles: the photographed page is a fully immune faithful
+		// artifact — ADR-0056 — its sheet, ink, and type live in
+		// `newsprint-substrate.ts` and the Surface's CanvasSource.)
 
 		// ---------------- title-sequence Surface ----------------
 		'title-sequence.edge': { kind: 'style', value: 'none' },

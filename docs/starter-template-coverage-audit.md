@@ -100,12 +100,11 @@ Fixtures remain directly loadable proof corpus and do not inflate the Starter co
 | `keyframes-cascade-demo`                        | Animation proof      | Generalized keyframes and Cascade  | Keep fixture | Engine contract proof.                                                |
 | `lower-third-cascade-reveal`                    | Animation proof      | Lower-third Cascade                | Keep fixture | Calibration/reference proof; canonical Starter is `lower-third`.      |
 | `lower-third-clean-light`                       | Pack calibration     | Clean Light lower third            | Keep fixture | Calibration evidence, never a listing entry.                          |
-| `newspaper-body-test`                           | Surface proof        | Newsprint body and tape            | Keep fixture | Pipeline regression input.                                            |
+| `newspaper-body-test`                           | Surface proof        | Newsprint body and highlighter     | Keep fixture | Pipeline regression input.                                            |
 | `ntsc-signal-demo`                              | Effect proof         | NTSC signal                        | Keep fixture | Isolated Effect proof.                                                |
 | `optical-glass-photo-fixture`                   | Effect proof         | Optical glass over photo           | Keep fixture | Isolated Effect proof.                                                |
 | `optical-lens-showcase`                         | Effect proof         | Refractive-lens composition        | Keep fixture | Effect study, not a durable creator job.                              |
 | `quote-vertical`                                | Reflow proof         | Vertical paper quote               | Keep fixture | Historical orientation proof, not a sibling Starter.                  |
-| `server-renders-again`                          | Pack proof           | Partial substrate immunity         | Keep fixture | Pack/Surface showcase retained outside listing.                       |
 | `shader-fill-demo`                              | Overlay proof        | Shader fill                        | Keep fixture | Isolated Overlay proof.                                               |
 | `shader-fill-syntax-gradient`                   | Pack proof           | Syntax shader-fill dress           | Keep fixture | Appearance proof, not a separate piece.                               |
 | `sound-escape-hatches`                          | Sound proof          | Cue overrides and mute             | Keep fixture | Sound contract proof.                                                 |

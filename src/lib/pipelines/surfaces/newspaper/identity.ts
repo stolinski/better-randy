@@ -1,146 +1,129 @@
 /**
  * Identity Spec for the `newspaper` Surface — per ADR-0015. Declares the
- * dimensions of realism this Pipeline owes when it claims to render aged
- * newsprint. Every material dimension is intrinsic — paper grain, halftone,
- * ink bleed, edge occlusion, optical misregistration, surface rotation,
- * camera defocus, lens vignette, and (since ADR-0039 §2) the tear character
- * of the cut are what the substrate *is*, not aesthetic dress a Pack varies.
+ * dimensions of realism this Pipeline owes when it claims to render a
+ * broadsheet page photographed up close (ADR-0056, direction plates in
+ * `docs/inspo/newspaper/`). Every dimension is intrinsic — grain, halftone,
+ * ink bleed, the page crop, the camera's tilt, push, defocus, and vignette are
+ * what the photographed substrate *is*, not aesthetic dress a Pack varies.
  *
- * Partial substrate immunity (ADR-0039 §2): the document BODY — sheet fill,
- * body ink, print tints, tear character (`newsprint-substrate.ts`) — is
- * Pack-immune; a re-dressed newspaper stops being a newspaper. Channel chrome
- * ON the clipping stays claimable through `packImmunity.claimable`: the
- * kicker chip (`accent` plate + `kicker-ink`) and the depth/shadow rig
- * (`depth`). Annotation marks and the backdrop resolve through their own
- * Pipelines/composition state, untouched by this declaration.
+ * Full substrate immunity (ADR-0056): a photographed page carries no channel
+ * chrome — no kicker chip, no card shadow — so `claimable` is absent and
+ * nothing on the page re-dresses under a Pack swap. Annotation marks laid on
+ * the page (the highlighter) resolve through their own Pipelines/composition
+ * state, untouched by this declaration.
  */
 
 import type { IdentitySpec } from '$lib/platform/pipelines/identity';
 
 export const newspaperIdentity: IdentitySpec = {
 	kind: 'material',
-	claim: 'aged newsprint photographed under directional light',
+	claim: 'a broadsheet newspaper page photographed up close for a documentary insert',
 	packImmunity: {
 		rationale:
-			'A quoted newspaper is a faithful artifact like a quoted tweet (ADR-0038): repainting its sheet, ink, print tints, or tear under a pack swap breaks verisimilitude without gaining brand (ADR-0039 §2 — a white-and-blue "newspaper" is no longer a newspaper). Channel chrome ON the clipping stays the pack’s.',
-		claimable: ['accent', 'kicker-ink', 'depth']
+			'A quoted newspaper is a faithful artifact like a quoted tweet (ADR-0038): repainting its sheet, ink, or type under a pack swap breaks verisimilitude without gaining brand (ADR-0039 §2). Photographed up close there is no card and no chip for a pack to claim (ADR-0056), so the page is fully immune; the marker highlight on it stays the pack’s through the annotation Pipelines.'
 	},
 	dimensions: [
 		{
 			name: 'grain-multi-scale',
 			definition:
-				'Paper texture carries energy at four distinct spatial frequencies — coarse fibre, fine speckle, anisotropic warp, and low-frequency mottling — so the substrate reads as newsprint rather than clean printer paper.',
+				'Paper texture carries energy at five distinct spatial frequencies — coarse fibre, fine speckle, anisotropic warp, low-frequency mottling, and a per-pixel scan grain — so the substrate reads as photographed newsprint rather than clean printer paper.',
 			implementation:
-				'paper Pipeline contributes the three fine/medium/anisotropic noise scales (src/lib/pipelines/surfaces/paper/pipeline.ts ~ grain composition); newspaper-physics adds the lowest-frequency mottling layer via 2D hash-based value noise (newspaper-physics.ts § Newsprint mottling).',
+				'paper Pipeline contributes the three fine/medium/anisotropic noise scales (src/lib/pipelines/surfaces/paper/pipeline.ts ~ grain composition); newspaper-physics adds the lowest-frequency mottling layer via 2D hash-based value noise (newspaper-physics.ts § Newsprint mottling) and the finest scan-grain octave at 2 px cells (§ Scan grain).',
 			probe: {
 				kind: 'named-observation',
-				region: 'a paper-only patch within the card, away from text',
+				region: 'a paper-only patch within the frame, away from text',
 				expectation:
-					'visible organic density variation at ~500–1500 px scale at 4K, layered over the inherited fine grain; no periodic banding (sin-stripe patterns) anywhere.'
+					'visible organic density variation at ~500–1500 px scale at 4K, layered over the inherited fine grain and a per-pixel grain of ±2–3% luma; no periodic banding (sin-stripe patterns) anywhere.'
 			}
 		},
 		{
 			name: 'halftone-at-body',
 			definition:
-				'At body cap-height, dark ink resolves as a halftone dot pattern rather than a flat fill. The screen fires only on mid-tone luminance — pure-dark titles stay solid, near-white paper stays clean — and only on the document body: label ink inside saturated channel chrome (the kicker chip) is printed chrome, not newsprint, and never screens.',
+				'At body cap-height, mid-tone ink resolves as a halftone dot pattern rather than a flat fill. The screen fires only on mid-tone luminance — pure-dark headline strokes stay solid, near-white paper stays clean — so glyph edges pick up the broken, printed character of a press run.',
 			implementation:
-				'newspaper-physics.ts § Halftone dot screen — smoothstep(0.05, 0.30) × (1 - smoothstep(0.70, 0.92)) mid-tone mask multiplied by per-cell dot coverage; HALFTONE_PITCH_PX = 10. § Chrome-neighborhood mask — four 12 px diagonal saturation taps veto the screen inside saturated chrome, so mid-luma chip label ink (clean-light slate) stays solid (dex lbwpnf69).',
+				'newspaper-physics.ts § Halftone dot screen — smoothstep(0.05, 0.30) × (1 - smoothstep(0.50, 0.64)) mid-tone mask multiplied by per-cell dot coverage; HALFTONE_PITCH_PX = 10. The upper band closes below the grey sheet’s luma (≈ 0.70–0.76 after the compositor’s grain) so open paper never screens; gated to desaturated ink-on-paper pixels so the marker highlight never screens either.',
 			probe: {
 				kind: 'named-observation',
-				region: 'body text glyph at 400% zoom; kicker chip label at 400% zoom',
+				region: 'body text glyph at 400% zoom; headline glyph at 400% zoom',
 				expectation:
-					'internal dot/grain texture visible inside the body stroke; title glyphs at the same zoom stay solid black (the screen correctly skips luma < 0.05); chip label glyphs stay solid under EVERY pack regardless of ink luma.'
+					'internal dot/grain texture visible at the body stroke edge; headline glyphs at the same zoom stay solid black in their interiors (the screen correctly skips luma < 0.05).'
 			}
 		},
 		{
 			name: 'ink-bleed-at-edges',
 			definition:
-				'Glyph edges show 1–2 px softening with sub-pixel chromatic separation, reading as ink absorbing into paper fibre rather than vector-clean rasterization.',
+				'Glyph edges show 1–2 px softening, reading as ink absorbing into paper fibre rather than vector-clean rasterization.',
 			implementation:
-				'newspaper-physics.ts § Ink bleed — 4-tap diagonal dilation at BLEED_RADIUS_PX = 3, gated by an inverse-luminance ink mask so paper does not dilate.',
+				'newspaper-physics.ts § Ink bleed — component-wise min over the centre and four diagonal taps at BLEED_RADIUS_PX = 2, mixed in at 0.4, so paper touching a stroke takes on its ink and the stroke grows outward by a soft ramp (never an average, which would print a grey rim inside the glyph).',
 			probe: {
 				kind: 'named-observation',
 				region: 'body glyph edge at 400% zoom',
 				expectation:
-					'edge transition spans ≥ 2 px with slight chromatic offset between saturated and luma channels; no hard single-pixel stroke boundary.'
+					'edge transition spans ≥ 2 px; no hard single-pixel stroke boundary.'
 			}
 		},
 		{
-			name: 'edge-occlusion-shadow',
+			name: 'page-crop',
 			definition:
-				'The paper sheet casts a directional, SDF-derived occlusion shadow on the substrate beneath it. Lit-side edges have zero shadow band; shadow-side edges have a soft falloff implying the paper sits on a real surface under directional light.',
+				'The frame is a tight crop INTO the page. The sheet overshoots every frame edge under both orientations, so no page silhouette, tear, or card shadow ever appears; headline, byline, and columns run off the frame the way a documentary insert of a real newspaper does.',
 			implementation:
-				'newspaper-physics.ts § Edge occlusion shadow — 8-tap progressive probe along vec2f(-1, -1) (light direction); quadratic strength falloff to shadowRadiusPx = 60 px; shadowStrength = 0.45. Coexists with the CSS hard offset shadow on the card (Pack-side Syntax chrome).',
+				'CanvasSource.svelte § page geometry — the article is sized larger than the frame (PAGE_OVERSHOOT_* fractions) and offset so its edges sit outside the canvas under the seeded tilt and the full camera push; the Composition’s overflow clip crops it. No edge treatment is declared on the definition (intentional absence — the shared edge pass would only carve the canvas boundary).',
 			probe: {
 				kind: 'named-observation',
-				region: 'paper edges, comparing upper-left (lit) vs lower-right (shadow)',
+				region: 'the whole frame at progress 0.0, 0.5, and 1.0 in both orientations',
 				expectation:
-					'lit edge shows hard alpha transition from transparency directly to paper; shadow edge shows a soft gradient of darkened alpha extending ~300 px from the paper boundary. Lit-vs-shadow density ratio > 1.4.'
-			}
-		},
-		{
-			name: 'optical-misregistration',
-			definition:
-				'Saturated marks (highlights, annotation chrome) show chromatic channel offset implying print-plate misalignment from the dark ink plate. Newspaper substrate pixels are unaffected.',
-			implementation:
-				'newspaper-physics.ts § Optical misregistration — R channel sampled at vec2f(+1.5, +0.5) px offset, B channel at vec2f(-1.5, -0.5) px; mix factor gated by centerSaturation > 0.3 ∧ alpha > 0.5 so only saturated overlays/marks register.',
-			probe: {
-				kind: 'named-observation',
-				region: 'edge of a yellow highlight rectangle at 400% zoom',
-				expectation:
-					'visible chromatic fringe — warm shift on one side of the highlight, cool shift on the other; dark glyphs inside the highlight show channel separation along their strokes.'
-			}
-		},
-		{
-			name: 'edge-treatment',
-			definition:
-				'The cut behavior of the clipping’s outer silhouette. A clipping is TORN from its source — the tear character is document physics, not Pack dress (ADR-0039 §2 reversed the ADR-0019-era via-pack concession: a die-cut “newspaper clipping” under a clean pack read as a printed card, not a quoted artifact).',
-			implementation:
-				'newsprint-substrate.ts § NEWSPRINT_EDGE_TREATMENT — intrinsic torn treatment (amplitudePx 40, wavelengthPx 150, fiber 1) consumed by the shared edge-treatment ShaderPass via the renderer’s intrinsicEdgeTreatment; the `edge` slot is absent from packImmunity.claimable, so resolveEdgeTreatment is never consulted for this Surface.',
-			probe: {
-				kind: 'named-observation',
-				region: 'card silhouette against transparency at 200% zoom',
-				expectation:
-					'under EVERY pack: an irregular displaced tear path (~1–3% of the card’s smaller dimension) with a lighter interior fiber rim at the torn boundary, never an axis-perfect rectangular cut. The tear path is deterministic per preset — same seed, same tear across re-renders.'
+					'alpha coverage is 100% at every sampled frame; no page edge, corner, or shadow band is visible; at least one column and the headline’s trailing edge are cropped by the frame.'
 			}
 		},
 		{
 			name: 'surface-rotation',
 			definition:
-				'The paper sits at a seeded 1–3° rotation off frame axes, implying a physical object placed by hand on a surface rather than rasterized to grid.',
+				'The page sits at a seeded 0.3–0.8° tilt off the frame axes, implying a hand-held camera over a physical page rather than a scan aligned to the pixel grid.',
 			implementation:
-				'CanvasSource.svelte seeds rotation from the preset title via hashStringToUnitInterval; CSS transform: rotate(${rotationDeg}deg); HTML-in-Canvas captures the rotation into the surface texture before newspaper-physics runs. Determinism per G9 — same preset always rotates the same way.',
+				'CanvasSource.svelte seeds the tilt from the headline via hashStringToUnitInterval; CSS transform rotate(${tiltDeg}deg) about the frame centre; HTML-in-Canvas captures the tilt into the surface texture before newspaper-physics runs. Determinism per G9 — same preset always tilts the same way.',
 			probe: {
 				kind: 'named-observation',
-				region: 'card body relative to canvas axes',
+				region: 'the masthead rule and column rules relative to canvas axes',
 				expectation:
-					'card axis is rotated 1–3° from horizontal; angle is stable across re-renders of the same preset.'
+					'rules are rotated 0.3–0.8° from the frame axes; the angle is stable across re-renders of the same preset.'
+			}
+		},
+		{
+			name: 'camera-push',
+			definition:
+				'The camera lands on the page and keeps pushing in, slowly, for the length of the piece — the locked-off documentary insert with a hint of life, never a card flying in.',
+			implementation:
+				'CanvasSource.svelte § camera — enter maps paperVisibility to a settle from CAMERA_LANDING_SCALE with a small vertical drop; globalProgress drives a continuous CAMERA_PUSH_SCALE push and lateral drift; exit accelerates the push. All transforms are pure functions of the frame’s timeline values (frame-deterministic, no wall-clock).',
+			probe: {
+				kind: 'named-observation',
+				region: 'the headline’s cap-height measured at progress 0.1 and 0.9',
+				expectation:
+					'the later measurement is 1.5–3% larger; the first frame shows the page settling from a slightly larger scale, never entering from off-frame.'
 			}
 		},
 		{
 			name: 'camera-defocus',
 			definition:
-				'Subtle radial blur on newspaper pixels grows with UV distance from the implied focal centre, implying a real camera aperture rather than infinite-DOF vector rasterization.',
+				'Radial blur grows with UV distance from the frame centre, implying a real macro aperture rather than infinite-DOF vector rasterization.',
 			implementation:
-				'newspaper-physics.ts § Camera defocus — 4-tap diagonal blur whose radius is smoothstep(0.30, 0.70, distFromFocal) × 5 px; result mixed with halftone+bleed output by the same smoothstep factor.',
+				'newspaper-physics.ts § Camera defocus — 9-tap blur (centre, axis ring, tighter diagonal ring, gaussian-weighted) whose ring radius is smoothstep(0.32, 0.72, distFromFocal) × 4.5 px; result mixed with the halftone+bleed output by the same smoothstep factor. The radius stays small on purpose: a few taps spread wide read as a double image.',
 			probe: {
 				kind: 'named-observation',
-				region: 'body text far from focal centre vs glyphs near focal centre',
+				region: 'body text near the frame corners vs glyphs near the frame centre',
 				expectation:
-					'glyphs at high UV-distance show measurably softer edges (under-defined hairlines, lost stroke contrast on thins) compared to equivalent glyphs near the focal centre. Title (near centre) stays sharp.'
+					'corner glyphs show measurably softer edges (under-defined hairlines, lost stroke contrast on thins) compared to equivalent glyphs near the centre. The headline (near centre) stays sharp.'
 			}
 		},
 		{
 			name: 'lens-vignette',
 			definition:
-				'Multiplicative corner darkening on newspaper pixels — implies a real camera lens, not a flat rasterizer.',
+				'Multiplicative corner darkening across the photographed frame — implies a real lens over a real page, not a flat rasterizer. Everything captured in the frame is in the photograph, marker highlight included.',
 			implementation:
-				'newspaper-physics.ts § Lens vignette — vignetteAmount = smoothstep(0.30, 0.85, distFromFocal) × 0.18 multiplied into the (already mottled + defocused + halftoned + bled) RGB; alpha untouched; transparent and overlay pixels excluded by the final composite gate.',
+				'newspaper-physics.ts § Lens vignette — vignetteAmount = smoothstep(0.25, 0.85, distFromFocal) × 0.27 multiplied into every opaque pixel’s RGB after mottling, defocus, halftone, and bleed; alpha untouched.',
 			probe: {
 				kind: 'named-observation',
-				region: 'two equal-content paper patches: one near UV (0.5, 0.5), one near the far card corner',
-				expectation:
-					'corner patch is 3–7% lower in luma than the centre patch on otherwise-equivalent content.'
+				region: 'two equal-content paper patches: one near UV (0.5, 0.5), one near a frame corner',
+				expectation: 'the corner patch is 10–22% lower in luma than the centre patch.'
 			}
 		}
 	]

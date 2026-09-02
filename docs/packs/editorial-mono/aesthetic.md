@@ -51,11 +51,12 @@ never Pack dress.
 
 The defining inversion from Syntax is **structural, not just chromatic**:
 
-- **No hard-offset shadow.** `newspaper.depth: 'none'` — the card sits flat on
-  the frame, carried only by the substrate's intrinsic edge-occlusion. This is
-  the literal structural re-skin: the _same_ newspaper Surface that throws a
-  12 px zine shadow under Syntax is shadowless here. A hard-offset collage shadow
-  is an Editorial Mono anti-pattern.
+- **No hard-offset shadow.** A hard-offset collage shadow is an Editorial Mono
+  anti-pattern; this Pack's structural depth claims (`node.depth: 'none'`) sit
+  flat. The newspaper was the literal structural re-skin proof
+  (`newspaper.depth: 'none'` against Syntax's 12 px zine shadow) until
+  [ADR-0056](../../adr/0056-newspaper-photographed-page.md) made it a
+  photographed page with no depth claim under any Pack.
 - **Clean printed edges.** No torn fiber, no irregular cut.
 - **Cool-cast grain.** Where a grain texture exists (tape, grit), its fibres are
   cool (`washi-tape.grain-*` cool override) and low-warmth — a neutral film

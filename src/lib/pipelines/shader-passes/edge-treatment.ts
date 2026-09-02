@@ -219,7 +219,7 @@ const wgsl = /* wgsl */ `
 
 	// clean — tighten the AA ramp; the band is deliberately wide enough that
 	// every rotated-edge column keeps fractional coverage (R4: probe-edge-aa
-	// coverage_ratio must stay 1.0, verified on server-renders-again).
+	// coverage_ratio must stay 1.0 on a rotated card silhouette).
 	let crispA = smoothstep(0.12, 0.88, inputSample.a);
 	let cleanRgb = inputStraight * crispA;
 

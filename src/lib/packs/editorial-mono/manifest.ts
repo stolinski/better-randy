@@ -162,15 +162,8 @@ export const editorialMonoPack: PackManifest = {
 			kind: 'style',
 			value: { top: '#0d1319', bottom: '#121820', light: '#c2d2e0' }
 		},
-		// Newspaper: partial substrate immunity (ADR-0039 §2) retired this Pack's
-		// body/edge/print re-skins — the clipping is intrinsic newsprint under
-		// every Pack. Remaining claimable chrome: the kicker chip (cool cyan
-		// plate, near-black chip ink) and the flat depth claim (the card sits on
-		// its intrinsic edge-occlusion alone — proves a structural depth Role
-		// reaches pixels: syntax 12px offset chrome → editorial-mono none).
-		'newspaper.accent': { kind: 'style', value: '#22d3ee' },
-		'newspaper.kicker-ink': { kind: 'style', value: '#0f151c' },
-		'newspaper.depth': { kind: 'style', value: 'none' },
+		// (No newspaper Roles: the photographed page is a fully immune faithful
+		// artifact — ADR-0056.)
 		// WGSL backdrop for the title drop: deep cinema black that deepens into
 		// blue at the floor (syntax warms there), with the off-frame glow read
 		// as cool north light instead of a tungsten key.

@@ -191,6 +191,7 @@ describe('Pipeline Definition Registry', () => {
 			'overlay:tweet-stack',
 			'overlay:youtube-subscribe',
 			'surface:imessage',
+			'surface:newspaper',
 			'surface:paper',
 			'surface:web-document',
 			'surface:website-screenshot'
@@ -199,32 +200,25 @@ describe('Pipeline Definition Registry', () => {
 		assert.deepEqual(PACK_IMMUNE_PIPELINE_KEYS.toSorted(), expectedImmuneKeys);
 		for (const pipelineKey of expectedImmuneKeys) assert.equal(isPackImmune(pipelineKey), true);
 		assert.equal(isPackImmune('overlay:lower-third'), false);
-		// Partial immunity (ADR-0039 §2) is NOT full immunity: the newspaper
-		// stays out of the full set so the pack-diff lock keeps demanding its
-		// claimable chrome visibly responds.
-		assert.equal(isPackImmune('surface:newspaper'), false);
 	});
 
 	it('answers per-slot claimability from the immunity declaration (ADR-0039 §2)', () => {
-		// Partial (newspaper): exactly the declared chrome slots are claimable.
-		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'accent'), true);
-		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'kicker-ink'), true);
-		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'depth'), true);
+		// Full (newspaper / imessage / paper): nothing is claimable. The newspaper
+		// went from partial to full immunity with ADR-0056 — a photographed page
+		// has no chip or card shadow for a Pack to claim.
+		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'accent'), false);
+		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'kicker-ink'), false);
+		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'depth'), false);
 		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'fill'), false);
 		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'ink'), false);
 		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'edge'), false);
-		assert.equal(isAppearanceSlotPackClaimable('surface:newspaper', 'print'), false);
-		// Full (imessage / paper): nothing is claimable.
 		assert.equal(isAppearanceSlotPackClaimable('surface:imessage', 'accent'), false);
 		assert.equal(isAppearanceSlotPackClaimable('surface:paper', 'fill'), false);
 		// No immunity: everything is claimable.
 		assert.equal(isAppearanceSlotPackClaimable('overlay:lower-third', 'fill'), true);
 
 		const vars = { '--fill': '#111111', '--accent': '#22d3ee', '--kicker-ink': '#0f151c' };
-		assert.deepEqual(filterPackAppearanceVarsForImmunity('surface:newspaper', vars), {
-			'--accent': '#22d3ee',
-			'--kicker-ink': '#0f151c'
-		});
+		assert.deepEqual(filterPackAppearanceVarsForImmunity('surface:newspaper', vars), {});
 		assert.deepEqual(filterPackAppearanceVarsForImmunity('surface:imessage', vars), {});
 		assert.deepEqual(filterPackAppearanceVarsForImmunity('overlay:lower-third', vars), vars);
 	});
@@ -246,8 +240,8 @@ describe('Pipeline Definition Registry', () => {
 			inkColor: '#111111'
 		});
 		assert.deepEqual(resolveSurfaceTypographyColors(cleanLight, 'newspaper', {}), {
-			paperColor: '#f0e8d6',
-			inkColor: '#1a1612'
+			paperColor: '#dadada',
+			inkColor: '#1b1b1b'
 		});
 		// Non-document surfaces keep the ADR-0038 pack-core chain.
 		assert.deepEqual(resolveSurfaceTypographyColors(syntax, 'plain', {}), {
