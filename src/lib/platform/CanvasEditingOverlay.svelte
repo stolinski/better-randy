@@ -1726,9 +1726,13 @@
 		);
 	}
 
-	// ─── Backdrop: pan (when zoomed in) or deselect (on a plain click) ──────────────
-	// A press on the empty canvas starts a gesture: drag while zoomed in pans the
-	// view; release without a real drag deselects (→ root inspector).
+	// ─── Backdrop: reframe the stage camera, pan when zoomed in, or deselect ──────
+	// A press on the empty canvas starts a gesture. On a depth stage with an
+	// authored camera pose, dragging at fit zoom grabs the page: the camera's aim
+	// moves so the page point under the pointer stays under the pointer (the
+	// orbit keeps the aim at frame centre, so the page slides, not a marker).
+	// Dragging while zoomed in pans the view; release without a real drag
+	// deselects (→ root inspector).
 
 	interface PanGesture {
 		startX: number;
@@ -1736,18 +1740,28 @@
 		originPanX: number;
 		originPanY: number;
 		moved: boolean;
+		/** The page point grabbed and the aim before the drag, when reframing. */
+		reframe: { grabbed: { x: number; y: number }; before: { x: number; y: number } } | null;
 	}
 
 	let panGesture: PanGesture | null = null;
 
+	function stageCameraPose(): { aim: { x: number; y: number } } | null {
+		const stage = engineState.stage;
+		return stage?.type === 'depth' && stage.camera.pose ? stage.camera.pose : null;
+	}
+
 	function onBackdropDown(event: PointerEvent): void {
 		if (event.button !== 0) return;
+		const pose = zoom <= 1 ? stageCameraPose() : null;
+		const grabbed = pose ? pointerToComp(event.clientX, event.clientY, 'surface') : null;
 		panGesture = {
 			startX: event.clientX,
 			startY: event.clientY,
 			originPanX: panX,
 			originPanY: panY,
-			moved: false
+			moved: false,
+			reframe: pose && grabbed ? { grabbed, before: { ...pose.aim } } : null
 		};
 		if (typeof window !== 'undefined') {
 			window.addEventListener('pointermove', onBackdropMove);
@@ -1762,6 +1776,19 @@
 		if (!panGesture.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
 		if (!panGesture.moved && zoom > 1) onPanStart?.(); // drop the transition before panning
 		panGesture.moved = true;
+		if (panGesture.reframe) {
+			// Each move re-projects under the aim the last move set, so the grabbed
+			// page point converges under the pointer within a frame or two.
+			const pose = stageCameraPose();
+			const under = pointerToComp(event.clientX, event.clientY, 'surface');
+			if (!pose || !under) return;
+			pose.aim = {
+				x: roundedCanvasScalar(pose.aim.x + (panGesture.reframe.grabbed.x - under.x), 0, 1),
+				y: roundedCanvasScalar(pose.aim.y + (panGesture.reframe.grabbed.y - under.y), 0, 1)
+			};
+			measureEpoch += 1;
+			return;
+		}
 		if (zoom <= 1 || !onPan) return; // nothing to pan at fit
 		// Clamp so the canvas can't be dragged entirely out of view: allow panning
 		// up to the zoom overflow on each side (plus a little slack).
@@ -1779,14 +1806,38 @@
 	}
 
 	function onBackdropUp(): void {
-		const wasPan = panGesture?.moved === true && zoom > 1;
+		const gesture = panGesture;
 		panGesture = null;
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('pointermove', onBackdropMove);
 			window.removeEventListener('pointerup', onBackdropUp);
 		}
-		if (wasPan) onPanEnd?.();
-		else deselectLayer();
+		if (!gesture?.moved) {
+			deselectLayer();
+			return;
+		}
+		if (!gesture.reframe) {
+			if (zoom > 1) onPanEnd?.();
+			return;
+		}
+		const pose = stageCameraPose();
+		if (!pose) return;
+		const before = gesture.reframe.before;
+		const after = { ...pose.aim };
+		if (before.x === after.x && before.y === after.y) return;
+		compositionEditHistory.recordApplied({
+			label: 'Reframe stage camera',
+			undo: () => {
+				const current = stageCameraPose();
+				if (current) current.aim = { ...before };
+				measureEpoch += 1;
+			},
+			redo: () => {
+				const current = stageCameraPose();
+				if (current) current.aim = { ...after };
+				measureEpoch += 1;
+			}
+		});
 	}
 
 	onDestroy(() => {
