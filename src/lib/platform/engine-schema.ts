@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { parseAnnotationBodyText } from '../annotations/annotation-body-text.ts';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing.ts';
+import { NAMED_EASE_CURVES } from '../utils/ease-curves.ts';
 import { isEngineStateOpaque } from '../utils/output-classification.ts';
 import {
 	LAYOUT_AWARE_TEXT_EFFECT_RENDERERS,
@@ -59,7 +60,7 @@ export function getEaseGsap(ease: Ease): string {
 }
 
 const FontFamilySchema = z.enum(['serif', 'sans', 'mono', 'condensed']);
-const EaseSchema = z.enum(['smooth', 'settled', 'sharp', 'bouncy']);
+const EaseSchema = z.enum(NAMED_EASE_CURVES);
 const ExportFormatSchema = z.enum(['webm', 'prores']);
 const VideoOrientationSchema = z.enum(['horizontal', 'vertical']);
 
@@ -1300,10 +1301,97 @@ const TextAnimationsSchema = z
 // at their ADR-0021 z through a perspective camera with a real lens DOF. `type` is an
 // open string validated against the stage registry at load time (like Effect/Overlay
 // types, in preset.ts). Camera + focus drive frame-deterministically off the timeline.
+/**
+ * Authored limits of the stage camera pose (ADR-0057): angles in degrees,
+ * distance as a fraction of the shipped rest distance. The schema, the camera
+ * rig's travel clamp, and the inspector all read these.
+ */
+export const STAGE_CAMERA_POSE_LIMITS = {
+	yawDegrees: 60,
+	pitchDegrees: 45,
+	rollDegrees: 30,
+	minDistance: 0.25,
+	maxDistance: 2
+} as const;
+
+// The point on the Surface plane the camera orbits and looks at, in
+// composition fractions (u right, v down). Focus follows it: focusZ 0 keeps the
+// aimed page point sharp.
+const StageCameraAimSchema = z.object({
+	x: FractionSchema.default(0.5),
+	y: FractionSchema.default(0.5)
+});
+
+// The camera's rest pose (ADR-0057). Absent ⇒ the shipped frontal camera. The
+// defaults ARE that camera, so `pose: {}` changes nothing. Positive yaw swings
+// the eye to the page's right, positive pitch lifts it above the page, positive
+// roll tilts the horizon clockwise; `distance` dollies along the line of sight.
+const StageCameraPoseSchema = z.object({
+	yaw: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+		.default(0),
+	pitch: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+		.default(0),
+	roll: z
+		.number()
+		.min(-STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+		.max(STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+		.default(0),
+	distance: z
+		.number()
+		.min(STAGE_CAMERA_POSE_LIMITS.minDistance)
+		.max(STAGE_CAMERA_POSE_LIMITS.maxDistance)
+		.default(1),
+	aim: StageCameraAimSchema.prefault({})
+});
+
+// One authored camera move: every field of `to` that is present eases from the
+// rest pose over [start, start + duration] (timeline fractions, the Transition
+// window shape); fields left out hold the rest value. A second move is not a
+// v1 mechanism — the depth vocabulary is one decisive camera per piece.
+const StageCameraTravelSchema = z.object({
+	to: z.object({
+		yaw: z
+			.number()
+			.min(-STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+			.max(STAGE_CAMERA_POSE_LIMITS.yawDegrees)
+			.optional(),
+		pitch: z
+			.number()
+			.min(-STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+			.max(STAGE_CAMERA_POSE_LIMITS.pitchDegrees)
+			.optional(),
+		roll: z
+			.number()
+			.min(-STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+			.max(STAGE_CAMERA_POSE_LIMITS.rollDegrees)
+			.optional(),
+		distance: z
+			.number()
+			.min(STAGE_CAMERA_POSE_LIMITS.minDistance)
+			.max(STAGE_CAMERA_POSE_LIMITS.maxDistance)
+			.optional(),
+		aim: z.object({ x: FractionSchema, y: FractionSchema }).partial().optional()
+	}),
+	start: FractionSchema.default(0),
+	duration: FractionSchema.default(1),
+	ease: EaseSchema.default('smooth')
+});
+
 const StageCameraSchema = z.object({
+	// The legacy named move. It composes on top of the pose in the camera's
+	// own frame (push dollies along the line of sight, drift slides along the
+	// camera's right axis), so old Presets and new poses coexist.
 	move: z.enum(['static', 'push', 'drift']).default('static'),
 	amount: FractionSchema.default(0.5), // dolly / lateral parallax strength
-	ease: EaseSchema.default('smooth')
+	ease: EaseSchema.default('smooth'),
+	pose: StageCameraPoseSchema.optional(),
+	travel: StageCameraTravelSchema.optional()
 });
 
 // Rack-focus pull: focusZ travels from→to over [start, start+duration] (timeline
@@ -1682,6 +1770,8 @@ export type OverlayPosition = z.infer<typeof OverlayPositionSchema>;
 export type Effect = z.infer<typeof EffectSchema>;
 export type EffectChain = z.infer<typeof EffectChainSchema>;
 export type StageCamera = z.infer<typeof StageCameraSchema>;
+export type StageCameraPose = z.infer<typeof StageCameraPoseSchema>;
+export type StageCameraTravel = z.infer<typeof StageCameraTravelSchema>;
 export type StageFocus = z.infer<typeof StageFocusSchema>;
 export type Stage = z.infer<typeof StageSchema>;
 export type SourceVideo = z.infer<typeof SourceVideoSchema>;

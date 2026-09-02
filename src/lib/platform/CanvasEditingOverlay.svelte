@@ -209,8 +209,7 @@
 		if (compositionSize.width === 0 || compositionSize.height === 0) return null;
 		return createStageProjector({
 			aspect: compositionSize.width / compositionSize.height,
-			cameraMove: stage.camera.move,
-			cameraAmount: clampNumber(stage.camera.amount, 0, 1),
+			camera: stage.camera,
 			overlayZ: clampNumber(engineState.overlays[0]?.z ?? 0.7, 0, 1),
 			time: clampNumber(animState.globalProgress, 0, 1)
 		});

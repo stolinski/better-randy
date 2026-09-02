@@ -6,7 +6,7 @@ import {
 import { cssColorToRgbaFloat, hexToRgbaFloat } from '$lib/utils/color';
 import { clampNumber } from '$lib/utils/math';
 import { measureOverlayBoundsPx } from '$lib/utils/overlay-bounds';
-import type { Effect, EngineState } from './engine-schema';
+import type { Effect, EngineState, StageCamera } from './engine-schema';
 import type { GpuHost } from './gpu-host';
 import { hasCapturedPaintRecord } from './html-in-canvas';
 import type { PackManifest } from './packs/types';
@@ -28,7 +28,7 @@ import {
 import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 import { DepthStage } from './pipelines/depth-stage';
-import { STAGE_CAM_Z, stageCameraPose } from './pipelines/depth-stage-camera';
+import { STAGE_CAM_Z, createStageCameraRig } from './pipelines/depth-stage-camera';
 import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
 import type { CompiledTransitionEffect } from './pipelines/transition-pass';
@@ -68,8 +68,7 @@ interface ResolvedStageFrame {
 	backdropColor: [number, number, number];
 	backdropAsset: string | null;
 	backdropContrast: number;
-	cameraMove: 'static' | 'push' | 'drift';
-	cameraAmount: number;
+	camera: StageCamera;
 	hasOverlayPlane: boolean;
 	overlayZ: number;
 	light: LightTreatment | null;
@@ -504,8 +503,7 @@ function resolveStageFrame(
 		backdropColor: background ? [background[0], background[1], background[2]] : [0.1, 0.09, 0.08],
 		backdropAsset: stage.backdrop?.image?.asset ?? null,
 		backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
-		cameraMove: stage.camera.move,
-		cameraAmount: clampNumber(stage.camera.amount, 0, 1),
+		camera: stage.camera,
 		hasOverlayPlane: state.overlays.length > 0,
 		overlayZ: clampNumber(state.overlays[0]?.z ?? 0.7, 0, 1),
 		light: treatments.light,
@@ -620,13 +618,16 @@ function renderStageFrame(
 				? request.substrateTexture.createView()
 				: undefined,
 		backdropContrast: stage.backdropContrast,
-		cameraMove: stage.cameraMove,
-		cameraAmount: stage.cameraAmount,
+		camera: stage.camera,
 		light: stage.light,
 		surfaceFadeAlpha: stageSurfaceFadeAlpha(request.state, request.paperVisibility),
 		time: timebase.progress
 	});
-	const { eyeZ } = stageCameraPose(stage.cameraMove, stage.cameraAmount, timebase.progress);
+	const rig = createStageCameraRig({
+		aspect: depthStage.width / depthStage.height,
+		camera: stage.camera,
+		time: timebase.progress
+	});
 	effectChain.apply({
 		commandEncoder: host.device.createCommandEncoder(),
 		effects:
@@ -636,7 +637,7 @@ function renderStageFrame(
 		inputTexture: depthStage.outputTexture(),
 		outputView: request.outputView,
 		...timebase,
-		stageContentScale: STAGE_CAM_Z / eyeZ,
+		stageContentScale: STAGE_CAM_Z / rig.aimDistance,
 		background: undefined,
 		videoUnderlayTexture:
 			request.readableProbeMode === 'readable-mask' ? null : request.videoUnderlayTexture

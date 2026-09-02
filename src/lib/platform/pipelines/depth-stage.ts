@@ -1,13 +1,17 @@
 import tgpu, { d } from 'typegpu';
 import { mat4 } from 'wgpu-matrix';
 
+import type { StageCamera } from '$lib/platform/engine-schema';
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import {
 	STAGE_BACKDROP_DEPTH,
 	STAGE_CAM_Z,
-	STAGE_FOV,
-	stageCameraPose,
+	STAGE_DEPTH_FAR,
+	STAGE_DEPTH_NEAR,
+	createStageCameraRig,
+	stageBackdropCover,
+	stageDepthEncoding,
 	stagePlaneHalfExtents
 } from './depth-stage-camera';
 
@@ -32,13 +36,16 @@ const TEXTURE_USAGE_TEXTURE_BINDING = 0x04;
 const TEXTURE_USAGE_RENDER_ATTACHMENT = 0x10;
 const SCENE_TEXTURE_USAGE = TEXTURE_USAGE_TEXTURE_BINDING | TEXTURE_USAGE_RENDER_ATTACHMENT;
 
-// Camera geometry (FOV / rest distance / backdrop depth / eye-from-time) lives
+// Camera geometry (FOV / rest distance / backdrop depth / pose-from-time) lives
 // in depth-stage-camera.ts, shared with canvas hit-testing — see that module.
-const FOV = STAGE_FOV;
 const CAM_Z = STAGE_CAM_Z;
 const BACKDROP_DEPTH = STAGE_BACKDROP_DEPTH;
-const D_NEAR = 2.5; // camera-space distance encoded as depth 0
-const D_FAR = 6.0; // …as depth 1
+// Camera-space distances encoded as depth 0 / 1. The shipped frontal camera
+// keeps this legacy pair; an authored pose widens the pair to the distances it
+// can actually reach (`stageDepthEncoding`) and the DOF uniforms rescale so the
+// circle of confusion per world unit is unchanged.
+const D_NEAR = STAGE_DEPTH_NEAR;
+const D_FAR = STAGE_DEPTH_FAR;
 const BOKEH_TAPS = 96;
 const MAX_LOD = 14; // textureSampleLevel clamps to the texture's real top mip
 const REF_COC = 42; // max circle-of-confusion (px) per 1080px of frame short side
@@ -559,9 +566,10 @@ export interface DepthStageInput {
 	/** Center darkening of the backdrop image (0..1) for near-plane text contrast
 	 *  — a soft opaque pool behind the (centered) Surface text. 0 = none. */
 	backdropContrast?: number;
-	cameraMove: 'static' | 'push' | 'drift';
-	/** Camera move strength, 0..1. */
-	cameraAmount: number;
+	/** The authored stage camera: the legacy push/drift move plus the optional
+	 *  rest pose and travel (ADR-0057). Resolved per frame through
+	 *  `createStageCameraRig` — the same math the GUI hit-test projector uses. */
+	camera: StageCamera;
 	/** Scene key light — the Pack's `light-treatment` Role (appearance) realized
 	 *  as a real light: received rake on every plane + cast plane-to-plane
 	 *  shadow. Absent ⇒ unlit, pixel-identical to the pre-light stage. */
@@ -707,7 +715,6 @@ export class DepthStage {
 		});
 
 		const aspect = width / height;
-		const projection = mat4.perspective(FOV, aspect, 0.1, 100);
 		// Each plane fills the frame at its own distance: half-height = the frustum
 		// half-height there, half-width = that × aspect. Authored content lands at its
 		// composed size; the camera move shifts near/far planes at different rates.
@@ -719,26 +726,35 @@ export class DepthStage {
 		const surfaceModel = mat4.scale(mat4.identity(), surfaceFill);
 		// Oversize the backdrop (cover): a camera move changes each plane's framing,
 		// and a backdrop sized to EXACTLY fill at the construction distance reveals
-		// black edges when the camera pulls back. 1.2× keeps the photo full-bleed
-		// across the move (we just see slightly less of its edges — background-cover).
-		const BACKDROP_COVER = 1.2;
+		// black edges when the camera pulls back. The cover is derived from the
+		// frustum footprint over the whole authored move, never below the shipped
+		// 1.2× that keeps the photo full-bleed across the legacy push.
 		const backdropFill = fillScale(CAM_Z + BACKDROP_DEPTH);
-		const backdropModel = mat4.scale(mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]), [
-			backdropFill[0] * BACKDROP_COVER,
-			backdropFill[1] * BACKDROP_COVER,
-			1
-		]);
-		// Plane depths used for the focus target. They MUST be computed per frame
-		// from the live eye position: the camera move changes each plane's
-		// camera-space distance, so a focus pinned to the construction-time
-		// distance drifts off the plane during a push — defocusing (and blooming)
-		// content that should stay sharp. `focusDepth01(dist)` reuses the same
-		// dist→depth01 mapping the plane fragment encodes.
-		const focusDepth01 = (dist: number): number => (dist - D_NEAR) / (D_FAR - D_NEAR);
 
 		this.#render = (input) => {
-			const { eyeX, eyeZ } = stageCameraPose(input.cameraMove, input.cameraAmount, input.time);
-			const vp = mat4.multiply(projection, mat4.lookAt([eyeX, 0, eyeZ], [0, 0, 0], [0, 1, 0]));
+			// The camera rig (ADR-0057): rest pose + travel + legacy push/drift,
+			// resolved by the same function the GUI projector uses.
+			const rig = createStageCameraRig({ aspect, camera: input.camera, time: input.time });
+			const vp = rig.viewProjection;
+			const [eyeX, eyeY, eyeZ] = rig.eye;
+			const backdropCover = stageBackdropCover(input.camera, aspect);
+			const backdropModel = mat4.scale(mat4.translate(mat4.identity(), [0, 0, -BACKDROP_DEPTH]), [
+				backdropFill[0] * backdropCover,
+				backdropFill[1] * backdropCover,
+				1
+			]);
+			// The depth encoding for this camera, and the DOF rescale that keeps the
+			// circle of confusion per world unit identical to the legacy pair.
+			const encoding = stageDepthEncoding(input.camera, aspect);
+			const encodingScale = (encoding.far - encoding.near) / (D_FAR - D_NEAR);
+			// Plane depths used for the focus target. They MUST be computed per frame
+			// from the live eye position: the camera move changes each plane's
+			// camera-space distance, so a focus pinned to the construction-time
+			// distance drifts off the plane during a push — defocusing (and blooming)
+			// content that should stay sharp. `focusDepth01(dist)` reuses the same
+			// dist→depth01 mapping the plane fragment encodes.
+			const focusDepth01 = (dist: number): number =>
+				(dist - encoding.near) / (encoding.far - encoding.near);
 			// The scene key light (Pack light-treatment Role): a unit travel vector +
 			// intensity, shared by every plane. No light ⇒ intensity 0, and the plane
 			// shader skips both the rake and the shadow march entirely.
@@ -772,8 +788,8 @@ export class DepthStage {
 			// surround). With no image the plane stays a solid colour (misc.z = 0).
 			const backdropTextured = input.backdropTextureView ? 1 : 0;
 			const bgPlaneVec = d.vec4f(
-				backdropFill[0] * BACKDROP_COVER,
-				backdropFill[1] * BACKDROP_COVER,
+				backdropFill[0] * backdropCover,
+				backdropFill[1] * backdropCover,
 				-BACKDROP_DEPTH,
 				backdropTextured
 			);
@@ -788,25 +804,25 @@ export class DepthStage {
 			);
 			backdropPlane.write({
 				mvp: toMat4(mat4.multiply(vp, backdropModel) as Float32Array),
-				misc: d.vec4f(D_NEAR, D_FAR, backdropTextured, 0),
+				misc: d.vec4f(encoding.near, encoding.far, backdropTextured, 0),
 				baseColor: backdropBase,
 				world: bgPlaneVec,
 				light: lightVec,
 				casterA: surfaceCaster,
 				casterB: overlayCaster,
-				eye: d.vec4f(eyeX, 0, eyeZ, 1),
+				eye: d.vec4f(eyeX, eyeY, eyeZ, 1),
 				bgPlane: bgPlaneVec,
 				midPlane: noCaster
 			});
 			surfacePlane.write({
 				mvp: toMat4(mat4.multiply(vp, surfaceModel) as Float32Array),
-				misc: d.vec4f(D_NEAR, D_FAR, 1, 1),
+				misc: d.vec4f(encoding.near, encoding.far, 1, 1),
 				baseColor: backdropBase,
 				world: d.vec4f(surfaceFill[0], surfaceFill[1], 0, 0),
 				light: lightVec,
 				casterA: noCaster,
 				casterB: noCaster,
-				eye: d.vec4f(eyeX, 0, eyeZ, fade),
+				eye: d.vec4f(eyeX, eyeY, eyeZ, fade),
 				bgPlane: bgPlaneVec,
 				// The Overlay plane sits between the Surface and the backdrop —
 				// the Surface's partial-presence reconstruction must consult it
@@ -823,7 +839,7 @@ export class DepthStage {
 				);
 				overlayPlane.write({
 					mvp: toMat4(mat4.multiply(vp, overlayModel) as Float32Array),
-					misc: d.vec4f(D_NEAR, D_FAR, 1, 1),
+					misc: d.vec4f(encoding.near, encoding.far, 1, 1),
 					baseColor: backdropBase,
 					world: d.vec4f(overlayFill[0], overlayFill[1], -overlayDepth, 0),
 					light: lightVec,
@@ -831,18 +847,25 @@ export class DepthStage {
 					// the Overlay plane — the card shadowing the lower-third it overlaps.
 					casterA: overlayDepth > 0 ? surfaceCaster : noCaster,
 					casterB: noCaster,
-					eye: d.vec4f(eyeX, 0, eyeZ, 1),
+					eye: d.vec4f(eyeX, eyeY, eyeZ, 1),
 					bgPlane: bgPlaneVec,
 					midPlane: noCaster
 				});
 			}
-			// Live plane distances along the view (camera at [eyeX,0,eyeZ] → origin),
-			// so focusZ=0 keeps the Surface plane sharp through the whole camera move.
-			const surfaceDist = Math.hypot(eyeX, eyeZ);
-			const backdropDist = Math.hypot(eyeX, eyeZ + BACKDROP_DEPTH);
+			// Live distances along the view, so focusZ 0 keeps the AIM point sharp
+			// (the Surface plane under the frontal camera; the aimed page point
+			// under a pose) through the whole camera move, and focusZ 1 reaches the
+			// backdrop behind it.
+			const surfaceDist = rig.aimDistance;
+			const backdropDist = rig.backdropDistance;
 			const focus = mix(focusDepth01(surfaceDist), focusDepth01(backdropDist), input.focusZ);
 			dofUniform.write({
-				params: d.vec4f(focus, input.aperture, maxCoc, input.focusBand ?? 0),
+				params: d.vec4f(
+					focus,
+					input.aperture,
+					maxCoc * encodingScale,
+					(input.focusBand ?? 0) / encodingScale
+				),
 				resolution: d.vec2f(width, height),
 				// The frontmost plane's live depth (the Surface plane is nearest).
 				depths: d.vec4f(focusDepth01(surfaceDist), 0, 0, 0)

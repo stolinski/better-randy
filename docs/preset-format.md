@@ -395,9 +395,21 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
 "stage": {
   "type": "depth",                  // open string, registry-validated at load time
   "camera": {                       // optional; defaults shown
-    "move": "static" | "push" | "drift",   // default "static"
+    "move": "static" | "push" | "drift",   // default "static"; composes on top of the pose
     "amount": 0..1,                 // dolly / lateral parallax strength (default 0.5)
-    "ease": "smooth" | "settled" | "sharp" | "bouncy"   // default "smooth"
+    "ease": "smooth" | "settled" | "sharp" | "bouncy",  // default "smooth"
+    "pose": {                       // optional rest pose (ADR-0057); absent = the frontal camera
+      "yaw": -60..60,               // degrees; + swings the eye to the page's right (default 0)
+      "pitch": -45..45,             // degrees; + lifts the eye above the page (default 0)
+      "roll": -30..30,              // degrees; + tilts the horizon clockwise (default 0)
+      "distance": 0.25..2,          // fraction of the rest distance (default 1)
+      "aim": { "x": 0..1, "y": 0..1 }   // page point the camera orbits and looks at (default centre)
+    },
+    "travel": {                     // optional: one move from the rest pose
+      "to": { "yaw"?, "pitch"?, "roll"?, "distance"?, "aim"?: { "x"?, "y"? } },  // fields left out hold
+      "start": 0..1, "duration": 0..1,                    // timeline fractions (defaults 0, 1)
+      "ease": "smooth" | "settled" | "sharp" | "bouncy"   // default "smooth"
+    }
   },
   "focus": {                        // optional; defaults shown
     "focusZ": 0..1,                 // in-focus depth (0 near … 1 far; default 0)
@@ -411,6 +423,8 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
   }
 }
 ```
+
+Focus follows the aim: `focusZ` 0 keeps the aimed page point sharp (the Surface plane's centre under the frontal camera), `focusZ` 1 reaches the backdrop straight behind it, and a `travel` that moves the aim racks focus with it. A pose widens the stage's depth encoding to the distances the move can reach and rescales the lens so the circle of confusion per world unit is unchanged; with no `pose` or `travel` every existing Preset renders pixel-identical.
 
 With `stage` present: overlays ride their own 3D plane at their ADR-0021 `z` (overlay-at-depth — parallax, per-depth defocus, painter's-order occlusion); the active Pack's `light-treatment` Role becomes a real scene key light (received rake + cast plane-to-plane shadow; no Role → unlit); surface-local shader passes still run on the surface plane, but environment-painting passes (`environment: true` — the chapter-card / title-sequence / type-hero / pullquote painted backdrops) are superseded by the real backdrop plane. Surface enter/exit visibility is forwarded into the stage as GPU alpha, so authored Surface fades work without duplicating them as text animations.
 

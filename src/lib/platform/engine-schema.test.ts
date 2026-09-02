@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { BlockTypeSchema, EngineStateSchema } from './engine-schema.ts';
+import { BlockTypeSchema, EngineStateSchema, StageSchema } from './engine-schema.ts';
 
 // Minimal valid EngineState input (wire form — `body` is the bracket-tag
 // string the schema transforms). Each test mutates a structuredClone of this.
@@ -921,5 +921,58 @@ describe('chart Block structural schema', () => {
 			{ id: 'bar-chart-a', type: 'label', position: { x: 0.5, y: 0.5 }, text: 'x' }
 		];
 		expectIssue(state, 'duplicates a surface.diagram[] Block id', 'Block identity collision');
+	});
+});
+
+describe('stage camera pose and travel (ADR-0057)', () => {
+	it('parses a partial pose with the frontal-camera defaults filled in', () => {
+		const stage = StageSchema.parse({ type: 'depth', camera: { pose: { yaw: -24 } } });
+		assert.deepEqual(stage.camera.pose, {
+			yaw: -24,
+			pitch: 0,
+			roll: 0,
+			distance: 1,
+			aim: { x: 0.5, y: 0.5 }
+		});
+		assert.equal(stage.camera.travel, undefined);
+	});
+
+	it('keeps a travel target partial so untravelled fields hold the rest pose', () => {
+		const stage = StageSchema.parse({
+			type: 'depth',
+			camera: { travel: { to: { distance: 0.48, aim: { x: 0.3 } }, start: 0.1, duration: 0.6 } }
+		});
+		assert.deepEqual(stage.camera.travel, {
+			to: { distance: 0.48, aim: { x: 0.3 } },
+			start: 0.1,
+			duration: 0.6,
+			ease: 'smooth'
+		});
+	});
+
+	it('rejects a pose outside the authored limits', () => {
+		for (const pose of [
+			{ yaw: 61 },
+			{ pitch: -46 },
+			{ roll: 31 },
+			{ distance: 0.2 },
+			{ distance: 2.5 }
+		]) {
+			assert.equal(
+				StageSchema.safeParse({ type: 'depth', camera: { pose } }).success,
+				false,
+				JSON.stringify(pose)
+			);
+		}
+		assert.equal(
+			StageSchema.safeParse({ type: 'depth', camera: { travel: { to: { yaw: 90 } } } }).success,
+			false
+		);
+	});
+
+	it('leaves a legacy camera untouched', () => {
+		const stage = StageSchema.parse({ type: 'depth', camera: { move: 'push', amount: 0.6 } });
+		assert.equal(stage.camera.pose, undefined);
+		assert.equal(stage.camera.travel, undefined);
 	});
 });

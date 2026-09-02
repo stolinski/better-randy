@@ -5,7 +5,7 @@
 **Pack:** syntax
 **Verification preset:** `website-filmed`
 
-Decision record: [ADR-0057](../adr/0057-filmed-canvas-camera-pose-and-posed-planes.md). Direction plate: [`direction/3d-canvas/perspective.png`](../../direction/3d-canvas/perspective.png). Dex epic `sh9b6qxd`, phase 1.
+Decision record: [ADR-0057](../adr/0057-filmed-canvas-camera-pose-and-posed-planes.md). Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`, phase 1.
 
 ## Pitch
 

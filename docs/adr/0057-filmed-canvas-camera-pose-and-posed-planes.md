@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed (phase 1 building 2026-09-01); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) into two phases.** Direction plate: [`direction/3d-canvas/perspective.png`](../../direction/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. Phase-1 Brief: [`docs/briefs/filmed-canvas.md`](../briefs/filmed-canvas.md).
+**Designed, not built (phase 1 building 2026-09-01); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) into two phases.** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. Phase-1 Brief: [`docs/briefs/filmed-canvas.md`](../briefs/filmed-canvas.md).
 
 Date: 2026-09-01
 
