@@ -68,6 +68,14 @@ port and names every unusable input at once, with the value that would fit. Read
 `docker logs gfx`, fix the whole list, and start it again. A host that cannot
 finish an export never accepts one.
 
+Replacing a running artifact — a new image here, or the rebuild behind
+`gfx.robo.online` — drops the previous build's hashed chunks. Tabs that were
+already open recover on their own ([ADR-0058](adr/0058-stale-build-recovery-for-on-demand-imports.md)):
+they poll `_app/version.json`, take their next navigation as a full page load,
+and reload once if an on-demand import fails first. A tab that reloads while
+the old process is still answering shows "Couldn't load renderer" once; reload
+it by hand after the restart finishes.
+
 ## 3. Confirm it is serving
 
 Ask the origin what it is:

@@ -11,8 +11,9 @@
 	import archivo400Url from '@fontsource/archivo/files/archivo-latin-400-normal.woff2?url';
 	import archivo600Url from '@fontsource/archivo/files/archivo-latin-600-normal.woff2?url';
 	import { browser } from '$app/environment';
+	import { beforeNavigate } from '$app/navigation';
 	import { onDestroy } from 'svelte';
-	import { page } from '$app/state';
+	import { page, updated } from '$app/state';
 
 	import {
 		GFX_DESCRIPTION,
@@ -55,6 +56,17 @@
 			: null;
 
 	onDestroy(() => webmcpLifetime.abort());
+
+	// A tab that outlived an integration rebuild leaves the client router: the
+	// origin no longer serves the chunks this build would import, so its next
+	// navigation loads the current build whole (ADR-0058). `kit.version`
+	// polling keeps `updated` current; a navigation that already unloads the
+	// page needs no help.
+	beforeNavigate(({ willUnload, to, cancel }) => {
+		if (!updated.current || willUnload || !to?.url) return;
+		cancel();
+		location.href = to.url.href;
+	});
 
 	// Registration follows the route and the composition: the preconditions are
 	// read inside the effect so any edit that makes a tool possible — or

@@ -17,10 +17,12 @@
 	import { applyPreset } from '$lib/platform/preset';
 	import { presetBase } from '$lib/platform/preset-base.svelte';
 	import { serializeCompositionState } from '$lib/platform/preset-pure';
+	import { staleBuildRecovery } from '$lib/platform/stale-build-recovery-runtime';
 	import { userCompositionStore } from '$lib/platform/user-composition-store';
 	import { ensurePackLoaded } from '$lib/platform/user-pack-runtime';
 	import { isUserCompositionNotHeldError } from '$lib/platform/user-composition-store-errors';
 	import { isCurrentPresetRouteRendererLoad } from '$lib/utils/preset-route-renderer-load';
+	import { isModuleLoadFailure } from '$lib/utils/stale-build-recovery';
 	import Workspace from '$lib/platform/Workspace.svelte';
 
 	import type { PageProps } from './$types';
@@ -138,6 +140,14 @@
 			compositionMeta.userCompositionSlug = nextData.slug;
 			appliedRouteKey = nextRouteKey;
 		} catch (cause) {
+			if (!isCurrentLoad()) return;
+			// A renderer chunk the origin no longer serves means a rebuild landed
+			// since this page loaded; the tab reloads onto the current build and
+			// stays on "Loading…" meanwhile (ADR-0058). Any other failure, or a
+			// chunk missing from the current build, is shown.
+			if (isModuleLoadFailure(cause) && (await staleBuildRecovery.reloadIfBuildIsStale())) {
+				return;
+			}
 			if (!isCurrentLoad()) return;
 			resolutionStatus = 'error';
 			console.error('Failed to load composition renderers.', {
