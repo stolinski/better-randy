@@ -10,7 +10,6 @@ import {
 } from './cascade-timing.ts';
 import {
 	getEaseGsap,
-	listMarkInstances,
 	resolveMarkForIndex,
 	SUGAR_OPACITY_EXIT_EASES,
 	type EngineState,
@@ -19,6 +18,7 @@ import {
 	type TextAnimation,
 	type Transport
 } from './engine-schema.ts';
+import { listSurfaceMarkInstances } from './surface-mark-instances.ts';
 import { clampNumber } from '$lib/utils/math';
 import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
@@ -414,7 +414,7 @@ export function buildCompositionAnimationManifest(
 	input: CompositionAnimationManifestInput
 ): AnimationManifest {
 	const { state, runtime, textAnimationRoot, textAnimationCompiler, resolveMarkColor } = input;
-	const marks = listMarkInstances(state.surface.content);
+	const marks = listSurfaceMarkInstances(state.surface);
 	const durationMs = state.transport.durationSeconds * 1000;
 
 	resizeCompositionProgress(runtime.markProgresses, marks.length);

@@ -2,7 +2,8 @@
 	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
 
 	import { engineState, readMarkColor } from './engine-state.svelte';
-	import { listMarkInstances, resolveMarkForIndex, type MarkAppearance } from './engine-schema';
+	import { resolveMarkForIndex, type MarkAppearance } from './engine-schema';
+	import { listSurfaceMarkInstances } from './surface-mark-instances';
 	import InspectorSection from './InspectorSection.svelte';
 	import Field from './Field.svelte';
 
@@ -24,7 +25,7 @@
 
 	const markStylesInUse = $derived.by(() => {
 		const styles: AnnotationMarkStyle[] = [];
-		for (const instance of listMarkInstances(engineState.surface.content)) {
+		for (const instance of listSurfaceMarkInstances(engineState.surface)) {
 			if (!styles.includes(instance.style)) styles.push(instance.style);
 		}
 		return styles;

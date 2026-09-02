@@ -374,6 +374,14 @@ export interface SurfaceRenderer {
 	 */
 	substrateColors?: { paperHex: string; inkHex: string };
 	/**
+	 * The CanvasSource renders `content.title` through the bracket-tag mark
+	 * parser as `data-annotation-mark` spans (a headline highlighter). The
+	 * title's marks enumerate before the body's — see
+	 * `listSurfaceMarkInstances`. Only meaningful on Surfaces whose runtime is
+	 * the paper compositor, which is where marks are drawn.
+	 */
+	titleMarks?: boolean;
+	/**
 	 * Decline the active Pack's composition-wide material pass. Reserved for
 	 * immutable captured substrates whose stored pixels must survive a Pack
 	 * switch; intrinsic Surface shader passes still run.

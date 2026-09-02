@@ -23,6 +23,15 @@ export interface SurfacePipelineDefinition {
 	intrinsicEdgeTreatment?: EdgeTreatment;
 	substrateColors?: { paperHex: string; inkHex: string };
 	disablePackMaterial?: boolean;
+	/**
+	 * The CanvasSource renders `content.title` through the bracket-tag mark
+	 * parser as `data-annotation-mark` spans, so a headline can carry a
+	 * highlighter. `listSurfaceMarkInstances` then enumerates the title's marks
+	 * BEFORE the body's (document order) and `marks.timings[]` indexes them the
+	 * same way. Absent: the title prints plain and mark syntax in it is a lint
+	 * error (rubric A3).
+	 */
+	titleMarks?: boolean;
 }
 
 export interface PipelineSchemaDefinition {

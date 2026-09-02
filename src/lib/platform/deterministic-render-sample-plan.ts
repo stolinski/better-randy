@@ -1,4 +1,5 @@
-import { listMarkInstances, resolveMarkForIndex, type Preset } from './engine-schema';
+import { resolveMarkForIndex, type Preset } from './engine-schema';
+import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { deterministicFrameAddressFor } from '../utils/deterministic-render-measurements';
 
@@ -80,7 +81,7 @@ export function deriveDeterministicRenderSamplePlan(preset: Preset): Determinist
 		});
 	}
 
-	for (const [markIndex, mark] of listMarkInstances(preset.state.surface.content).entries()) {
+	for (const [markIndex, mark] of listSurfaceMarkInstances(preset.state.surface).entries()) {
 		if (!FOCAL_MARK_STYLES.has(mark.style)) continue;
 		const timing = resolveMarkForIndex(mark.style, markIndex, preset.state.marks);
 		const authoredWindow = mark.window && mark.window !== 'static' ? mark.window : timing;
@@ -92,7 +93,7 @@ export function deriveDeterministicRenderSamplePlan(preset: Preset): Determinist
 		);
 		const frameIndex =
 			auxiliaryFrameIndices[Math.floor(auxiliaryFrameIndices.length / 2)] ?? startFrame;
-		const transitionId = `mark:${mark.itemIndex ?? 'body'}:${mark.startChar}-${mark.endChar}:${mark.style}`;
+		const transitionId = `mark:${mark.slot ?? mark.itemIndex ?? 'body'}:${mark.startChar}-${mark.endChar}:${mark.style}`;
 		const address = deterministicFrameAddressFor(frameIndex, frameRate);
 		samples.push({
 			kind: 'transition-window',

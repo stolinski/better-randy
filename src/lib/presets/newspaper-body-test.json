@@ -35,16 +35,6 @@
 				"source": "Syntax Sentinel",
 				"dateLabel": "Saturday, March 14, 2026",
 				"body": "Over the past eighteen months, a quiet displacement has taken place in the JavaScript package management ecosystem. Bun, once a curiosity, now ships in production at companies that until recently treated npm as immutable infrastructure.\n\nThe shift was not announced. There was no migration document, no postmortem. Engineers tried Bun on a side project, noticed the cold install was several times faster, and never went back.\n\nDr. Maren Okafor, who leads developer-tooling research at a large university and has studied package-manager adoption for a decade, said the pattern matched every previous generational change in the ecosystem. [highlight]\"It is the first tool in its class to demonstrate a real gain in day-to-day speed without asking anyone to relearn anything,\"[/highlight] she said.\n\nThe cumulative effect, by early this year, is a meaningful divergence in default tooling between teams who hire from each other. New hires arrive expecting the fast install; the older habit does not survive contact with it.\n\nThe registry's maintainers declined to comment on adoption figures, but two people familiar with internal dashboards said weekly installs from Bun clients had roughly tripled since January. Whether that curve flattens, they said, depends less on benchmarks than on the long tail of packages that still assume the old tool is the only one."
-			},
-			"enter": {
-				"start": 0,
-				"duration": 0.108,
-				"ease": "settled"
-			},
-			"exit": {
-				"start": 0.915,
-				"duration": 0.085,
-				"ease": "smooth"
 			}
 		},
 		"overlays": [],

@@ -1,4 +1,8 @@
 import type { EngineState, Overlay, Preset, SurfaceContent } from '$lib/platform/engine-schema';
+import {
+	annotationBodyPlainText,
+	parseAnnotationBodyText
+} from '$lib/annotations/annotation-body-text';
 import { opacityEnvelope, resolveCascadeTimings } from '$lib/platform/cascade-timing';
 import {
 	getOverlayDefinition,
@@ -317,10 +321,14 @@ function expectedSurfaceReadableText(
 		definition.controls.title &&
 		!(state.surface.type === 'checklist' && content.logoUrl?.trim())
 	) {
+		// A Surface that renders headline marks (`titleMarks`) prints the title's
+		// plain projection — the bracket tags become spans, never glyphs.
 		appendReadableText(
 			entries,
 			`${prefix}:title`,
-			content.title,
+			definition.titleMarks
+				? annotationBodyPlainText(parseAnnotationBodyText(content.title ?? ''))
+				: content.title,
 			state.surface.type === 'type-hero'
 				? 'surface-display'
 				: state.surface.type === 'web-document'

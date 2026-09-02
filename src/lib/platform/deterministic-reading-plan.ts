@@ -1,9 +1,9 @@
 import {
-	listMarkInstances,
 	resolveMarkForIndex,
 	type EngineState,
 	type MarkInstance
 } from './engine-schema';
+import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { opacityEnvelope, resolveCascadeTimings } from './cascade-timing';
 import { getOverlayDefinition } from './pipelines/definition-registry';
 import type { OverlayPipelineDefinition } from './pipelines/definition-types';
@@ -51,7 +51,7 @@ function renderedMarkWindows(
 ):
 	| { status: 'available'; windows: readonly RenderedMarkWindow[] }
 	| { status: 'unavailable'; reason: string } {
-	const marks = listMarkInstances(state.surface.content);
+	const marks = listSurfaceMarkInstances(state.surface);
 	const windows: RenderedMarkWindow[] = [];
 	for (const [markIndex, mark] of marks.entries()) {
 		let startFraction: number;

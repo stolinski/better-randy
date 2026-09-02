@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { annotationBodyPlainText } from '$lib/annotations/annotation-body-text';
+	import type { AnnotationMarkStyle } from '$lib/annotations/annotation-mark-styles';
+	import {
+		annotationBodyPlainText,
+		parseAnnotationBodyText
+	} from '$lib/annotations/annotation-body-text';
 	import { animState } from '$lib/platform/anim-state.svelte';
 	import { engineState } from '$lib/platform/engine-state.svelte';
 	import { clampNumber } from '$lib/utils/math';
@@ -38,14 +42,10 @@
 	// ----- Camera (identity § surface-rotation, § camera-push) -----
 	const TILT_MIN_DEG = 0.3;
 	const TILT_MAX_DEG = 0.8;
-	// Enter: the camera lands from slightly closer with a small drop.
-	const CAMERA_LANDING_SCALE = 0.04;
-	const CAMERA_LANDING_DROP = 0.012;
-	// Whole piece: a continuous push with a hint of leftward drift.
+	// The shot is a cut: no landing, no push-out. The whole piece carries one
+	// continuous push with a hint of leftward drift.
 	const CAMERA_PUSH_SCALE = 0.02;
 	const CAMERA_PUSH_DRIFT = 0.004;
-	// Exit: the push accelerates out.
-	const CAMERA_EXIT_SCALE = 0.035;
 
 	// ----- Type (long-side units, so both transports print the same page) -----
 	//
@@ -108,7 +108,13 @@
 		};
 	});
 
-	const titleChars = $derived(Math.max(1, (content.title ?? '').trim().length));
+	// The headline runs through the same bracket-tag parser as the body
+	// (`titleMarks` on the definition): a marked run becomes a
+	// data-annotation-mark span the paper compositor draws the highlighter
+	// over. Sizing reads the plain projection, never the tags.
+	const titleBody = $derived(parseAnnotationBodyText(content.title ?? ''));
+	const titlePlainText = $derived(annotationBodyPlainText(titleBody));
+	const titleChars = $derived(Math.max(1, titlePlainText.trim().length));
 	const titleFontSize = $derived.by(() => {
 		const singleLineSize = page.visibleMeasure / (titleChars * GROTESQUE_ADVANCE_EM);
 		if (singleLineSize >= longSide * HEADLINE_SINGLE_LINE_RATIO) {
@@ -124,23 +130,13 @@
 		Math.max(2, Math.round(page.contentWidth / (longSide * COLUMN_WIDTH_RATIO)))
 	);
 
-	// Frame-deterministic camera: every term is a pure function of the
-	// timeline's values for this frame. `paperVisibility` is the enter/exit
-	// sugar (0→1, hold, 1→0); which window it is in comes from the authored
-	// exit start against the global progress.
+	// Frame-deterministic camera: a pure function of the timeline's global
+	// progress for this frame. No enter/exit sugar reaches this Surface.
 	const camera = $derived.by(() => {
-		const visibility = clampNumber(animState.paperVisibility, 0, 1);
 		const progress = clampNumber(animState.globalProgress, 0, 1);
-		const isExiting = progress >= (engineState.surface.exit?.start ?? 1);
-		const landing = isExiting ? 0 : 1 - visibility;
-		const leaving = isExiting ? 1 - visibility : 0;
-		const scale =
-			(1 + CAMERA_LANDING_SCALE * landing + CAMERA_EXIT_SCALE * leaving) *
-			(1 + CAMERA_PUSH_SCALE * progress);
 		return {
-			scale,
-			x: -frame.width * CAMERA_PUSH_DRIFT * progress,
-			y: frame.height * CAMERA_LANDING_DROP * landing
+			scale: 1 + CAMERA_PUSH_SCALE * progress,
+			x: -frame.width * CAMERA_PUSH_DRIFT * progress
 		};
 	});
 
@@ -167,7 +163,7 @@
 	style:top={`${page.y}px`}
 	style:padding={`${page.paddingTop}px ${page.paddingRight}px 0 ${page.paddingLeft}px`}
 	style:transform-origin={`${page.originX}px ${page.originY}px`}
-	style:transform={`translate(${camera.x}px, ${camera.y}px) rotate(${tiltDeg}deg) scale(${camera.scale})`}
+	style:transform={`translate(${camera.x}px, 0) rotate(${tiltDeg}deg) scale(${camera.scale})`}
 	style:background-color={NEWSPRINT_PAPER_HEX}
 	style:color={NEWSPRINT_INK_HEX}
 	style:--visible-measure={`${page.visibleMeasure}px`}
@@ -220,7 +216,7 @@
 		{/key}
 	{/if}
 
-	{#if content.title}
+	{#if titlePlainText.trim().length > 0}
 		{#key content.title}
 			<h2
 				data-text-anim-slot="title"
@@ -228,7 +224,13 @@
 				data-gfx-text-role="surface-title"
 				style:font-size={`${titleFontSize}px`}
 			>
-				{content.title}
+				{#each titleBody as block, blockIndex (blockIndex)}
+					{#if block.type === 'paragraph'}
+						{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
+							{@render markedText(segment.text, segment.markStyles, 0)}
+						{/each}
+					{/if}
+				{/each}
 			</h2>
 		{/key}
 	{/if}
@@ -274,22 +276,7 @@
 							data-gfx-text-role="surface-body"
 						>
 							{#each block.segments as segment, segmentIndex (`${blockIndex}:${segmentIndex}:${segment.text}`)}
-								{#if segment.markStyles.length > 0}
-									{@const innerText = segment.text}
-									{@const styles = segment.markStyles}
-									{#snippet renderSegment(index: number)}
-										{#if index < styles.length}
-											<span data-annotation-mark={styles[index]}>
-												{@render renderSegment(index + 1)}
-											</span>
-										{:else}
-											{innerText}
-										{/if}
-									{/snippet}
-									{@render renderSegment(0)}
-								{:else}
-									{segment.text}
-								{/if}
+								{@render markedText(segment.text, segment.markStyles, 0)}
 							{/each}
 						</p>
 					{/if}
@@ -298,6 +285,21 @@
 		{/key}
 	{/if}
 </article>
+
+<!--
+	One marked-run renderer for the headline and the body: stacked styles nest
+	one data-annotation-mark span per style around the run; an unmarked run is
+	bare text. `getAnnotationMarkLayouts` walks these spans in document order.
+-->
+{#snippet markedText(text: string, styles: readonly AnnotationMarkStyle[], index: number)}
+	{#if index < styles.length}
+		<span data-annotation-mark={styles[index]}>
+			{@render markedText(text, styles, index + 1)}
+		</span>
+	{:else}
+		{text}
+	{/if}
+{/snippet}
 
 <style>
 	/*

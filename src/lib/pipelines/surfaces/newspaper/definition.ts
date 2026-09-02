@@ -16,7 +16,14 @@ import type { SurfacePipelineDefinition } from '$lib/platform/pipelines/definiti
  * on the folio line above the heavy masthead rule, `kicker` is the section
  * label over the headline, `title` is the grotesque headline, `author` +
  * `affiliation` form the byline, and `body` flows through justified serif
- * columns separated by column rules.
+ * columns separated by column rules. The title accepts the same bracket-tag
+ * mark syntax as the body (`titleMarks`), so a highlighter can sweep the
+ * headline the way the direction plate's does; its marks index before the
+ * body's in `marks.timings[]`.
+ *
+ * No enter or exit: the page is a cut, a locked-off shot that only carries the
+ * slow camera push. The sugar would have nothing to move (`enterExit: false`),
+ * so the controls stay hidden rather than inert.
  *
  * The material physics this Surface owes are declared in `./identity.ts` (per
  * ADR-0015) and implemented across the CanvasSource (page geometry, seeded
@@ -37,12 +44,7 @@ function defaults(): SurfaceState {
 			source: '',
 			dateLabel: 'Monday, January 1, 2026',
 			body: parseAnnotationBodyText('')
-		},
-		// Camera-landing enter + push-out exit. At a 2.8 s transport this lands
-		// 302 ms enter / 238 ms exit, inside G6 (250–400 / 180–280) with the
-		// 20 % shorter-than-enter ratio.
-		enter: { start: 0, duration: 0.108, ease: 'settled' },
-		exit: { start: 0.915, duration: 0.085, ease: 'smooth' }
+		}
 	};
 }
 
@@ -61,9 +63,10 @@ export const newspaperSurfaceDefinition = {
 		paperColor: false,
 		inkColor: false,
 		backgroundVisibility: false,
-		enterExit: true
+		enterExit: false
 	},
 	defaults,
+	titleMarks: true,
 	// No edge treatment: the page has no silhouette inside the frame (the sheet
 	// overshoots every edge), so the shared edge pass would only ever carve the
 	// canvas boundary. Intentionally absent — see `identity.ts` § page-crop.

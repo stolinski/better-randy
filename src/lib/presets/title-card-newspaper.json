@@ -1,7 +1,7 @@
 {
 	"schema": "supers@1",
 	"name": "Title card — newspaper",
-	"description": "Full-frame chapter title card as a broadsheet page photographed up close (ADR-0056; direction plates in docs/inspo/newspaper/). The frame is a tight crop into the page: folio line with the date and masthead over a heavy rule, a two-line bold grotesque headline, bold-caps byline with a light affiliation line, and justified serif columns with column rules that run off the bottom and right of the frame. Grey newsprint, dark ink, halftone at the body stroke, ink bleed, mottling, scan grain, radial defocus, and a lens vignette come from the newspaper Surface's intrinsic physics — nothing here is Pack chrome; the page is a fully immune faithful artifact. Motion is a camera, not a card: the shot lands with a small settle, keeps a slow push for the whole piece, and accelerates out on exit; the one highlighter stroke draws across the lede's key phrase (marks resolve pack-side, so the marker is each Pack's accent). The body carries enough copy to fill three columns in horizontal and two in vertical; the sheet's overshoot means no edge, tear, or shadow ever exists inside the frame. Lean-outs: no washi tape (a taped clipping is the retired collage grammar, not a photographed page), no paper-grain Effect (the substrate already carries five grain octaves), no chip or kicker (a real page prints its section label in ink, and this card needs none). backgroundFill: pack classifies the piece as a full-frame segment; the fill is never visible under the full-bleed sheet.",
+	"description": "Full-frame chapter title card as a broadsheet page photographed up close (ADR-0056; direction plates in docs/inspo/newspaper/). The frame is a tight crop into the page: folio line with the date and masthead over a heavy rule, a two-line bold grotesque headline, bold-caps byline with a light affiliation line, and justified serif columns with column rules that run off the bottom and right of the frame. Grey newsprint, dark ink, halftone at the body stroke, ink bleed, mottling, scan grain, radial defocus, and a lens vignette come from the newspaper Surface's intrinsic physics — nothing here is Pack chrome; the page is a fully immune faithful artifact. The shot is a cut, not a card enter: no enter/exit sugar, only the slow camera push the Surface carries for the whole piece. The one mark is the direction plate's moment — a highlighter sweeping the headline's key phrase (the title carries the bracket-tag syntax; marks.timings[0] is that headline mark, and it resolves pack-side, so the marker is each Pack's accent). The body carries enough copy to fill three columns in horizontal and two in vertical; the sheet's overshoot means no edge, tear, or shadow ever exists inside the frame. Lean-outs: no washi tape (a taped clipping is the retired collage grammar, not a photographed page), no paper-grain Effect (the substrate already carries five grain octaves), no chip or kicker (a real page prints its section label in ink, and this card needs none). backgroundFill: pack classifies the piece as a full-frame segment; the fill is never visible under the full-bleed sheet.",
 	"pack": "syntax",
 	"state": {
 		"transport": {
@@ -18,8 +18,8 @@
 			"defaults": {},
 			"timings": [
 				{
-					"start": 0.27,
-					"duration": 0.14,
+					"start": 0.25,
+					"duration": 0.16,
 					"ease": "smooth"
 				}
 			]
@@ -27,22 +27,12 @@
 		"surface": {
 			"type": "newspaper",
 			"content": {
-				"title": "Why Bun Quietly Replaced npm",
+				"title": "Why Bun [highlight]Quietly Replaced[/highlight] npm",
 				"author": "By STAFF WRITER",
 				"affiliation": "Syntax Technology Desk",
 				"source": "Syntax Sentinel",
 				"dateLabel": "Tuesday, June 9, 2026",
-				"body": "SAN FRANCISCO — For a decade, npm was the plumbing nobody looked at. That habit is [highlight]quietly coming apart[/highlight]. Every JavaScript project used to begin with the same command and the same forty-second wait; at a growing number of companies, it no longer does.\n\nOver the past eighteen months, Bun — a runtime, bundler, and package manager built by a small team here — has moved from curiosity to default at companies that until recently treated npm as immutable infrastructure. There was no announcement and no migration guide. Engineers tried it on a side project, noticed the cold install finished before they could switch tabs, and never went back.\n\nThe numbers are hard to argue with. In independent benchmarks published this spring, Bun installed a mid-sized application's dependencies in under two seconds, against thirty or more for the incumbent. On continuous-integration machines, where every install is a cold one, teams reported build times falling by half without touching a line of application code.\n\n\"It was never a decision,\" said one platform lead at a large e-commerce company, who asked not to be named because the migration had not been announced internally. \"Somebody changed the lockfile, the pipeline got faster, and nobody wanted to change it back.\"\n\nCritics note that speed is not the same as maturity. Bun's compatibility with the sprawling npm registry, while improving with every release, still surprises teams that lean on unusual lifecycle scripts or native modules. And the company behind it remains small, backed by venture capital rather than the foundation model that has kept npm and Node.js stable for years.\n\nStill, the cumulative effect, by early this year, is a meaningful divergence in default tooling between teams who hire from each other. New hires arrive expecting the fast install. Old habits, it turns out, do not survive contact with a faster one.\n\nThe registry's maintainers declined to comment on adoption figures, but two people familiar with internal dashboards said weekly installs from Bun clients had roughly tripled since January. Whether that curve flattens, they said, depends less on benchmarks than on the long tail of packages that still assume the old tool is the only one."
-			},
-			"enter": {
-				"start": 0,
-				"duration": 0.075,
-				"ease": "settled"
-			},
-			"exit": {
-				"start": 0.94,
-				"duration": 0.06,
-				"ease": "smooth"
+				"body": "SAN FRANCISCO — For a decade, npm was the plumbing nobody looked at. That habit is quietly coming apart. Every JavaScript project used to begin with the same command and the same forty-second wait; at a growing number of companies, it no longer does.\n\nOver the past eighteen months, Bun — a runtime, bundler, and package manager built by a small team here — has moved from curiosity to default at companies that until recently treated npm as immutable infrastructure. There was no announcement and no migration guide. Engineers tried it on a side project, noticed the cold install finished before they could switch tabs, and never went back.\n\nThe numbers are hard to argue with. In independent benchmarks published this spring, Bun installed a mid-sized application's dependencies in under two seconds, against thirty or more for the incumbent. On continuous-integration machines, where every install is a cold one, teams reported build times falling by half without touching a line of application code.\n\n\"It was never a decision,\" said one platform lead at a large e-commerce company, who asked not to be named because the migration had not been announced internally. \"Somebody changed the lockfile, the pipeline got faster, and nobody wanted to change it back.\"\n\nCritics note that speed is not the same as maturity. Bun's compatibility with the sprawling npm registry, while improving with every release, still surprises teams that lean on unusual lifecycle scripts or native modules. And the company behind it remains small, backed by venture capital rather than the foundation model that has kept npm and Node.js stable for years.\n\nStill, the cumulative effect, by early this year, is a meaningful divergence in default tooling between teams who hire from each other. New hires arrive expecting the fast install. Old habits, it turns out, do not survive contact with a faster one.\n\nThe registry's maintainers declined to comment on adoption figures, but two people familiar with internal dashboards said weekly installs from Bun clients had roughly tripled since January. Whether that curve flattens, they said, depends less on benchmarks than on the long tail of packages that still assume the old tool is the only one."
 			}
 		},
 		"overlays": [],

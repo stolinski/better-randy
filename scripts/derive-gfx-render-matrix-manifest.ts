@@ -5,7 +5,8 @@ import { registerHooks } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { listMarkInstances, type Preset } from '../src/lib/platform/engine-schema.ts';
+import type { Preset } from '../src/lib/platform/engine-schema.ts';
+import { listSurfaceMarkInstances } from '../src/lib/platform/surface-mark-instances.ts';
 import type { DeterministicRenderSamplePlanEntry } from '../src/lib/platform/deterministic-render-sample-plan.ts';
 import { selectAffectedStaticPresetPackAxes } from './preset-validation-scope.ts';
 
@@ -181,7 +182,7 @@ export function collectPresetPipelineReferences(preset: Preset): string[] {
 	for (const block of preset.state.surface.diagram ?? []) references.add(`blocks:${block.type}`);
 	for (const chart of preset.state.surface.chart?.items ?? [])
 		references.add(`blocks:${chart.type}`);
-	for (const mark of listMarkInstances(preset.state.surface.content))
+	for (const mark of listSurfaceMarkInstances(preset.state.surface))
 		references.add(`annotations:${mark.style}`);
 	for (const overlay of preset.state.overlays) references.add(`overlays:${overlay.type}`);
 	for (const effect of preset.state.effects) references.add(`effects:${effect.type}`);

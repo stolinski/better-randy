@@ -16,7 +16,6 @@ import {
 
 import { resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import {
-	listMarkInstances,
 	resolveMarkForIndex,
 	type ChatMessage,
 	type EngineState,
@@ -25,6 +24,7 @@ import {
 	type SoundEvent,
 	type SoundOverride
 } from './engine-schema.ts';
+import { listSurfaceMarkInstances } from './surface-mark-instances.ts';
 
 /** The Layer that emitted a cue — provenance for the rail and cue inspector. */
 export type SoundCueLayer =
@@ -354,7 +354,7 @@ function deriveMarkCues(
 	cascadeWindows: CascadeWindowMap,
 	cues: DerivedSoundCue[]
 ): void {
-	listMarkInstances(state.surface.content).forEach((instance, index) => {
+	listSurfaceMarkInstances(state.surface).forEach((instance, index) => {
 		if (instance.window === 'static') {
 			return;
 		}

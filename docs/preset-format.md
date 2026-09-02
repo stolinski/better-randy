@@ -473,7 +473,7 @@ Defaults follow the motion's _character_, not just its window: sliding elements 
 
 - **`paper`** — card chrome with paper-grain shader and fly-in/out animation. Slots: `title`, `sourceUrl`, `author`, `source`, `dateLabel`. Supports `enter`, `exit`, `backgroundVisibility`.
 - **`plain`** — transparent background that hosts a body without chrome. Slots: `author`, `source`, `dateLabel` (decorative metadata only).
-- **`newspaper`** — a broadsheet page photographed up close: full-bleed crop, intrinsic newsprint physics, fully Pack-immune ([ADR-0056](adr/0056-newspaper-photographed-page.md)). Slots: `title`, `kicker`, `author`, `affiliation`, `source`, `dateLabel`, `body`. Full-frame — Presets declare `backgroundFill`.
+- **`newspaper`** — a broadsheet page photographed up close: full-bleed crop, intrinsic newsprint physics, fully Pack-immune ([ADR-0056](adr/0056-newspaper-photographed-page.md)). Slots: `title`, `kicker`, `author`, `affiliation`, `source`, `dateLabel`, `body`. The `title` accepts the bracket-tag mark syntax (the Surface declares `titleMarks`); a headline mark indexes before the body's marks in `marks.timings[]`. No `enter`/`exit` — the page is a cut with a slow camera push. Full-frame — Presets declare `backgroundFill`.
 - **`pullquote-on-photo`** — pullquote staged against the dimensional depth stage's photographic backdrop.
 - **`chapter-card`** — full-frame chapter introduction Surface.
 - **`brand-mark`** — full-frame chapter break carrying a registered brand silhouette in the active Pack's accent; variant `syntax-fm`.
@@ -498,7 +498,7 @@ Decorative (additive on the marked target): `highlight`, `underline`, `strike`, 
 
 Focal (transforms surroundings): `magnify`, `lift-out`, `tear-out`, `isolate`. `magnify` selects a native-pixel circle for compact marks or a bounded rounded rectangle for wrapped phrases; mark intensity controls a constrained optical scale, and its scanner reticle/ripple use the resolved mark color.
 
-The bracket-tag body format expresses marks inline. Stacked styles nest tags around the same run: `[magnify][side-note]quote[/side-note][/magnify]` parses to `markStyles: ['magnify', 'side-note']` on the segment. Decorative-under-focal stack order is enforced in the composition shader, so authoring order within nested tags does not affect rendering.
+The bracket-tag body format expresses marks inline. Stacked styles nest tags around the same run: `[magnify][side-note]quote[/side-note][/magnify]` parses to `markStyles: ['magnify', 'side-note']` on the segment. Decorative-under-focal stack order is enforced in the composition shader, so authoring order within nested tags does not affect rendering. A Surface whose definition declares `titleMarks` (the `newspaper`) accepts the same syntax in `title`; its headline marks come first in `marks.timings[]`, before the body's. On every other Surface, mark syntax in a title is a lint error (rubric A3).
 
 ## Overlay types (v1)
 

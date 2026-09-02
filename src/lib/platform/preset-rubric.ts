@@ -1,5 +1,6 @@
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles.ts';
 import type { AnnotationBody } from '../annotations/annotation-marks.ts';
+import { parseAnnotationBodyText } from '../annotations/annotation-body-text.ts';
 import { opacityEnvelope, resolveCascadeTimings, type CascadeWindow } from './cascade-timing.ts';
 import { deriveDeterministicReadingPlan } from './deterministic-reading-plan.ts';
 import type {
@@ -15,7 +16,10 @@ import type {
 } from './engine-schema.ts';
 import { getPack } from './packs/registry.ts';
 import { requireCoreColor, resolveBackgroundFill, resolveFieldInkColor } from './packs/resolve.ts';
-import { resolveSurfaceTypographyColors } from './pipelines/definition-registry';
+import {
+	getSurfaceDefinition,
+	resolveSurfaceTypographyColors
+} from './pipelines/definition-registry';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import { calculateWebsiteShowcaseLayout } from '../utils/website-showcase.ts';
 import { resolveChartBarColumnGeometry } from '../utils/chart-bar-column-geometry.ts';
@@ -118,7 +122,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	const { state } = preset;
 	const totalSeconds = state.transport.durationSeconds;
 	const orientation = state.transport.orientation;
-	const flattenedMarks = flattenBody(state.surface.content.body);
+	const flattenedMarks = flattenSurfaceMarks(state.surface);
 
 	// Cascade-resolved windows (ADR-0035 §6): the window rules below run against
 	// RESOLVED starts and derived enter envelopes, so a welded chain is linted
@@ -168,6 +172,7 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 	}
 
 	checkMarkTimings(flattenedMarks, state.marks.timings, issues);
+	checkTitleMarks(state.surface, issues);
 	checkMarkOrdering(state.surface, state.marks.timings, totalSeconds, cascadeWindows, issues);
 	checkOverlayTimings(state.overlays, totalSeconds, cascadeWindows, issues);
 	checkOverlayPlacement(state.overlays, orientation, issues);
@@ -750,6 +755,52 @@ function checkBackgroundFill(
 			severity: 'warn',
 			path: 'backgroundFill',
 			message: `backgroundFill (${backgroundFill}) matches typography.paperColor — surface will be invisible against the background.`
+		});
+	}
+}
+
+/**
+ * Every marked run a Surface renders, in document order — the same order
+ * `listSurfaceMarkInstances` enumerates and `marks.timings[]` indexes: the
+ * headline's marks first on a Surface that renders them (`titleMarks`), then
+ * the body's. Body segment indices are offset past the title's so stacked
+ * marks never share an index across slots.
+ */
+function flattenSurfaceMarks(surface: SurfaceState): FlattenedMark[] {
+	if (!getSurfaceDefinition(surface.type)?.titleMarks) {
+		return flattenBody(surface.content.body);
+	}
+	const titleBody = parseAnnotationBodyText(surface.content.title ?? '');
+	const titleSegmentCount = titleBody.reduce(
+		(count, block) => count + (block.type === 'paragraph' ? block.segments.length : 0),
+		0
+	);
+	return [
+		...flattenBody(titleBody),
+		...flattenBody(surface.content.body).map((mark) => ({
+			...mark,
+			segmentIndex: mark.segmentIndex + titleSegmentCount
+		}))
+	];
+}
+
+/**
+ * Mark syntax in a title only renders on a Surface whose CanvasSource parses
+ * it (`titleMarks`); everywhere else the brackets would print as glyphs and
+ * the timing indices would drift off the DOM.
+ */
+function checkTitleMarks(surface: SurfaceState, issues: RubricIssue[]): void {
+	if (getSurfaceDefinition(surface.type)?.titleMarks) return;
+	const hasMarkSyntax = parseAnnotationBodyText(surface.content.title ?? '').some(
+		(block) =>
+			block.type === 'paragraph' && block.segments.some((segment) => segment.markStyles.length > 0)
+	);
+	if (hasMarkSyntax) {
+		issues.push({
+			rule: 'A3',
+			severity: 'error',
+			path: 'surface.content.title',
+			message: `Mark syntax in the title of a "${surface.type}" Surface, which prints its title plain — only Surfaces declaring titleMarks render headline marks.`
 		});
 	}
 }

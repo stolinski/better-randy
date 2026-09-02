@@ -1,4 +1,5 @@
-import { listMarkInstances, type Preset } from '$lib/platform/engine-schema';
+import type { Preset } from '$lib/platform/engine-schema';
+import { listSurfaceMarkInstances } from '$lib/platform/surface-mark-instances';
 import type { PackManifest } from '$lib/platform/packs/types';
 import { getEffectDefinition } from './definition-registry';
 import type { PipelineRendererRequirements } from './runtime-loader';
@@ -29,7 +30,7 @@ function addPresetRequirements(
 	requirements.blocks.add('paragraph');
 	for (const block of preset.state.surface.diagram ?? []) requirements.blocks.add(block.type);
 	for (const block of preset.state.surface.chart?.items ?? []) requirements.blocks.add(block.type);
-	for (const mark of listMarkInstances(preset.state.surface.content)) {
+	for (const mark of listSurfaceMarkInstances(preset.state.surface)) {
 		requirements.annotations.add(mark.style);
 	}
 	for (const overlay of preset.state.overlays) requirements.overlays.add(overlay.type);

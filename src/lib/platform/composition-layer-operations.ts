@@ -33,7 +33,6 @@
 import { createCompositionEntityId } from '../utils/composition-entity-id';
 import {
 	createMarkTiming,
-	listMarkInstances,
 	SurfaceTypeSchema,
 	WEB_DOCUMENT_SITES,
 	type Effect,
@@ -43,6 +42,7 @@ import {
 	type TextAnimation,
 	type TextAnimationTarget
 } from './engine-schema';
+import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { CHART_SURFACE_TYPES } from './chart-validation';
 import { compositionEditHistory } from './composition-edit-history';
 import {
@@ -537,7 +537,7 @@ export async function runAddCompositionAnnotationMarkOperation(
 	}
 
 	const state = readOpenCompositionDocument().state;
-	const instances = listMarkInstances(state.surface.content);
+	const instances = listSurfaceMarkInstances(state.surface);
 	const authoredCount = state.marks.timings.length;
 	const markIndex = instances.findIndex(
 		(instance, index) => index >= authoredCount && instance.style === request.markStyle

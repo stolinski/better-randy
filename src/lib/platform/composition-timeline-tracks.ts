@@ -26,7 +26,6 @@ import { easeLandingFraction } from './ease-landing';
 import {
 	createMarkTiming,
 	getEaseGsap,
-	listMarkInstances,
 	resolveMarkForIndex,
 	SUGAR_OPACITY_EXIT_EASES,
 	type Cascade,
@@ -35,6 +34,7 @@ import {
 	type EngineState,
 	type Keyframe
 } from './engine-schema';
+import { listSurfaceMarkInstances } from './surface-mark-instances';
 import { deriveSoundCues, isAudibleSoundCue, resolveCueSample } from './sound-cues';
 import {
 	createSoundRailReferenceId,
@@ -378,7 +378,7 @@ function appendMarkTracks(
 	appearance: CompositionTimelineAppearance,
 	windows: Map<string, CascadeWindow>
 ): void {
-	listMarkInstances(state.surface.content).forEach((mark, index) => {
+	listSurfaceMarkInstances(state.surface).forEach((mark, index) => {
 		if (mark.window !== undefined) return;
 		const resolved = resolveMarkForIndex(
 			mark.style,

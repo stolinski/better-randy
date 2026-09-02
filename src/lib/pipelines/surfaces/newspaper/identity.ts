@@ -91,14 +91,14 @@ export const newspaperIdentity: IdentitySpec = {
 		{
 			name: 'camera-push',
 			definition:
-				'The camera lands on the page and keeps pushing in, slowly, for the length of the piece — the locked-off documentary insert with a hint of life, never a card flying in.',
+				'The shot is a cut onto the page, and the camera keeps pushing in, slowly, for the length of the piece — the locked-off documentary insert with a hint of life, never a card flying in or a landing settle.',
 			implementation:
-				'CanvasSource.svelte § camera — enter maps paperVisibility to a settle from CAMERA_LANDING_SCALE with a small vertical drop; globalProgress drives a continuous CAMERA_PUSH_SCALE push and lateral drift; exit accelerates the push. All transforms are pure functions of the frame’s timeline values (frame-deterministic, no wall-clock).',
+				'CanvasSource.svelte § camera — globalProgress drives a continuous CAMERA_PUSH_SCALE push and a CAMERA_PUSH_DRIFT lateral drift about the frame centre; there is no enter or exit sugar (the definition declares enterExit: false). The transform is a pure function of the frame’s timeline value (frame-deterministic, no wall-clock).',
 			probe: {
 				kind: 'named-observation',
-				region: 'the headline’s cap-height measured at progress 0.1 and 0.9',
+				region: 'the headline’s cap-height measured at progress 0.0 and 1.0',
 				expectation:
-					'the later measurement is 1.5–3% larger; the first frame shows the page settling from a slightly larger scale, never entering from off-frame.'
+					'the later measurement is 1.5–2.5% larger; the first frame is already the full page at rest, never a larger scale settling or an off-frame entry.'
 			}
 		},
 		{

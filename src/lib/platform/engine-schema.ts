@@ -1857,10 +1857,20 @@ export function createMarkTiming(): MarkTiming {
 export interface MarkInstance {
 	style: AnnotationMarkStyle;
 	text: string;
-	/** Character offset of the marked run inside the body's plain-text projection. */
+	/**
+	 * Character offset of the marked run inside its slot's plain-text
+	 * projection — the body's for body/message marks, the title's for
+	 * headline marks.
+	 */
 	startChar: number;
 	/** End char index (exclusive). */
 	endChar: number;
+	/**
+	 * Headline marks only: the mark lives in `content.title` on a Surface whose
+	 * definition declares `titleMarks`. Absent on every body-projected mark
+	 * (body paragraphs, message bodies, checklist items).
+	 */
+	slot?: 'title';
 	/**
 	 * Checklist item strikes only (ADR-0040): the item's authored draw-on
 	 * window, or 'static' for a checked item with no window (the rule is fully
@@ -1883,9 +1893,35 @@ export interface MarkInstance {
  * top-to-bottom — so these indices align with `getAnnotationMarkLayouts`.
  * Character offsets count a "\n\n" paragraph break, mirroring the editor's
  * serialized form.
+ *
+ * `titleMarks` prepends the headline's marks: the title is run through the
+ * same bracket-tag parser and its marked runs come first (the headline renders
+ * before the body). Only a Surface whose CanvasSource renders those spans may
+ * ask for this — go through `listSurfaceMarkInstances`, which reads the
+ * Surface definition, rather than calling this with the option directly.
  */
-export function listMarkInstances(content: SurfaceContent): MarkInstance[] {
+export function listMarkInstances(
+	content: SurfaceContent,
+	options: { titleMarks?: boolean } = {}
+): MarkInstance[] {
 	const result: MarkInstance[] = [];
+
+	if (options.titleMarks) {
+		let titleCursor = 0;
+		for (const block of parseAnnotationBodyText(content.title ?? '')) {
+			if (block.type !== 'paragraph') continue;
+			for (const segment of block.segments) {
+				const start = titleCursor;
+				const end = titleCursor + segment.text.length;
+				for (const style of segment.markStyles) {
+					result.push({ style, text: segment.text, startChar: start, endChar: end, slot: 'title' });
+				}
+				titleCursor = end;
+			}
+			titleCursor += 2;
+		}
+	}
+
 	let cursor = 0;
 
 	const bodies = [content.body];

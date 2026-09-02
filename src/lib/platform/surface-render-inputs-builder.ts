@@ -12,12 +12,8 @@ import { isDarkSurfaceColor } from '$lib/utils/color';
 import { resolveDiagramPrimitiveForRender } from '$lib/utils/diagram-geometry';
 
 import type { RenderAnimState } from './anim-state.svelte';
-import {
-	listMarkInstances,
-	resolveMarkForIndex,
-	type EngineState,
-	type MarkInstance
-} from './engine-schema';
+import { resolveMarkForIndex, type EngineState, type MarkInstance } from './engine-schema';
+import { listSurfaceMarkInstances } from './surface-mark-instances';
 import type { PackManifest } from './packs/types';
 import {
 	requireCoreColor,
@@ -55,15 +51,21 @@ function buildTextAnimationAlphaByMarkIndex(
 	reader: SurfaceTextAnimationAlphaReader | null
 ): number[] | undefined {
 	if (!reader) return undefined;
-	const hasBodyEntry = state.textAnimations.some(
-		(entry) => entry.target.kind === 'surface' && entry.target.slot === 'body'
+	// A mark couples to the text animation of the slot it lives in: the body
+	// for body-projected marks, the title for headline marks.
+	const animatedSlots = new Set(
+		state.textAnimations
+			.filter((entry) => entry.target.kind === 'surface')
+			.map((entry) => entry.target.slot)
 	);
-	if (!hasBodyEntry) return undefined;
+	if (!animatedSlots.has('body') && !animatedSlots.has('title')) return undefined;
 
-	const slotKey = 'surface:body';
 	const result = new Array<number>(marks.length).fill(1);
 	for (let index = 0; index < marks.length; index += 1) {
 		const mark = marks[index];
+		const slot = mark.slot ?? 'body';
+		if (!animatedSlots.has(slot)) continue;
+		const slotKey = `surface:${slot}`;
 		const range = reader.unitRangeFor(slotKey, mark.startChar, mark.endChar);
 		if (!range) continue;
 		for (let unitIndex = range.from; unitIndex <= range.to; unitIndex += 1) {
@@ -220,7 +222,7 @@ export function buildSurfaceRenderInputs(
 	const state = request.readState();
 	const animState = request.readAnimState();
 	const pack = request.readPack();
-	const marks = listMarkInstances(state.surface.content);
+	const marks = listSurfaceMarkInstances(state.surface);
 	const transportDurationMs = state.transport.durationSeconds * 1000;
 	const resolvedMarks = marks.map((mark, index) =>
 		resolveMarkForIndex(
