@@ -9,6 +9,7 @@ import {
 import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import {
+	STAGE_CAM_Z,
 	STAGE_DEPTH_FAR,
 	STAGE_DEPTH_NEAR,
 	createStageCameraRig,
@@ -890,11 +891,16 @@ export class DepthStage {
 				focusDepth01(rig.backdropDistance),
 				input.focusZ
 			);
+			// One lens, moved with the camera: a thin lens blurs a subject displaced
+			// from focus by an amount that grows as one over the focus distance
+			// squared, so a posed camera half as far from its aim point defocuses
+			// the same page four times as hard. The frontal camera keeps its lens.
+			const lensScale = posed ? (STAGE_CAM_Z / rig.aimDistance) ** 2 : 1;
 			dofUniform.write({
 				params: d.vec4f(
 					focus,
 					input.aperture,
-					maxCoc * encodingScale,
+					maxCoc * encodingScale * lensScale,
 					(input.focusBand ?? 0) / encodingScale
 				),
 				resolution: d.vec2f(width, height),

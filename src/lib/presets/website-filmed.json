@@ -1,13 +1,13 @@
 {
 	"schema": "gfx@1",
 	"name": "Website filmed",
-	"description": "The filmed canvas (ADR-0057, Brief docs/briefs/filmed-canvas.md): the Syntax channel's YouTube Videos page as a screen a documentary camera is filming from low and to the left, close enough that the page runs off every edge. The page is a bundled capture at native density (the filmed framing of website-screenshot, the page anchor putting one row of the grid at frame centre); the camera rests aimed just right of the first row's middle thumbnail, then eases across and down toward the second row with a small dolly, focus riding with the aim so the rack focus is the pan itself. A Syntax lower-third floats in front of the page on its own plane, lifted toward the camera and turned ten degrees, staying put in the frame while the page moves behind it and throwing its shadow onto the screen. The page is quoted substrate and Pack-immune; every Pack dresses only the card and the light. There is no page entrance — the cut is the entrance — and the piece ends on a cut with the card exited. Intentional omissions: no source-url plate (the card's subtitle carries the URL), no marks (a captured page has no DOM text), no paper-grain, no legacy camera move on top of the travel.",
+	"description": "The filmed canvas (ADR-0057, Brief docs/briefs/filmed-canvas.md): the Syntax channel's YouTube Videos page as a screen a documentary camera is filming from low and to the left, close enough that the page runs off every edge. The page is a bundled capture at native density (the filmed framing of website-screenshot, the page anchor putting the middle row of the grid at frame centre); the camera rests on one thumbnail with a wide-open lens, so only that band of the page is sharp and the rows above and below fall away, and pushes in slowly for the whole cut. The page is quoted substrate and Pack-immune; a Pack changes only the light. There is no page entrance — the cut is the entrance — and the piece ends on a cut. Intentional omissions: no Overlays (the page is the piece), no source-url plate, no marks (a captured page has no DOM text), no paper-grain, no legacy camera move on top of the travel.",
 	"kind": "deliverable",
 	"pack": "syntax",
 	"state": {
 		"transport": {
 			"orientation": "horizontal",
-			"durationSeconds": 8,
+			"durationSeconds": 7,
 			"fps": 30,
 			"format": "webm"
 		},
@@ -29,92 +29,37 @@
 			},
 			"pageAnchor": {
 				"x": 0.54,
-				"y": 0.44
+				"y": 0.5
 			}
 		},
-		"overlays": [
-			{
-				"type": "lower-third",
-				"id": "channel-card",
-				"z": -0.18,
-				"pose": {
-					"yaw": 10,
-					"pitch": -3,
-					"roll": 0
-				},
-				"content": {
-					"variant": "standard",
-					"kicker": "SYNTAX ON YOUTUBE",
-					"title": "Three new episodes every week",
-					"subtitle": "youtube.com/@syntaxfm"
-				},
-				"position": {
-					"anchor": "bottom-left",
-					"offset": {
-						"x": 0.07,
-						"y": 0.1
-					},
-					"orientationOverrides": {
-						"vertical": {
-							"anchor": "bottom-center",
-							"offset": {
-								"x": 0,
-								"y": 0.18
-							}
-						}
-					}
-				},
-				"enter": {
-					"start": 0.12,
-					"duration": 0.1,
-					"ease": "settled",
-					"sound": {
-						"event": "impact"
-					}
-				},
-				"exit": {
-					"start": 0.93,
-					"duration": 0.07,
-					"ease": "smooth",
-					"sound": {
-						"mute": true
-					}
-				}
-			}
-		],
+		"overlays": [],
 		"effects": [],
 		"stage": {
 			"type": "depth",
 			"camera": {
 				"move": "static",
 				"pose": {
-					"yaw": -20,
-					"pitch": 6,
+					"yaw": -16,
+					"pitch": -8,
 					"distance": 0.5,
 					"aim": {
-						"x": 0.58,
-						"y": 0.42
+						"x": 0.5,
+						"y": 0.52
 					}
 				},
 				"travel": {
 					"to": {
-						"yaw": -13,
-						"pitch": 4,
-						"distance": 0.46,
-						"aim": {
-							"x": 0.44,
-							"y": 0.55
-						}
+						"distance": 0.44
 					},
 					"start": 0,
-					"duration": 0.85,
+					"duration": 1,
 					"ease": "smooth"
 				}
 			},
 			"focus": {
 				"focusZ": 0,
-				"aperture": 0.5,
-				"band": 0.05
+				"aperture": 1,
+				"band": 0
 			}
 		}
 	}

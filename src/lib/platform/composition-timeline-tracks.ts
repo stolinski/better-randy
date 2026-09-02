@@ -308,6 +308,16 @@ function appendSurfaceTrack(
 				})
 			]
 		});
+	} else {
+		// A Surface with no entrance or exit is on screen for the whole cut. It
+		// still owns the Surface row — that row is how the Surface is selected and
+		// inspected — so it gets a full-length clip with nothing to drag.
+		tracks.push({
+			id: createTimelineTrackId({ kind: 'surface' }),
+			label,
+			color,
+			transitions: [{ id: 'clip', label, color, start: 0, duration: 1 }]
+		});
 	}
 }
 
