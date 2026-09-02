@@ -13,10 +13,9 @@
  * loading would freeze a vocabulary — or fail the whole bundle over an empty
  * one — before the page exists. The controller asks once, when it starts.
  *
- * With validation and delivery here, this list covers every row the inventory
- * marks `agent-tool` — an agent reaches the whole arc from a cold page to a
- * downloaded file. The definitions test compares the two sets directly, so a new
- * row without a tool fails rather than waiting for someone to notice.
+ * With validation, delivery, and the agent-context family selector here, this
+ * list covers every row the inventory exposes to an agent. The definitions test
+ * compares the two sets directly, so a new row without a tool fails immediately.
  * `verification` is the one family absent by design: its rows are
  * `internal-only`, and the controller refuses a definition that names one.
  */

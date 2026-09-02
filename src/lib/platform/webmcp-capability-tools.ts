@@ -1,12 +1,11 @@
 /**
- * The `capability` family's WebMCP tools: the two an agent can call before
- * anything exists
+ * The `capability` family's WebMCP tools: cold-page discovery plus bounded
+ * authoring-family disclosure
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §2, §5).
  *
- * Discovery has to come first, because everything else takes an argument drawn
- * from a registry. An agent asks which Surfaces this build ships, then sets one;
- * it asks what the duration ceiling is, then authors inside it. Both tools are
- * registered on a cold page for exactly that reason.
+ * Discovery has to come first, because authoring arguments come from registries.
+ * Vocabulary and limits stay on the cold page. Once a composition opens, the
+ * family selector adds one on-demand authoring family to the core menu.
  *
  * The section argument is the vocabulary record's own keys, so a registry this
  * engine gains is a section this tool offers on the next load without anyone
@@ -19,8 +18,10 @@ import {
 import { readWebmcpLiteralArgument, runWebmcpToolOperation } from './webmcp-tool-arguments';
 import {
 	runInspectCapabilityLimitsOperation,
-	runInspectCapabilityVocabularyOperation
+	runInspectCapabilityVocabularyOperation,
+	runPrepareCapabilityAuthoringFamilyOperation
 } from './composition-capability-operations';
+import { WEBMCP_ON_DEMAND_FAMILY_NAMES } from './webmcp-operation-inventory';
 
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -51,6 +52,28 @@ export function listWebmcpCapabilityToolDefinitions(): readonly WebmcpToolDefini
 			operationId: 'capability.inspect-limits',
 			inputSchema: WEBMCP_NO_ARGUMENTS_SCHEMA,
 			run: async () => runInspectCapabilityLimitsOperation()
+		},
+		{
+			operationId: 'capability.prepare-authoring-family',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					family: {
+						type: 'string',
+						description:
+							'The authoring family whose currently usable tools should join the core menu.',
+						enum: WEBMCP_ON_DEMAND_FAMILY_NAMES
+					}
+				},
+				required: ['family'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('capability.prepare-authoring-family', () =>
+					runPrepareCapabilityAuthoringFamilyOperation({
+						family: readWebmcpLiteralArgument(args, 'family', WEBMCP_ON_DEMAND_FAMILY_NAMES)
+					})
+				)
 		}
 	];
 }

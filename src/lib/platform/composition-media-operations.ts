@@ -36,6 +36,7 @@ import {
 	type VideoClipDragMode
 } from '../utils/video-clip-edit';
 import { compositionEditHistory } from './composition-edit-history';
+import { resolveCompositionFrameTime } from './composition-time-input';
 import {
 	CompositionOperationError,
 	runCompositionEditTransaction,
@@ -54,6 +55,7 @@ import {
 import { allocateVideoTimelineClipId } from './video-timeline-authoring';
 
 import type { FrameRate } from '../utils/composition-timing';
+import type { CompositionTimeDuration, CompositionTimePosition } from './composition-time-input';
 import type { Preset, VideoAsset, VideoClip } from './engine-schema';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
@@ -124,12 +126,12 @@ export interface RemoveCompositionMediaLibraryEntryRequest {
 export interface AddCompositionVideoClipRequest {
 	expectedRevision: number;
 	assetId: string;
-	/** The exact frame the clip starts on. */
-	timelineStartFrame: number;
-	/** Whole frames of source to cut; absent takes as much as legally fits. */
-	durationFrames?: number;
-	/** Where the cut starts inside the source; absent starts at its head. */
-	sourceStartFrame?: number;
+	/** Exact frame or direct timeline time where the clip starts. */
+	timelineStartFrame: CompositionTimePosition;
+	/** Legacy frame count or direct duration; absent takes as much as legally fits. */
+	durationFrames?: CompositionTimeDuration;
+	/** Exact frame or direct source time; absent starts at its head. */
+	sourceStartFrame?: CompositionTimePosition;
 }
 
 /**
@@ -137,6 +139,12 @@ export interface AddCompositionVideoClipRequest {
  * than a delta — an agent knows where it wants the clip, not how far to push it.
  */
 export type CompositionVideoClipEdit =
+	| { kind: 'move'; timelineStartFrame: CompositionTimePosition }
+	| { kind: 'trim-start'; timelineStartFrame: CompositionTimePosition }
+	| { kind: 'trim-end'; timelineEndFrame: CompositionTimePosition }
+	| { kind: 'slip'; sourceStartFrame: CompositionTimePosition };
+
+type ResolvedCompositionVideoClipEdit =
 	| { kind: 'move'; timelineStartFrame: number }
 	| { kind: 'trim-start'; timelineStartFrame: number }
 	| { kind: 'trim-end'; timelineEndFrame: number }
@@ -464,11 +472,37 @@ export async function runAddCompositionVideoClipOperation(
 
 	const { frameRate, frameCount } = readCompositionFrameGrid(document);
 	const clips = document.state.media.videoTrack.clips;
+	const timeGrid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	let timelineStartFrame: number;
+	let sourceStartFrame: number;
+	let requestedDurationFrames: number | undefined;
+	try {
+		timelineStartFrame = resolveCompositionFrameTime(request.timelineStartFrame, timeGrid);
+		sourceStartFrame =
+			request.sourceStartFrame === undefined
+				? 0
+				: resolveCompositionFrameTime(request.sourceStartFrame, timeGrid);
+		requestedDurationFrames =
+			request.durationFrames === undefined
+				? undefined
+				: resolveCompositionFrameTime(request.durationFrames, timeGrid);
+	} catch (cause) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'invalid_argument',
+			cause instanceof Error ? cause.message : 'The Video clip time could not be resolved.',
+			{ rejected: JSON.stringify(request) }
+		);
+	}
 
 	if (
-		!Number.isSafeInteger(request.timelineStartFrame) ||
-		request.timelineStartFrame < 0 ||
-		request.timelineStartFrame >= frameCount
+		!Number.isSafeInteger(timelineStartFrame) ||
+		timelineStartFrame < 0 ||
+		timelineStartFrame >= frameCount
 	) {
 		return refuseCompositionOperation(
 			row,
@@ -476,13 +510,12 @@ export async function runAddCompositionVideoClipOperation(
 			'invalid_argument',
 			`This composition runs ${frameCount} frames, so a clip starts on frame 0 through ${frameCount - 1}.`,
 			{
-				rejected: String(request.timelineStartFrame),
+				rejected: JSON.stringify(request.timelineStartFrame),
 				alternatives: ['0', String(frameCount - 1)]
 			}
 		);
 	}
 
-	const sourceStartFrame = request.sourceStartFrame ?? 0;
 	if (!Number.isSafeInteger(sourceStartFrame) || sourceStartFrame < 0) {
 		return refuseCompositionOperation(
 			row,
@@ -510,10 +543,10 @@ export async function runAddCompositionVideoClipOperation(
 		0,
 		Math.min(
 			videoClipSourceFrameCapacity(sourceDurationSeconds - sourceStartSeconds, frameRate),
-			frameCount - request.timelineStartFrame
+			frameCount - timelineStartFrame
 		)
 	);
-	const durationFrames = request.durationFrames ?? availableFrames;
+	const durationFrames = requestedDurationFrames ?? availableFrames;
 	if (!Number.isSafeInteger(durationFrames) || durationFrames < 1) {
 		return refuseCompositionOperation(
 			row,
@@ -528,7 +561,7 @@ export async function runAddCompositionVideoClipOperation(
 			row,
 			revision,
 			'invalid_argument',
-			`Only ${availableFrames} frames fit between frame ${request.timelineStartFrame} and the end of the composition or the source.`,
+			`Only ${availableFrames} frames fit between frame ${timelineStartFrame} and the end of the composition or the source.`,
 			{ rejected: String(durationFrames), alternatives: [String(availableFrames)] }
 		);
 	}
@@ -539,7 +572,7 @@ export async function runAddCompositionVideoClipOperation(
 		clip: {
 			id: clipId,
 			assetId: asset.id,
-			timelineStartFrame: request.timelineStartFrame,
+			timelineStartFrame,
 			durationFrames,
 			sourceStartSeconds,
 			audio: { enabled: true, gain: 1 }
@@ -552,16 +585,16 @@ export async function runAddCompositionVideoClipOperation(
 	if (
 		!placed ||
 		!clip ||
-		clip.timelineStartFrame !== request.timelineStartFrame ||
+		clip.timelineStartFrame !== timelineStartFrame ||
 		clip.durationFrames !== durationFrames
 	) {
 		return refuseCompositionOperation(
 			row,
 			revision,
 			'invalid_argument',
-			`Frames ${request.timelineStartFrame}–${request.timelineStartFrame + durationFrames} are not a free, non-overlapping gap on the Video track.`,
+			`Frames ${timelineStartFrame}–${timelineStartFrame + durationFrames} are not a free, non-overlapping gap on the Video track.`,
 			{
-				rejected: `${request.timelineStartFrame}+${durationFrames}`,
+				rejected: `${timelineStartFrame}+${durationFrames}`,
 				alternatives: clips.map(
 					(entry) =>
 						`${entry.id} occupies ${entry.timelineStartFrame}–${entry.timelineStartFrame + entry.durationFrames}`
@@ -611,13 +644,28 @@ export async function runUpdateCompositionVideoClipOperation(
 	if (sourceDurationSeconds === null) return refuseUnreachableMediaAsset(row, asset);
 
 	const { frameRate, frameCount } = readCompositionFrameGrid(document);
-	const requestedFrame = readRequestedClipFrame(request.edit);
+	let edit: ResolvedCompositionVideoClipEdit;
+	try {
+		edit = resolveCompositionVideoClipEdit(request.edit, {
+			durationSeconds: document.state.transport.durationSeconds,
+			fps: document.state.transport.fps
+		});
+	} catch (cause) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'invalid_argument',
+			cause instanceof Error ? cause.message : 'The Video clip edit time could not be resolved.',
+			{ rejected: JSON.stringify(request.edit) }
+		);
+	}
+	const requestedFrame = readRequestedClipFrame(edit);
 	if (!Number.isSafeInteger(requestedFrame) || requestedFrame < 0) {
 		return refuseCompositionOperation(
 			row,
 			revision,
 			'invalid_argument',
-			`A ${request.edit.kind} edit names a non-negative whole frame.`,
+			`A ${edit.kind} edit names a non-negative whole frame.`,
 			{ rejected: String(requestedFrame), alternatives: ['0'] }
 		);
 	}
@@ -631,16 +679,16 @@ export async function runUpdateCompositionVideoClipOperation(
 	});
 	const edited = resolveVideoClipDrag(
 		origin,
-		CLIP_EDIT_MODES[request.edit.kind],
-		requestedFrame - readCurrentClipFrame(clip, request.edit.kind, frameRate)
+		CLIP_EDIT_MODES[edit.kind],
+		requestedFrame - readCurrentClipFrame(clip, edit.kind, frameRate)
 	);
-	const reachedFrame = readCurrentClipFrame(edited, request.edit.kind, frameRate);
+	const reachedFrame = readCurrentClipFrame(edited, edit.kind, frameRate);
 	if (reachedFrame !== requestedFrame) {
 		return refuseCompositionOperation(
 			row,
 			revision,
 			'invalid_argument',
-			`A ${request.edit.kind} to frame ${requestedFrame} leaves the legal range for "${clip.id}"; the nearest legal frame is ${reachedFrame}.`,
+			`A ${edit.kind} to frame ${requestedFrame} leaves the legal range for "${clip.id}"; the nearest legal frame is ${reachedFrame}.`,
 			{ rejected: String(requestedFrame), alternatives: [String(reachedFrame)] }
 		);
 	}
@@ -648,7 +696,7 @@ export async function runUpdateCompositionVideoClipOperation(
 	return runCompositionEditTransaction({
 		operationId: row.id,
 		expectedRevision: request.expectedRevision,
-		undoLabel: `${request.edit.kind === 'move' ? 'Move' : request.edit.kind === 'slip' ? 'Slip' : 'Trim'} video clip`,
+		undoLabel: `${edit.kind === 'move' ? 'Move' : edit.kind === 'slip' ? 'Slip' : 'Trim'} video clip`,
 		focus: { target: 'video-clip', clipId: clip.id },
 		mutate: (draft) => {
 			const index = draft.state.media.videoTrack.clips.findIndex(
@@ -700,8 +748,32 @@ export async function runRemoveCompositionVideoClipOperation(
 	});
 }
 
+function resolveCompositionVideoClipEdit(
+	edit: CompositionVideoClipEdit,
+	grid: { durationSeconds: number; fps: number }
+): ResolvedCompositionVideoClipEdit {
+	switch (edit.kind) {
+		case 'move':
+		case 'trim-start':
+			return {
+				kind: edit.kind,
+				timelineStartFrame: resolveCompositionFrameTime(edit.timelineStartFrame, grid)
+			};
+		case 'trim-end':
+			return {
+				kind: edit.kind,
+				timelineEndFrame: resolveCompositionFrameTime(edit.timelineEndFrame, grid)
+			};
+		case 'slip':
+			return {
+				kind: edit.kind,
+				sourceStartFrame: resolveCompositionFrameTime(edit.sourceStartFrame, grid)
+			};
+	}
+}
+
 /** The exact frame an edit asks for, in the coordinate that edit moves. */
-function readRequestedClipFrame(edit: CompositionVideoClipEdit): number {
+function readRequestedClipFrame(edit: ResolvedCompositionVideoClipEdit): number {
 	switch (edit.kind) {
 		case 'move':
 		case 'trim-start':

@@ -59,7 +59,12 @@ import { userCompositionStore } from './user-composition-store';
 import { WebmcpToolController } from './webmcp-tool-controller';
 
 import type { UserCompositionMeta } from './user-composition-store';
-import type { WebmcpModelContextHost, WebmcpToolDescriptor } from './webmcp-tool-controller';
+import type {
+	WebmcpModelContextHost,
+	WebmcpToolCallResult,
+	WebmcpToolDescriptor,
+	WebmcpToolRegistrationOptions
+} from './webmcp-tool-controller';
 import type { WebmcpOperationFamilyName, WebmcpOperationRow } from './webmcp-operation-inventory';
 import type { WebmcpCompositionPreconditions } from './webmcp-tool-preconditions';
 
@@ -78,15 +83,21 @@ const sessionStore = vi.mocked(userCompositionStore);
 class FakeModelContext implements WebmcpModelContextHost {
 	readonly #tools = new Map<string, WebmcpToolDescriptor>();
 
-	registerTool(descriptor: WebmcpToolDescriptor): void {
+	registerTool(descriptor: WebmcpToolDescriptor, options: WebmcpToolRegistrationOptions): void {
 		this.#tools.set(descriptor.name, descriptor);
-		descriptor.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
+		options.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
 			once: true
 		});
 	}
 
 	getTools(): Iterable<{ name: string }> {
 		return [...this.#tools.values()].map((descriptor) => ({ name: descriptor.name }));
+	}
+
+	call(name: string, args: unknown): Promise<WebmcpToolCallResult> {
+		const descriptor = this.#tools.get(name);
+		if (!descriptor) throw new Error(`No registered tool named ${name}`);
+		return descriptor.execute(args, { signal: new AbortController().signal });
 	}
 
 	describe(name: string): WebmcpToolDescriptor | undefined {
@@ -132,7 +143,9 @@ const SESSION_ENTRY: UserCompositionMeta = {
 	mediaStatus: 'ready'
 };
 
-const AGENT_TOOL_ROWS = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool');
+const AGENT_TOOL_ROWS = WEBMCP_OPERATION_INVENTORY.filter(
+	(row) => row.exposure !== 'internal-only'
+);
 const INTERNAL_ONLY_ROWS = WEBMCP_OPERATION_INVENTORY.filter(
 	(row) => row.exposure === 'internal-only'
 );
@@ -329,12 +342,16 @@ const AGENT_SELECTION_PROMPTS: readonly { prompt: string; toolName: string }[] =
 	},
 	{
 		prompt:
-			'Check this User Pack manifest for the issues a save would refuse with, without storing it.',
+			'Return the structural, Google Fonts, and catalog-shadowing issues this User Pack needs corrected.',
 		toolName: 'gfx_appearance_validate_user_pack'
 	},
 	{
 		prompt: 'Which Overlay types and Packs does this engine ship? List the registered vocabulary.',
 		toolName: 'gfx_capability_inspect_vocabulary'
+	},
+	{
+		prompt: 'Prepare the motion authoring family so its usable tools join the core menu.',
+		toolName: 'gfx_capability_prepare_family'
 	},
 	{
 		prompt: 'What are the public demo limits on duration and export size before work starts?',
@@ -438,6 +455,14 @@ function startController(host: WebmcpModelContextHost): WebmcpToolController {
 		definitions: listWebmcpToolDefinitions(),
 		lifetime: new AbortController().signal
 	});
+}
+
+async function prepareFamily(
+	host: FakeModelContext,
+	family: WebmcpOperationFamilyName
+): Promise<void> {
+	const result = await host.call('gfx_capability_prepare_family', { family });
+	expect(result.isError).toBe(false);
 }
 
 beforeEach(() => {
@@ -544,24 +569,38 @@ describe('WebMCP discovery across a multi-step plan', () => {
 		const controller = startController(host);
 
 		for (const { step, toolName, enabledBy } of PLAN) {
-			const summary = await controller.synchronize(enabledBy, '/p/untitled');
-			expect(summary.registered, `${step} needs ${toolName}`).toContain(toolName);
+			await controller.synchronize(enabledBy, '/p/untitled');
+			const row = rowFor(toolName);
+			if (
+				WEBMCP_OPERATION_FAMILIES.find((family) => family.name === row.family)?.disclosure ===
+				'on-demand'
+			) {
+				await prepareFamily(host, row.family);
+			}
+			expect(
+				[...host.getTools()].map((tool) => tool.name),
+				`${step} needs ${toolName}`
+			).toContain(toolName);
 		}
 	});
 
-	it('hides the Overlay verbs until the plan has actually added one', async () => {
+	it('hides the Layer Overlay verbs until the plan has actually added one', async () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		const overlayTools = AGENT_TOOL_ROWS.filter(
-			(row) => row.precondition === 'overlay-present'
+			(row) => row.family === 'layer' && row.precondition === 'overlay-present'
 		).map((row) => row.toolName);
 
-		const beforeAdd = await controller.synchronize(
+		await controller.synchronize(
 			{ ...CLOSED_PAGE, 'composition-open': true, 'composition-editable': true },
 			'/p/untitled'
 		);
+		await prepareFamily(host, 'layer');
 		for (const toolName of overlayTools) {
-			expect(beforeAdd.registered, `${toolName} exists with no Overlay`).not.toContain(toolName);
+			expect(
+				[...host.getTools()].map((tool) => tool.name),
+				`${toolName} exists with no Overlay`
+			).not.toContain(toolName);
 		}
 
 		const afterAdd = await controller.synchronize(
@@ -597,13 +636,19 @@ describe('WebMCP operation parity across every row', () => {
 			const host = new FakeModelContext();
 			const controller = startController(host);
 
-			const summary = await controller.synchronize(stateThatEnables(row), '/p/untitled');
+			await controller.synchronize(stateThatEnables(row), '/p/untitled');
+			if (
+				WEBMCP_OPERATION_FAMILIES.find((family) => family.name === row.family)?.disclosure ===
+				'on-demand'
+			) {
+				await prepareFamily(host, row.family);
+			}
 
-			expect(summary.registered).toContain(toolName);
+			expect([...host.getTools()].map((tool) => tool.name)).toContain(toolName);
 		}
 	);
 
-	it('registers no internal-only operation in any state the page can be in', async () => {
+	it('registers no internal-only operation across every disclosed family', async () => {
 		expect(INTERNAL_ONLY_ROWS.length).toBeGreaterThan(0);
 		sessionStore.listUserCompositions.mockResolvedValue([SESSION_ENTRY]);
 		const everyPreconditionTrue = Object.fromEntries(
@@ -611,18 +656,22 @@ describe('WebMCP operation parity across every row', () => {
 		) as WebmcpCompositionPreconditions;
 		const host = new FakeModelContext();
 		const controller = startController(host);
+		const reached = new Set<string>();
 
-		const summary = await controller.synchronize(everyPreconditionTrue, '/p/untitled');
+		await controller.synchronize(everyPreconditionTrue, '/p/untitled');
+		for (const tool of host.getTools()) reached.add(tool.name);
+		for (const family of WEBMCP_OPERATION_FAMILIES.filter(
+			(entry) => entry.disclosure === 'on-demand'
+		)) {
+			await prepareFamily(host, family.name);
+			for (const tool of host.getTools()) reached.add(tool.name);
+		}
 
 		for (const row of INTERNAL_ONLY_ROWS) {
 			expect(row.exposure).toBe('internal-only');
-			expect(summary.registered, `${row.id} reached an agent`).not.toContain(row.toolName);
+			expect(reached, `${row.id} reached an agent`).not.toContain(row.toolName);
 		}
-		// Everything else is registered at once, which is what makes the absence above
-		// a disposition rather than a state this eval failed to reach.
-		expect(summary.registered.slice().sort()).toEqual(
-			AGENT_TOOL_ROWS.map((row) => row.toolName).sort()
-		);
+		expect([...reached].sort()).toEqual(AGENT_TOOL_ROWS.map((row) => row.toolName).sort());
 	});
 
 	it('leaves no declared family without a way in, except the internal one', () => {
@@ -648,19 +697,28 @@ describe('WebMCP tool text budgets', () => {
 		) as WebmcpCompositionPreconditions;
 		const host = new FakeModelContext();
 		const controller = startController(host);
+		const descriptors = new Map<string, WebmcpToolDescriptor>();
 
-		const summary = await controller.synchronize(everyPreconditionTrue, '/p/untitled');
+		await controller.synchronize(everyPreconditionTrue, '/p/untitled');
+		for (const tool of host.getTools()) {
+			const descriptor = host.describe(tool.name);
+			if (descriptor) descriptors.set(tool.name, descriptor);
+		}
+		for (const family of WEBMCP_OPERATION_FAMILIES.filter(
+			(entry) => entry.disclosure === 'on-demand'
+		)) {
+			await prepareFamily(host, family.name);
+			for (const tool of host.getTools()) {
+				const descriptor = host.describe(tool.name);
+				if (descriptor) descriptors.set(tool.name, descriptor);
+			}
+		}
 
-		for (const toolName of summary.registered) {
-			const descriptor = host.describe(toolName);
+		for (const [toolName, descriptor] of descriptors) {
 			const row = rowFor(toolName);
-			expect(descriptor?.name.length).toBeLessThanOrEqual(WEBMCP_TOOL_NAME_MAX_LENGTH);
-			expect(descriptor?.description.length).toBeLessThanOrEqual(
-				WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH
-			);
-			// The row is the contract; a description invented at registration time
-			// would be text no parity gate ever reads.
-			expect(descriptor?.description).toBe(row.summary);
+			expect(descriptor.name.length).toBeLessThanOrEqual(WEBMCP_TOOL_NAME_MAX_LENGTH);
+			expect(descriptor.description.length).toBeLessThanOrEqual(WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH);
+			expect(descriptor.description).toBe(row.summary);
 			for (const fragment of WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS) {
 				expect(toolName.includes(fragment), `${toolName} actuates the interface`).toBe(false);
 			}

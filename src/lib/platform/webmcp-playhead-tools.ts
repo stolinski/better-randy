@@ -16,8 +16,8 @@ import {
 	runInspectCompositionPlayheadOperation,
 	runSeekCompositionPlayheadOperation
 } from './composition-playhead-operations';
-import { readWebmcpNumberArgument, runWebmcpToolOperation } from './webmcp-tool-arguments';
-import { WEBMCP_NO_ARGUMENTS_SCHEMA } from './webmcp-derived-tool-schemas';
+import { readWebmcpTimePositionArgument, runWebmcpToolOperation } from './webmcp-tool-arguments';
+import { webmcpFrameTimeProperty, WEBMCP_NO_ARGUMENTS_SCHEMA } from './webmcp-derived-tool-schemas';
 
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -33,19 +33,18 @@ export function listWebmcpPlayheadToolDefinitions(): readonly WebmcpToolDefiniti
 			inputSchema: {
 				type: 'object',
 				properties: {
-					frame: {
-						type: 'integer',
-						description:
-							'The zero-based frame to park on. Frames are counted on the exact rational the rate resolves to, never the display literal.',
-						minimum: 0
-					}
+					frame: webmcpFrameTimeProperty(
+						'The position to park on: exact frame, seconds, milliseconds, or editor timecode.'
+					)
 				},
 				required: ['frame'],
 				additionalProperties: false
 			},
 			run: (args) =>
 				runWebmcpToolOperation('playhead.seek-frame', () =>
-					runSeekCompositionPlayheadOperation({ frame: readWebmcpNumberArgument(args, 'frame') })
+					runSeekCompositionPlayheadOperation({
+						frame: readWebmcpTimePositionArgument(args, 'frame')
+					})
 				)
 		}
 	];

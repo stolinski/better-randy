@@ -10,8 +10,8 @@
  * the format and then calls this; a format argument would let a call ship a file
  * whose own document disagrees with its filename and alpha lane.
  *
- * The registration's `AbortSignal` is handed straight to the export, so a caller
- * that walks away stops the render, the encode, and the download together. The
+ * The Chrome execution signal, combined with the registration lifetime, is
+ * handed to export so cancellation stops render, encode, and download. The
  * receipt is issued only for an export that really delivered: a cancelled run
  * answers `cancelled`, a failed encode answers `export_failed`, and neither one
  * names a file.

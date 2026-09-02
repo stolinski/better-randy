@@ -22,19 +22,26 @@ function collectRepositoryEvidence(): Promise<WebmcpParityEvidence> {
 	});
 }
 
-/** Evidence in which every row reaches both transports, as the baseline to break. */
+/** Evidence in which every row reaches exactly the transports it promises. */
 function completeEvidence(): WebmcpParityEvidence {
 	return {
-		agentBindings: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool').map(
-			(row) => ({ operationId: row.id, module: `src/lib/platform/webmcp-${row.family}-tools.ts` })
+		agentBindings: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure !== 'internal-only').map(
+			(row) => ({
+				operationId: row.id,
+				module: `src/lib/platform/webmcp-${row.family}-tools.ts`
+			})
 		),
 		operationBindings: WEBMCP_OPERATION_INVENTORY.map((row) => ({
 			operationId: row.id,
 			module: `src/lib/platform/composition-${row.family}-operations.ts`
 		})),
-		guiBindings: [...new Set(WEBMCP_OPERATION_INVENTORY.map((row) => row.guiSurface))].map(
-			(guiSurface) => ({ guiSurface, exists: true, reachableFromRoute: true })
-		)
+		guiBindings: [
+			...new Set(
+				WEBMCP_OPERATION_INVENTORY.map((row) => row.guiSurface).filter(
+					(guiSurface): guiSurface is string => guiSurface !== null
+				)
+			)
+		].map((guiSurface) => ({ guiSurface, exists: true, reachableFromRoute: true }))
 	};
 }
 
@@ -43,9 +50,10 @@ function defectsFor(evidence: WebmcpParityEvidence): WebmcpParityDefect[] {
 }
 
 const firstAgentRow = WEBMCP_OPERATION_INVENTORY.find((row) => row.exposure === 'agent-tool');
+const firstContextRow = WEBMCP_OPERATION_INVENTORY.find((row) => row.exposure === 'agent-context');
 const firstInternalRow = WEBMCP_OPERATION_INVENTORY.find((row) => row.exposure === 'internal-only');
-if (!firstAgentRow || !firstInternalRow) {
-	throw new Error('The inventory must declare both an agent-tool row and an internal-only row.');
+if (!firstAgentRow || !firstContextRow || !firstInternalRow) {
+	throw new Error('The inventory must declare shared, agent-context, and internal-only rows.');
 }
 
 describe('WebMCP operation parity gate', () => {
@@ -57,13 +65,17 @@ describe('WebMCP operation parity gate', () => {
 		expect(findWebmcpOneTransportOperations(report)).toEqual([]);
 	});
 
-	it('reads an internal-only row as reaching the GUI alone, not as a defect', () => {
+	it('reads the two deliberate one-transport dispositions without defects', () => {
 		const report = auditWebmcpOperationParity(completeEvidence());
 		const internal = report.rows.find((row) => row.operationId === firstInternalRow.id);
+		const context = report.rows.find((row) => row.operationId === firstContextRow.id);
 
 		expect(internal?.expectedTransports).toEqual(['gui']);
 		expect(internal?.resolvedTransports).toEqual(['gui']);
 		expect(internal?.toolName).toBeNull();
+		expect(context?.expectedTransports).toEqual(['agent']);
+		expect(context?.resolvedTransports).toEqual(['agent']);
+		expect(context?.guiSurface).toBeNull();
 	});
 
 	it('rejects an exposed row whose tool is gone as reachable from the GUI only', () => {
@@ -187,7 +199,7 @@ describe('WebMCP operation parity gate', () => {
 });
 
 describe('WebMCP operation parity in this build', () => {
-	it('reaches both transports for every row the inventory declares', async () => {
+	it('reaches every transport each inventory row declares', async () => {
 		const report = auditWebmcpOperationParity(await collectRepositoryEvidence());
 
 		expect(report.findings).toEqual([]);

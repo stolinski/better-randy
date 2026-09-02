@@ -52,13 +52,13 @@ beforeEach(() => {
 });
 
 describe('manual sound cues', () => {
-	it('adds a free-standing cue under a free id and focuses it on the Sound rail', async () => {
+	it('normalizes direct time units for a free-standing cue', async () => {
 		const receipt = expectApplied(
 			await runSetCompositionSoundCueOperation({
 				expectedRevision: 0,
 				assetSlug: 'foley-tick',
-				start: 0.4,
-				duration: 0.05
+				start: { seconds: 2.4 },
+				duration: { milliseconds: 300 }
 			})
 		);
 
@@ -69,9 +69,10 @@ describe('manual sound cues', () => {
 		});
 		expect(engineState.audioCues[0]).toMatchObject({
 			assetSlug: 'foley-tick',
-			kind: 'cue',
-			start: 0.4
+			kind: 'cue'
 		});
+		expect(engineState.audioCues[0].start).toBeCloseTo(0.4);
+		expect(engineState.audioCues[0].duration).toBeCloseTo(0.05);
 	});
 
 	it('rewrites a cue that already exists rather than adding a second', async () => {

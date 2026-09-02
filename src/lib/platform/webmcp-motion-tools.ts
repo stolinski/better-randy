@@ -55,17 +55,17 @@ import {
 	readWebmcpClearableNumberArgument,
 	readWebmcpClearableRecordArgument,
 	readWebmcpClearableStringArgument,
-	readWebmcpJsonArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
 	readWebmcpOptionalLiteralArgument,
-	readWebmcpOptionalNumberArgument,
 	readWebmcpOptionalRecordArgument,
-	readWebmcpOptionalStringArgument,
+	readWebmcpOptionalRuntimeJsonArgument,
 	readWebmcpRecordArgument,
 	readWebmcpRecordArrayArgument,
 	readWebmcpStringArgument,
+	readWebmcpTimeDurationArgument,
+	readWebmcpOptionalTimeDurationArgument,
 	runWebmcpToolOperation,
 	WebmcpArgumentError
 } from './webmcp-tool-arguments';
@@ -74,24 +74,21 @@ import {
 	webmcpClearableTextProperty,
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
-	webmcpFractionProperty,
+	webmcpFractionTimeProperty,
 	webmcpObservedRevisionProperty,
-	webmcpObservedRevisionOnlySchema
+	webmcpObservedRevisionOnlySchema,
+	webmcpRuntimeObjectOrJsonTextProperty
 } from './webmcp-derived-tool-schemas';
 
 import type { ChartMotionPhaseName } from '../utils/chart-motion';
+import type { CompositionChartMotionPhaseInput } from './composition-motion-timing-operations';
 import type { CompositionMotionWindow } from './composition-motion-timing-operations';
 import type {
 	CompositionCascadeAnchorKind,
 	CompositionCascadeSubject,
 	CompositionKeyframeSubject
 } from './composition-keyframe-cascade-operations';
-import type {
-	CascadeAnchor,
-	ChartMotionPhase,
-	Keyframe,
-	TextAnimationParams
-} from './engine-schema';
+import type { CascadeAnchor, Keyframe, TextAnimationParams } from './engine-schema';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
@@ -196,8 +193,12 @@ function motionWindowProperty(description: string): WebmcpSchemaProperty {
 		type: 'object',
 		description,
 		properties: {
-			start: webmcpFractionProperty('Where the window opens, as a fraction of the clip.'),
-			duration: webmcpFractionProperty('How long it runs, as a fraction of the clip.'),
+			start: webmcpFractionTimeProperty(
+				'Where the window opens: legacy fraction, seconds, milliseconds, or frames.'
+			),
+			duration: webmcpFractionTimeProperty(
+				'How long it runs: legacy fraction, seconds, milliseconds, or frames.'
+			),
 			ease: webmcpDerivedEnumProperty('motion-ease', 'The curve the window runs on.')
 		},
 		required: ['start', 'duration', 'ease'],
@@ -222,8 +223,8 @@ function clearableMotionWindowProperty(description: string): WebmcpSchemaPropert
 
 function readMotionWindowFields(window: Record<string, unknown>): CompositionMotionWindow {
 	return {
-		start: readWebmcpNumberArgument(window, 'start'),
-		duration: readWebmcpNumberArgument(window, 'duration'),
+		start: readWebmcpTimeDurationArgument(window, 'start'),
+		duration: readWebmcpTimeDurationArgument(window, 'duration'),
 		ease: readWebmcpLiteralArgument(window, 'ease', COMPOSITION_MOTION_EASES)
 	};
 }
@@ -335,8 +336,12 @@ function chartPhasesProperty(): WebmcpSchemaProperty {
 					type: 'object',
 					description: `The ${name} phase window.`,
 					properties: {
-						start: webmcpFractionProperty('Where the phase opens, as a fraction of the clip.'),
-						duration: webmcpFractionProperty('How long it runs, as a fraction of the clip.'),
+						start: webmcpFractionTimeProperty(
+							'Where the phase opens: legacy fraction, seconds, milliseconds, or frames.'
+						),
+						duration: webmcpFractionTimeProperty(
+							'How long it runs: legacy fraction, seconds, milliseconds, or frames.'
+						),
 						ease: webmcpDerivedEnumProperty(
 							'chart-motion-ease',
 							'The curve this phase runs on. Chart phases run their own two curves.'
@@ -351,14 +356,14 @@ function chartPhasesProperty(): WebmcpSchemaProperty {
 	};
 }
 
-/** The wipe's parameters, as the JSON text the transition Effect's own schema answers for. */
+/** The wipe parameters its registered transition Effect validates. */
 function readTransitionParams(args: unknown): unknown {
-	return readWebmcpOptionalStringArgument(args, 'params') === undefined
-		? undefined
-		: readWebmcpJsonArgument(args, 'params');
+	return readWebmcpOptionalRuntimeJsonArgument(args, 'params');
 }
 
-function readChartPhases(args: unknown): Partial<Record<ChartMotionPhaseName, ChartMotionPhase>> {
+function readChartPhases(
+	args: unknown
+): Partial<Record<ChartMotionPhaseName, CompositionChartMotionPhaseInput>> {
 	const phases = readWebmcpRecordArgument(args, 'phases');
 	const declared: readonly string[] = CHART_MOTION_PHASE_NAMES;
 	for (const key of Object.keys(phases)) {
@@ -369,13 +374,13 @@ function readChartPhases(args: unknown): Partial<Record<ChartMotionPhaseName, Ch
 		});
 	}
 
-	const requested: Partial<Record<ChartMotionPhaseName, ChartMotionPhase>> = {};
+	const requested: Partial<Record<ChartMotionPhaseName, CompositionChartMotionPhaseInput>> = {};
 	for (const name of CHART_MOTION_PHASE_NAMES) {
 		const phase = readWebmcpOptionalRecordArgument(phases, name);
 		if (!phase) continue;
 		requested[name] = {
-			start: readWebmcpNumberArgument(phase, 'start'),
-			duration: readWebmcpNumberArgument(phase, 'duration'),
+			start: readWebmcpTimeDurationArgument(phase, 'start'),
+			duration: readWebmcpTimeDurationArgument(phase, 'duration'),
 			ease: readWebmcpOptionalLiteralArgument(phase, 'ease', CHART_MOTION_EASES)
 		};
 	}
@@ -441,8 +446,12 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 						description: 'The Annotation Mark index, in document order.',
 						minimum: 0
 					},
-					start: webmcpFractionProperty('Where the draw-on begins, as a fraction of the clip.'),
-					duration: webmcpFractionProperty('How long it draws, as a fraction of the clip.'),
+					start: webmcpFractionTimeProperty(
+						'Where the draw-on begins: legacy fraction, seconds, milliseconds, or frames.'
+					),
+					duration: webmcpFractionTimeProperty(
+						'How long it draws: legacy fraction, seconds, milliseconds, or frames.'
+					),
 					ease: webmcpDerivedEnumProperty('motion-ease', 'The curve the draw-on runs on.'),
 					color: webmcpClearableTextProperty(
 						"This Mark's departure from the mark defaults, as a #RRGGBB hex. Null returns it to them."
@@ -460,8 +469,8 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 					runSetCompositionMarkTimingOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						markIndex: readWebmcpNumberArgument(args, 'markIndex'),
-						start: readWebmcpOptionalNumberArgument(args, 'start'),
-						duration: readWebmcpOptionalNumberArgument(args, 'duration'),
+						start: readWebmcpOptionalTimeDurationArgument(args, 'start'),
+						duration: readWebmcpOptionalTimeDurationArgument(args, 'duration'),
 						ease: readWebmcpOptionalLiteralArgument(args, 'ease', COMPOSITION_MOTION_EASES),
 						color: readWebmcpClearableStringArgument(args, 'color'),
 						intensity: readWebmcpClearableNumberArgument(args, 'intensity')
@@ -651,12 +660,9 @@ export function listWebmcpMotionToolDefinitions(): readonly WebmcpToolDefinition
 							'How long the wipe itself runs. Milliseconds, because it belongs to the wipe rather than to either state transport.',
 						minimum: 0
 					},
-					params: {
-						type: 'string',
-						description:
-							"Parameters for the wipe, as JSON text against the schema that Effect declares. Omit it to take the Effect's own defaults.",
-						minLength: 1
-					}
+					params: webmcpRuntimeObjectOrJsonTextProperty(
+						"Parameters for the wipe against the Effect's schema. Omit them to take its defaults."
+					)
 				},
 				required: ['expectedRevision', 'from', 'to', 'effect', 'durationMs'],
 				additionalProperties: false

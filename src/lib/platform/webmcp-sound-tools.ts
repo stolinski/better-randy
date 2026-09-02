@@ -38,6 +38,7 @@ import {
 	readWebmcpOptionalStringArgument,
 	readWebmcpRecordArgument,
 	readWebmcpStringArgument,
+	readWebmcpTimeDurationArgument,
 	runWebmcpToolOperation,
 	WebmcpArgumentError
 } from './webmcp-tool-arguments';
@@ -45,6 +46,7 @@ import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpFractionProperty,
+	webmcpFractionTimeProperty,
 	webmcpObservedRevisionProperty
 } from './webmcp-derived-tool-schemas';
 
@@ -155,8 +157,12 @@ export function listWebmcpSoundToolDefinitions(): readonly WebmcpToolDefinition[
 						enum: COMPOSITION_SOUND_CUE_KINDS
 					},
 					assetSlug: webmcpDerivedEnumProperty('sound-asset', 'The bundled audio asset to play.'),
-					start: webmcpFractionProperty('Where the cue fires, as a fraction of the timeline.'),
-					duration: webmcpFractionProperty('How long it plays, as a fraction of the timeline.'),
+					start: webmcpFractionTimeProperty(
+						'Where the cue fires: legacy fraction, seconds, milliseconds, or frames.'
+					),
+					duration: webmcpFractionTimeProperty(
+						'How long it plays: legacy fraction, seconds, milliseconds, or frames.'
+					),
 					volume: webmcpFractionProperty('Playback level. Omit it to play at full scale.')
 				},
 				required: ['expectedRevision', 'assetSlug', 'start', 'duration'],
@@ -169,8 +175,8 @@ export function listWebmcpSoundToolDefinitions(): readonly WebmcpToolDefinition[
 						cueId: readWebmcpOptionalStringArgument(args, 'cueId'),
 						kind: readWebmcpOptionalLiteralArgument(args, 'kind', COMPOSITION_SOUND_CUE_KINDS),
 						assetSlug: readWebmcpStringArgument(args, 'assetSlug'),
-						start: readWebmcpNumberArgument(args, 'start'),
-						duration: readWebmcpNumberArgument(args, 'duration'),
+						start: readWebmcpTimeDurationArgument(args, 'start'),
+						duration: readWebmcpTimeDurationArgument(args, 'duration'),
 						volume: readWebmcpOptionalNumberArgument(args, 'volume')
 					})
 				)

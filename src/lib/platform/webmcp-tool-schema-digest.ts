@@ -22,6 +22,10 @@ import { hashDeterministicRenderValue } from './deterministic-render-registry-fi
 export interface WebmcpRegisteredToolDescriptor {
 	name: string;
 	description: string;
+	annotations: {
+		readOnlyHint: boolean;
+		untrustedContentHint: boolean;
+	};
 	/** The measured surface hands the schema back as JSON text, not an object. */
 	inputSchema: string;
 }
@@ -55,6 +59,7 @@ export async function hashWebmcpToolSchemaSurface(
 			.map((tool) => ({
 				name: tool.name,
 				description: tool.description,
+				annotations: tool.annotations,
 				inputSchema: parseWebmcpToolInputSchema(tool.inputSchema)
 			}))
 	);

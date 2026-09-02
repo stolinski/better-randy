@@ -10,12 +10,11 @@
  *   Surface slots, a chat transcript, a checklist, the caption track, a diagram
  *   primitive's body. Every field is declared and every enum is read from the
  *   schema that owns it, so an agent can author one without a second call.
- * - **JSON text** where the shape is decided at call time by a schema this
+ * - **Runtime objects** where the shape is decided at call time by a schema this
  *   registration cannot see: an Overlay's content belongs to that Overlay's
  *   Pipeline, and a chart Block's body belongs to the chart type the Block
- *   already is. A frozen guess at either would be wrong for every other variant,
- *   so the value travels as text and the owning schema answers a wrong body with
- *   findings naming the exact field.
+ *   already is. Their schemas stay open here and validate strictly in the
+ *   operation. Legacy JSON text remains accepted for existing callers.
  *
  * A Mark span is content and is written through the Surface body here; the
  * Annotation Layer entry that gives that span its own colour and window is
@@ -38,7 +37,6 @@ import {
 	SOUND_EVENTS,
 	type Captions,
 	type CaptionCue,
-	type ChecklistItem,
 	type Ease,
 	type SoundOverride
 } from './engine-schema';
@@ -46,8 +44,6 @@ import { COMPOSITION_MOTION_EASES } from './composition-motion-timing-operations
 import {
 	readWebmcpBooleanArgument,
 	readWebmcpClearableStringArgument,
-	readWebmcpJsonArgument,
-	readWebmcpJsonRecordArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
@@ -58,7 +54,10 @@ import {
 	readWebmcpOptionalStringArgument,
 	readWebmcpRecordArgument,
 	readWebmcpRecordArrayArgument,
+	readWebmcpRuntimeJsonArgument,
+	readWebmcpRuntimeObjectArgument,
 	readWebmcpStringArgument,
+	readWebmcpTimeDurationArgument,
 	runWebmcpToolOperation,
 	WebmcpArgumentError
 } from './webmcp-tool-arguments';
@@ -78,28 +77,35 @@ import {
 	webmcpClearableTextProperty,
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
-	webmcpFractionProperty,
-	webmcpObservedRevisionProperty
+	webmcpFractionTimeProperty,
+	webmcpObservedRevisionProperty,
+	webmcpRuntimeObjectProperty
 } from './webmcp-derived-tool-schemas';
 
 import type {
 	ChatTranscriptEntry,
+	ChecklistContentEntry,
 	DiagramPrimitiveContentPatch,
 	SurfaceContentSlot
 } from './composition-content-operations';
+import type { CompositionTimeDuration } from './composition-time-input';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
 interface ContentTimedWindow {
-	start: number;
-	duration: number;
+	start: CompositionTimeDuration;
+	duration: CompositionTimeDuration;
 	ease?: Ease;
 }
 
 function timedWindowFields(): Readonly<Record<string, WebmcpSchemaProperty>> {
 	return {
-		start: webmcpFractionProperty('Where the window opens, as a fraction of the clip.'),
-		duration: webmcpFractionProperty('How long it runs, as a fraction of the clip.'),
+		start: webmcpFractionTimeProperty(
+			'Where the window opens: legacy fraction, seconds, milliseconds, or frames.'
+		),
+		duration: webmcpFractionTimeProperty(
+			'How long it runs: legacy fraction, seconds, milliseconds, or frames.'
+		),
 		ease: webmcpDerivedEnumProperty('motion-ease', 'The curve the window runs on.')
 	};
 }
@@ -148,8 +154,8 @@ function cuedWindowProperty(description: string): WebmcpSchemaProperty {
 
 function readTimedWindowFields(window: Record<string, unknown>): ContentTimedWindow {
 	return {
-		start: readWebmcpNumberArgument(window, 'start'),
-		duration: readWebmcpNumberArgument(window, 'duration'),
+		start: readWebmcpTimeDurationArgument(window, 'start'),
+		duration: readWebmcpTimeDurationArgument(window, 'duration'),
 		ease: readWebmcpOptionalLiteralArgument(window, 'ease', COMPOSITION_MOTION_EASES)
 	};
 }
@@ -189,10 +195,7 @@ function surfaceContentSlotsProperty(): WebmcpSchemaProperty {
 		description:
 			'The slots to write. Only the slots the active Surface declares are accepted; it names its own when one is not.',
 		properties: Object.fromEntries(
-			SURFACE_CONTENT_SLOTS.map((slot) => [
-				slot,
-				webmcpClearableTextProperty(`The ${slot} slot.`)
-			])
+			SURFACE_CONTENT_SLOTS.map((slot) => [slot, webmcpClearableTextProperty(`The ${slot} slot.`)])
 		),
 		additionalProperties: false
 	};
@@ -246,12 +249,9 @@ function chatMessageProperty(): WebmcpSchemaProperty {
 				type: 'object',
 				description: 'A typing indicator that resolves into this bubble.',
 				properties: {
-					duration: {
-						type: 'number',
-						description: 'How long it plays, as a fraction of the clip.',
-						minimum: 0,
-						maximum: 1
-					}
+					duration: webmcpFractionTimeProperty(
+						'How long it plays: legacy fraction, seconds, milliseconds, or frames.'
+					)
 				},
 				required: ['duration'],
 				additionalProperties: false
@@ -271,12 +271,12 @@ function readChatTranscript(args: unknown): readonly ChatTranscriptEntry[] {
 			tapback: readWebmcpOptionalLiteralArgument(message, 'tapback', CHAT_MESSAGE_TAPBACKS),
 			status: readWebmcpOptionalLiteralArgument(message, 'status', CHAT_MESSAGE_RECEIPTS),
 			enter: readCuedWindow(message, 'enter'),
-			typing: typing ? { duration: readWebmcpNumberArgument(typing, 'duration') } : undefined
+			typing: typing ? { duration: readWebmcpTimeDurationArgument(typing, 'duration') } : undefined
 		};
 	});
 }
 
-function readChecklistEntries(args: unknown): readonly ChecklistItem[] {
+function readChecklistEntries(args: unknown): readonly ChecklistContentEntry[] {
 	return readWebmcpRecordArrayArgument(args, 'items').map((item) => ({
 		text: readWebmcpStringArgument(item, 'text'),
 		checked: readWebmcpBooleanArgument(item, 'checked'),
@@ -299,8 +299,7 @@ function captionsProperty(): WebmcpSchemaProperty {
 			},
 			y: {
 				type: 'number',
-				description:
-					'The band centre as a fraction of frame height. Absent is orientation-aware.',
+				description: 'The band centre as a fraction of frame height. Absent is orientation-aware.',
 				minimum: 0,
 				maximum: 1
 			},
@@ -383,8 +382,7 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 		// the caller reaches for the tool that can write it.
 		throw new WebmcpArgumentError(
 			'invalid_argument',
-			describeDiagramContentFieldOwner(key) ??
-				`"${key}" is not a field a diagram Block authors.`,
+			describeDiagramContentFieldOwner(key) ?? `"${key}" is not a field a diagram Block authors.`,
 			{ rejected: key, alternatives: fields }
 		);
 	}
@@ -393,14 +391,16 @@ function readDiagramPrimitiveContent(args: unknown): DiagramPrimitiveContentPatc
 	// rather than overwriting an authored one with `undefined`.
 	const patch: DiagramPrimitiveContentPatch = {};
 	if ('text' in content) patch.text = readWebmcpStringArgument(content, 'text');
-	if ('form' in content) patch.form = readWebmcpLiteralArgument(content, 'form', DIAGRAM_NODE_FORMS);
+	if ('form' in content)
+		patch.form = readWebmcpLiteralArgument(content, 'form', DIAGRAM_NODE_FORMS);
 	if ('route' in content) {
 		patch.route = readWebmcpLiteralArgument(content, 'route', DIAGRAM_EDGE_ROUTES);
 	}
 	if ('direction' in content) {
 		patch.direction = readWebmcpLiteralArgument(content, 'direction', DIAGRAM_ARROW_DIRECTIONS);
 	}
-	if ('role' in content) patch.role = readWebmcpLiteralArgument(content, 'role', DIAGRAM_LABEL_ROLES);
+	if ('role' in content)
+		patch.role = readWebmcpLiteralArgument(content, 'role', DIAGRAM_LABEL_ROLES);
 	if ('wrap' in content) {
 		patch.wrap = readWebmcpLiteralArgument(content, 'wrap', DIAGRAM_LABEL_WRAP_MODES);
 	}
@@ -506,10 +506,16 @@ export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinitio
 					expectedRevision: webmcpObservedRevisionProperty(),
 					overlayId: webmcpEntityIdProperty('The Overlay to write.'),
 					content: {
-						type: 'string',
 						description:
-							'The content as JSON text, in the shape this Overlay type declares. A wrong shape is answered with findings naming the field.',
-						minLength: 1
+							'The nested content this Overlay type declares. Its Pipeline validates the exact fields.',
+						oneOf: [
+							webmcpRuntimeObjectProperty('A nested content object.'),
+							{
+								type: 'string',
+								description: 'Legacy JSON text containing the content value.',
+								minLength: 1
+							}
+						]
 					}
 				},
 				required: ['expectedRevision', 'overlayId', 'content'],
@@ -520,7 +526,7 @@ export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinitio
 					runSetCompositionOverlayContentOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						overlayId: readWebmcpStringArgument(args, 'overlayId'),
-						content: readWebmcpJsonArgument(args, 'content')
+						content: readWebmcpRuntimeJsonArgument(args, 'content')
 					})
 				)
 		},
@@ -559,10 +565,16 @@ export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinitio
 					expectedRevision: webmcpObservedRevisionProperty(),
 					blockId: webmcpEntityIdProperty('The chart Block to write.'),
 					content: {
-						type: 'string',
 						description:
-							'The whole authored body as JSON text, in the shape this chart type declares. The Block keeps its id, type, and motion.',
-						minLength: 1
+							'The whole authored body in the shape this chart type declares. The Block keeps its id, type, and motion.',
+						oneOf: [
+							webmcpRuntimeObjectProperty('A nested chart content object.'),
+							{
+								type: 'string',
+								description: 'Legacy JSON text containing the chart content object.',
+								minLength: 1
+							}
+						]
 					}
 				},
 				required: ['expectedRevision', 'blockId', 'content'],
@@ -573,7 +585,7 @@ export function listWebmcpContentToolDefinitions(): readonly WebmcpToolDefinitio
 					runSetCompositionChartBlockOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						blockId: readWebmcpStringArgument(args, 'blockId'),
-						content: readWebmcpJsonRecordArgument(args, 'content')
+						content: readWebmcpRuntimeObjectArgument(args, 'content')
 					})
 				)
 		},

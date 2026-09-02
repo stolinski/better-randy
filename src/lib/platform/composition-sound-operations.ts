@@ -26,6 +26,7 @@ import { createCompositionEntityId } from '../utils/composition-entity-id';
 import { isSoundAsset, listSoundAssets } from './audio-assets';
 import { SOUND_EVENTS, type AudioCue, type SoundOverride } from './engine-schema';
 import { compositionEditHistory } from './composition-edit-history';
+import { resolveCompositionFractionTime } from './composition-time-input';
 import {
 	CompositionOperationError,
 	runCompositionEditTransaction,
@@ -40,6 +41,7 @@ import {
 } from './composition-operation-preflight';
 
 import type { EngineState } from './engine-schema';
+import type { CompositionTimeDuration } from './composition-time-input';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /**
@@ -86,9 +88,9 @@ export interface SetCompositionSoundCueRequest {
 	kind?: AudioCue['kind'];
 	/** A bundled audio asset slug. */
 	assetSlug: string;
-	/** Timeline fractions, like every other authored window. */
-	start: number;
-	duration: number;
+	/** Legacy timeline fractions or direct seconds, milliseconds, or frames. */
+	start: CompositionTimeDuration;
+	duration: CompositionTimeDuration;
 	/** Playback level from 0 through 1; absent plays at full scale. */
 	volume?: number;
 }
@@ -156,7 +158,8 @@ export async function runSetCompositionSoundCueOperation(
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const cues = readOpenCompositionDocument().state.audioCues;
+	const document = readOpenCompositionDocument();
+	const cues = document.state.audioCues;
 	const existing =
 		request.cueId === undefined ? undefined : cues.find((cue) => cue.id === request.cueId);
 	if (request.cueId !== undefined && !existing) {
@@ -192,10 +195,16 @@ export async function runSetCompositionSoundCueOperation(
 
 	if (!isSoundAsset(request.assetSlug)) return refuseUnknownSoundAsset(row, request.assetSlug);
 
-	const windowProblem = describeUnauthorableCueWindow(request.start, request.duration);
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	const start = resolveCompositionFractionTime(request.start, grid);
+	const duration = resolveCompositionFractionTime(request.duration, grid);
+	const windowProblem = describeUnauthorableCueWindow(start, duration);
 	if (windowProblem) {
 		return refuseCompositionOperation(row, revision, 'invalid_argument', windowProblem, {
-			rejected: `${request.start} + ${request.duration}`
+			rejected: `${JSON.stringify(request.start)} + ${JSON.stringify(request.duration)}`
 		});
 	}
 	if (
@@ -221,8 +230,8 @@ export async function runSetCompositionSoundCueOperation(
 		id: cueId,
 		kind,
 		assetSlug: request.assetSlug,
-		start: request.start,
-		duration: request.duration
+		start,
+		duration
 	};
 	if (request.volume !== undefined) cue.volume = request.volume;
 

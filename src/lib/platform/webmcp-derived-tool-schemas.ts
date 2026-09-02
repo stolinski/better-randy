@@ -64,7 +64,12 @@ import { STAGE_REGISTRY } from './pipelines/stage-registry';
 import { transitionEffectTypes } from './pipelines/transition-definition-registry';
 import {
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
+	WEBMCP_DISCLOSED_REGISTERED_CEILING,
+	WEBMCP_MINIMUM_CHROME_MAJOR_VERSION,
+	WEBMCP_ON_DEMAND_FAMILY_NAMES,
 	WEBMCP_OPERATION_ERROR_CODES,
+	WEBMCP_OPERATION_FAMILIES,
 	WEBMCP_OPERATION_INVENTORY,
 	WEBMCP_RESULT_CHARACTER_BUDGET,
 	WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH,
@@ -78,6 +83,7 @@ import {
  * naming its source, never its members.
  */
 export type WebmcpDerivedEnumName =
+	| 'authoring-family'
 	| 'surface-type'
 	| 'web-document-site'
 	| 'surface-chrome-mode'
@@ -142,7 +148,7 @@ export type WebmcpSchemaProperty =
 			description: string;
 			properties: Readonly<Record<string, WebmcpSchemaProperty>>;
 			required?: readonly string[];
-			additionalProperties: false;
+			additionalProperties: boolean;
 	  }
 	| { description: string; oneOf: readonly WebmcpSchemaProperty[] };
 
@@ -194,6 +200,7 @@ export function readWebmcpDerivedEnums(): Readonly<
 	Record<WebmcpDerivedEnumName, readonly string[]>
 > {
 	return {
+		'authoring-family': WEBMCP_ON_DEMAND_FAMILY_NAMES,
 		'surface-type': REGISTERED_SURFACE_TYPES,
 		'web-document-site': WEB_DOCUMENT_SITES,
 		'surface-chrome-mode': SURFACE_CHROME_MODES,
@@ -285,9 +292,132 @@ export function webmcpEntityIdProperty(description: string): WebmcpSchemaPropert
 	return { type: 'string', description, minLength: 1 };
 }
 
+/**
+ * A runtime-variant object whose exact fields are validated by its owning
+ * Pipeline or Block schema. Keeping this open lets an agent send a nested object
+ * directly instead of JSON text inside the outer tool arguments.
+ */
+export function webmcpRuntimeObjectProperty(description: string): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description,
+		properties: {},
+		additionalProperties: true
+	};
+}
+
+/** A nested runtime object with the JSON-text form retained for compatibility. */
+export function webmcpRuntimeObjectOrJsonTextProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			webmcpRuntimeObjectProperty('A nested JSON object.'),
+			{
+				type: 'string',
+				description: 'Legacy JSON text containing the object.',
+				minLength: 1
+			}
+		]
+	};
+}
+
+/** A nested runtime array with the JSON-text form retained for compatibility. */
+export function webmcpRuntimeArrayOrJsonTextProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			{
+				type: 'array',
+				description: 'A nested JSON array.',
+				items: webmcpRuntimeObjectProperty('One array entry.')
+			},
+			{
+				type: 'string',
+				description: 'Legacy JSON text containing the array.',
+				minLength: 1
+			}
+		]
+	};
+}
+
 /** A value on the engine's 0-through-1 scale: a clip fraction, an intensity, a depth. */
 export function webmcpFractionProperty(description: string): WebmcpSchemaProperty {
 	return { type: 'number', description, minimum: 0, maximum: 1 };
+}
+
+function webmcpDirectTimeQuantityProperties(): readonly WebmcpSchemaProperty[] {
+	return [
+		{
+			type: 'object',
+			description: 'A direct value in seconds.',
+			properties: { seconds: { type: 'number', description: 'Seconds.', minimum: 0 } },
+			required: ['seconds'],
+			additionalProperties: false
+		},
+		{
+			type: 'object',
+			description: 'A direct value in milliseconds.',
+			properties: {
+				milliseconds: { type: 'number', description: 'Milliseconds.', minimum: 0 }
+			},
+			required: ['milliseconds'],
+			additionalProperties: false
+		},
+		{
+			type: 'object',
+			description: 'A direct value in whole frames.',
+			properties: { frames: { type: 'integer', description: 'Whole frames.', minimum: 0 } },
+			required: ['frames'],
+			additionalProperties: false
+		}
+	];
+}
+
+/** A stored fraction or a direct unit the operation converts to that fraction. */
+export function webmcpFractionTimeProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			webmcpFractionProperty('A legacy fraction of the composition duration.'),
+			...webmcpDirectTimeQuantityProperties()
+		]
+	};
+}
+
+/** A legacy frame count or a direct duration resolved onto the frame grid. */
+export function webmcpFrameDurationProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			{ type: 'integer', description: 'A whole-frame duration.', minimum: 0 },
+			...webmcpDirectTimeQuantityProperties()
+		]
+	};
+}
+
+/** An exact frame or a direct timeline unit the operation resolves to one. */
+export function webmcpFrameTimeProperty(description: string): WebmcpSchemaProperty {
+	return {
+		description,
+		oneOf: [
+			{ type: 'integer', description: 'A zero-based exact frame.', minimum: 0 },
+			...webmcpDirectTimeQuantityProperties(),
+			{
+				type: 'object',
+				description: 'A non-drop or drop-frame editor timecode.',
+				properties: {
+					timecode: {
+						type: 'string',
+						description: 'HH:MM:SS:FF or drop-frame HH:MM:SS;FF.',
+						minLength: 11,
+						maxLength: 11
+					}
+				},
+				required: ['timecode'],
+				additionalProperties: false
+			}
+		]
+	};
 }
 
 /**
@@ -381,6 +511,10 @@ export function webmcpObservedRevisionOnlySchema(): WebmcpToolInputSchema {
 export function readWebmcpSchemaDigest(): string {
 	return hashObject({
 		vocabulary: readWebmcpDerivedEnums(),
+		families: WEBMCP_OPERATION_FAMILIES.map((family) => ({
+			name: family.name,
+			disclosure: family.disclosure
+		})),
 		operations: WEBMCP_OPERATION_INVENTORY.map((row) => ({
 			id: row.id,
 			toolName: row.toolName,
@@ -392,12 +526,15 @@ export function readWebmcpSchemaDigest(): string {
 			focus: row.focus,
 			writes: row.writes
 		})),
+		browser: { minimumChromeMajorVersion: WEBMCP_MINIMUM_CHROME_MAJOR_VERSION },
 		budgets: {
 			toolName: WEBMCP_TOOL_NAME_MAX_LENGTH,
 			description: WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH,
 			result: WEBMCP_RESULT_CHARACTER_BUDGET,
 			wholeDocument: WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET,
-			coldPageCeiling: WEBMCP_ALWAYS_REGISTERED_CEILING
+			coldPageCeiling: WEBMCP_ALWAYS_REGISTERED_CEILING,
+			coreOpenCeiling: WEBMCP_CORE_REGISTERED_CEILING,
+			disclosedOpenCeiling: WEBMCP_DISCLOSED_REGISTERED_CEILING
 		}
 	});
 }

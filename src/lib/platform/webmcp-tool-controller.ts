@@ -6,7 +6,7 @@
  * all, which tools can succeed in the current state, when a registration ends,
  * and what a call is allowed to return. Nothing else touches `modelContext`.
  *
- * The shape follows four rules that are easy to state and easy to get wrong:
+ * The shape follows a small set of rules that are easy to state and easy to get wrong:
  *
  * - **Feature detection first.** No `modelContext`, no registration, no console
  *   noise — the Workspace behaves exactly as it does without an agent, because
@@ -14,25 +14,19 @@
  *   depend on a tool being registered.
  * - **Registered means callable.** A tool whose precondition is unmet is absent,
  *   not present-and-refusing.
- * - **AbortSignal ends a registration; the document keeps the name.** Each
- *   registration is scoped to its own signal, aborted when the tool stops being
- *   eligible or when the page tears down, and a call already in flight on an
- *   aborted registration resolves as `cancelled` rather than mutating a
- *   composition that has moved on. The measured surface (Chrome 152) goes no
- *   further than that: it offers `registerTool`, `getTools`, `executeTool` and
- *   `ontoolchange` and no way to unregister, and an aborted registration stays
- *   in `getTools()` while its name refuses re-registration as
- *   `InvalidStateError: Duplicate tool name` for the life of the document. So a
- *   name given up here is given up until the page reloads, which is why nothing
- *   ends a registration the current state would ask for again — a tool ended and
- *   re-asked is a tool an agent can see and can no longer call.
+ * - **Chrome 153 owns two independent signals.** The registration signal is the
+ *   second `registerTool` argument and removes a tool without breaking an
+ *   execution already in flight. Each `execute` call receives its own signal
+ *   from the browser. For GFX's cancellable operations, the controller combines
+ *   that execution signal with the registration lifetime so a route or state
+ *   change also stops long render, media, or download work.
+ * - **One authoring family joins the core menu at a time.** The context operation
+ *   selects a family without changing composition or GUI state. This bounds the
+ *   active menu while preserving one named tool per authoring decision.
  * - **Registration is the browser's to refuse.** `registerTool` answers
- *   asynchronously and can say no — a name the document still holds from a
- *   controller that has not finished tearing down refuses as
- *   `InvalidStateError: Duplicate tool name`. The controller awaits that answer
- *   and reports a refusal through `synchronize`, because a discarded
- *   registration promise surfaces as an unhandled rejection on the page, and a
- *   refused tool recorded as owned would never be attempted again.
+ *   asynchronously and can say no. The controller awaits that answer and
+ *   reports a refusal through `synchronize`, because a discarded registration
+ *   promise surfaces as an unhandled rejection on the page.
  * - **Results are bounded.** An operation that overruns its budget fails with
  *   `limit_exceeded` naming the overrun, because silently truncating a receipt
  *   would hand an agent a document it cannot trust.
@@ -48,11 +42,18 @@
 import { readWebmcpSchemaDigest } from './webmcp-derived-tool-schemas';
 import {
 	completeWebmcpRegistrationState,
+	readWebmcpCompositionPreconditions,
 	readWebmcpSessionCompositionPresence,
 	readWebmcpUserPackPreconditions
 } from './webmcp-tool-preconditions';
 import {
+	readWebmcpOperationAnnotations,
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
+	WEBMCP_DISCLOSED_REGISTERED_CEILING,
+	WEBMCP_MINIMUM_CHROME_MAJOR_VERSION,
+	WEBMCP_ON_DEMAND_FAMILY_NAMES,
+	WEBMCP_OPERATION_FAMILIES,
 	WEBMCP_OPERATION_INVENTORY,
 	WEBMCP_RESULT_CHARACTER_BUDGET,
 	WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET
@@ -63,7 +64,11 @@ import type {
 	WebmcpCompositionPreconditions,
 	WebmcpRegistrationState
 } from './webmcp-tool-preconditions';
-import type { WebmcpOperationRow } from './webmcp-operation-inventory';
+import type {
+	WebmcpOperationFamilyName,
+	WebmcpOperationRow,
+	WebmcpToolAnnotations
+} from './webmcp-operation-inventory';
 
 /** The one operation ADR-0054 §6 lets past the default result budget. */
 const WHOLE_DOCUMENT_OPERATION_ID = 'composition.export-json';
@@ -74,25 +79,32 @@ export interface WebmcpToolCallResult {
 	isError?: boolean;
 }
 
-/** The registration descriptor the measured Chrome surface accepts. */
+/** The Chrome 153 context supplied independently to each execution. */
+export interface WebmcpToolExecutionContext {
+	signal: AbortSignal;
+}
+
+/** The registration descriptor the Chrome 153 surface accepts. */
 export interface WebmcpToolDescriptor {
 	name: string;
 	description: string;
 	inputSchema: WebmcpToolInputSchema;
-	execute(args: unknown): Promise<WebmcpToolCallResult>;
-	/** Ends this registration. The controller aborts it; nothing else may. */
+	annotations: WebmcpToolAnnotations;
+	execute(args: unknown, context: WebmcpToolExecutionContext): Promise<WebmcpToolCallResult>;
+}
+
+export interface WebmcpToolRegistrationOptions {
+	/** Aborting removes this tool while leaving an execution already in flight intact. */
 	signal: AbortSignal;
 }
 
 /**
- * The measured `document.modelContext` surface (Chrome 152, protocol 1.3):
- * `registerTool`, `getTools`, `executeTool`, `ontoolchange`. Only the two the
- * controller drives are named — `getTools` because it, not the controller's own
- * bookkeeping, is the authority on what is registered.
+ * The `document.modelContext` surface GFX supports from Chrome 153 onward. Only
+ * the methods the controller drives are named here.
  */
 export interface WebmcpModelContextHost {
 	/** Settles when the document accepts the tool, and rejects when it refuses it. */
-	registerTool(descriptor: WebmcpToolDescriptor): unknown;
+	registerTool(descriptor: WebmcpToolDescriptor, options: WebmcpToolRegistrationOptions): unknown;
 	getTools(): Iterable<{ name: string }> | Promise<Iterable<{ name: string }>>;
 }
 
@@ -108,6 +120,8 @@ export interface WebmcpToolDefinition {
 /** What one reconciliation did, as the tool names the browser now reports. */
 export interface WebmcpRegistrationSummary {
 	routeId: string | null;
+	/** The one on-demand authoring family active beside the core menu. */
+	authoringFamily: WebmcpOperationFamilyName | null;
 	/** Read back from `getTools()`, filtered to this inventory's tool names. */
 	registered: readonly string[];
 	added: readonly string[];
@@ -117,7 +131,11 @@ export interface WebmcpRegistrationSummary {
 
 /** Why this document does not expose tools, or `null` when it does. */
 export type WebmcpExposureRefusal =
-	'model-context-absent' | 'insecure-context' | 'framed-document' | 'opaque-origin';
+	| 'model-context-absent'
+	| 'unsupported-browser-version'
+	| 'insecure-context'
+	| 'framed-document'
+	| 'opaque-origin';
 
 export interface WebmcpExposureVerdict {
 	host: WebmcpModelContextHost | null;
@@ -130,6 +148,7 @@ export interface WebmcpExposureVerdict {
  */
 export interface WebmcpExposureView {
 	document: { modelContext?: WebmcpModelContextHost };
+	navigator: { userAgent: string };
 	isSecureContext: boolean;
 	top: unknown;
 	self: unknown;
@@ -139,6 +158,10 @@ export interface WebmcpExposureView {
 
 const OPERATION_ROWS_BY_ID = new Map<string, WebmcpOperationRow>(
 	WEBMCP_OPERATION_INVENTORY.map((row) => [row.id, row])
+);
+
+const OPERATION_FAMILIES_BY_NAME = new Map(
+	WEBMCP_OPERATION_FAMILIES.map((family) => [family.name, family] as const)
 );
 
 const INVENTORY_TOOL_NAMES = new Set(WEBMCP_OPERATION_INVENTORY.map((row) => row.toolName));
@@ -152,6 +175,10 @@ export function readWebmcpToolExposure(view: WebmcpExposureView): WebmcpExposure
 	const host = view.document.modelContext;
 	if (typeof host !== 'object' || host === null) {
 		return { host: null, refusal: 'model-context-absent' };
+	}
+	const chromeMajor = Number(/(?:Chrome|Chromium)\/(\d+)/.exec(view.navigator.userAgent)?.[1]);
+	if (!Number.isSafeInteger(chromeMajor) || chromeMajor < WEBMCP_MINIMUM_CHROME_MAJOR_VERSION) {
+		return { host: null, refusal: 'unsupported-browser-version' };
 	}
 	if (!view.isSecureContext) return { host: null, refusal: 'insecure-context' };
 	if (view.top !== view.self) return { host: null, refusal: 'framed-document' };
@@ -170,9 +197,8 @@ function textResult(payload: unknown, isError: boolean): WebmcpToolCallResult {
 }
 
 /**
- * The refusal for a call that outlived its registration. It names `cancelled`
- * rather than reporting whatever the handler eventually returned, because the
- * state that call was written against is gone.
+ * The refusal for a call cancelled by its caller or by the lifetime of its
+ * registration. It never claims a result the operation did not finish.
  */
 function cancelledResult(row: WebmcpOperationRow): WebmcpToolCallResult {
 	return textResult(
@@ -180,7 +206,7 @@ function cancelledResult(row: WebmcpOperationRow): WebmcpToolCallResult {
 			status: 'cancelled',
 			operationId: row.id,
 			code: 'cancelled',
-			message: `${row.toolName} was unregistered while this call was in flight; re-read the composition and call it again.`
+			message: `${row.toolName} was cancelled before it finished; re-read the composition and call it again.`
 		},
 		true
 	);
@@ -202,6 +228,35 @@ function registrationEnded(signal: AbortSignal, until: AbortSignal): Promise<'en
 	});
 }
 
+/** One signal that ends when either Chrome cancels the call or GFX removes the tool. */
+function combineWebmcpAbortSignals(
+	registration: AbortSignal,
+	execution: AbortSignal
+): { signal: AbortSignal; dispose: () => void } {
+	const combined = new AbortController();
+	const abort = (): void => combined.abort();
+	if (registration.aborted || execution.aborted) combined.abort();
+	else {
+		registration.addEventListener('abort', abort, { once: true });
+		execution.addEventListener('abort', abort, { once: true });
+	}
+	return {
+		signal: combined.signal,
+		dispose: () => {
+			registration.removeEventListener('abort', abort);
+			execution.removeEventListener('abort', abort);
+		}
+	};
+}
+
+function readPreparedAuthoringFamily(value: unknown): WebmcpOperationFamilyName | null {
+	if (typeof value !== 'object' || value === null) return null;
+	if (Reflect.get(value, 'status') !== 'prepared') return null;
+	const family = Reflect.get(value, 'family');
+	if (typeof family !== 'string') return null;
+	return WEBMCP_ON_DEMAND_FAMILY_NAMES.find((candidate) => candidate === family) ?? null;
+}
+
 async function readHostToolNames(host: WebmcpModelContextHost): Promise<readonly string[]> {
 	const tools = await host.getTools();
 	return [...tools].map((tool) => tool.name).filter((name) => INVENTORY_TOOL_NAMES.has(name));
@@ -213,6 +268,8 @@ export interface WebmcpToolControllerOptions {
 	definitions: readonly WebmcpToolDefinition[];
 	/** Aborted on teardown: ends every registration the controller holds. */
 	lifetime: AbortSignal;
+	/** Re-read after a family selection so its receipt waits for current-state tools. */
+	readCompositionPreconditions?: () => WebmcpCompositionPreconditions;
 }
 
 /**
@@ -224,8 +281,11 @@ export class WebmcpToolController {
 	readonly #host: WebmcpModelContextHost;
 	readonly #definitions: readonly WebmcpToolDefinition[];
 	readonly #lifetime: AbortSignal;
+	readonly #readCompositionPreconditions: (() => WebmcpCompositionPreconditions) | null;
 	readonly #registrations = new Map<string, AbortController>();
 	#routeId: string | null = null;
+	#authoringFamily: WebmcpOperationFamilyName | null = null;
+	#current: { composition: WebmcpCompositionPreconditions; routeId: string | null } | null = null;
 	#pending: { composition: WebmcpCompositionPreconditions; routeId: string | null } | null = null;
 	#queue: Promise<void> = Promise.resolve();
 
@@ -233,6 +293,7 @@ export class WebmcpToolController {
 		this.#host = options.host;
 		this.#definitions = options.definitions;
 		this.#lifetime = options.lifetime;
+		this.#readCompositionPreconditions = options.readCompositionPreconditions ?? null;
 
 		for (const definition of this.#definitions) {
 			const row = OPERATION_ROWS_BY_ID.get(definition.operationId);
@@ -266,6 +327,7 @@ export class WebmcpToolController {
 		composition: WebmcpCompositionPreconditions,
 		routeId: string | null
 	): Promise<WebmcpRegistrationSummary> {
+		this.#current = { composition, routeId };
 		this.#pending = { composition, routeId };
 		const run = this.#queue.then(() => this.#drainPending());
 		this.#queue = run.then(
@@ -292,13 +354,12 @@ export class WebmcpToolController {
 			return this.#summarize(routeId, [], []);
 		}
 
-		// A route change does not end a registration that the new route would make
-		// again. It cannot: the measured document never releases a tool name (see
-		// the note on unregistration above), so ending and re-asking loses the name
-		// for the rest of the visit. What a route change actually changes is which
-		// preconditions hold, and the eligibility diff below ends exactly those.
+		// Route and state changes feed the same eligibility diff. Chrome 153 removes
+		// registrations by signal and permits the same name to be registered again,
+		// so a family or precondition may disappear and later return in one document.
 		const removed: string[] = [];
 		this.#routeId = routeId;
+		if (!composition['composition-open']) this.#authoringFamily = null;
 
 		const [sessionCompositionPresent, userPacks] = await Promise.all([
 			readWebmcpSessionCompositionPresence(),
@@ -366,12 +427,19 @@ export class WebmcpToolController {
 			const row = OPERATION_ROWS_BY_ID.get(definition.operationId);
 			if (!row) continue;
 			if (!state[row.precondition]) continue;
+			const family = OPERATION_FAMILIES_BY_NAME.get(row.family);
+			if (family?.disclosure === 'on-demand' && row.family !== this.#authoringFamily) continue;
 			eligible.push({ row, definition });
 		}
 
-		if (!state['composition-open'] && eligible.length > WEBMCP_ALWAYS_REGISTERED_CEILING) {
+		const ceiling = !state['composition-open']
+			? WEBMCP_ALWAYS_REGISTERED_CEILING
+			: this.#authoringFamily === null
+				? WEBMCP_CORE_REGISTERED_CEILING
+				: WEBMCP_DISCLOSED_REGISTERED_CEILING;
+		if (eligible.length > ceiling) {
 			throw new TypeError(
-				`A cold page would register ${eligible.length} WebMCP tools, past the ceiling of ${WEBMCP_ALWAYS_REGISTERED_CEILING}: ${eligible
+				`This page would register ${eligible.length} WebMCP tools, past its ${ceiling}-tool context ceiling: ${eligible
 					.map(({ row }) => row.toolName)
 					.join(', ')}`
 			);
@@ -392,43 +460,62 @@ export class WebmcpToolController {
 		const signal = registration.signal;
 		const budget = readResultBudget(row);
 
-		const accepted = this.#host.registerTool({
-			name: row.toolName,
-			description: row.summary,
-			inputSchema: definition.inputSchema,
-			signal,
-			execute: async (args: unknown): Promise<WebmcpToolCallResult> => {
-				if (signal.aborted) return cancelledResult(row);
+		const accepted = this.#host.registerTool(
+			{
+				name: row.toolName,
+				description: row.summary,
+				inputSchema: definition.inputSchema,
+				annotations: readWebmcpOperationAnnotations(row),
+				execute: async (
+					args: unknown,
+					context: WebmcpToolExecutionContext
+				): Promise<WebmcpToolCallResult> => {
+					if (signal.aborted || context.signal.aborted) return cancelledResult(row);
 
-				const raceEnded = new AbortController();
-				let settled: { value: unknown } | 'ended';
-				try {
-					settled = await Promise.race([
-						definition.run(args, signal).then((value) => ({ value })),
-						registrationEnded(signal, raceEnded.signal)
-					]);
-				} finally {
-					raceEnded.abort();
+					const callLifetime = combineWebmcpAbortSignals(signal, context.signal);
+					const raceEnded = new AbortController();
+					let settled: { value: unknown } | 'ended';
+					try {
+						const operation = definition
+							.run(args, callLifetime.signal)
+							.then((value) => ({ value }));
+						settled = row.cancellable
+							? await Promise.race([
+									operation,
+									registrationEnded(callLifetime.signal, raceEnded.signal)
+								])
+							: await operation;
+					} finally {
+						raceEnded.abort();
+						callLifetime.dispose();
+					}
+					if (settled === 'ended') return cancelledResult(row);
+
+					const preparedFamily =
+						row.id === 'capability.prepare-authoring-family'
+							? readPreparedAuthoringFamily(settled.value)
+							: null;
+					if (preparedFamily) await this.#prepareAuthoringFamily(preparedFamily);
+
+					const result = textResult(settled.value, isFailedOutcome(settled.value));
+					const length = result.content[0].text.length;
+					if (length <= budget) return result;
+
+					return textResult(
+						{
+							status: 'failed',
+							operationId: row.id,
+							code: 'limit_exceeded',
+							message: `${row.toolName} produced ${length} characters, past its ${budget}-character result budget.`,
+							rejected: String(length),
+							alternatives: [String(budget)]
+						},
+						true
+					);
 				}
-				if (settled === 'ended' || signal.aborted) return cancelledResult(row);
-
-				const result = textResult(settled.value, isFailedOutcome(settled.value));
-				const length = result.content[0].text.length;
-				if (length <= budget) return result;
-
-				return textResult(
-					{
-						status: 'failed',
-						operationId: row.id,
-						code: 'limit_exceeded',
-						message: `${row.toolName} produced ${length} characters, past its ${budget}-character result budget.`,
-						rejected: String(length),
-						alternatives: [String(budget)]
-					},
-					true
-				);
-			}
-		});
+			},
+			{ signal }
+		);
 
 		try {
 			await accepted;
@@ -439,6 +526,14 @@ export class WebmcpToolController {
 				cause: error
 			});
 		}
+	}
+
+	async #prepareAuthoringFamily(family: WebmcpOperationFamilyName): Promise<void> {
+		this.#authoringFamily = family;
+		const current = this.#current;
+		if (!current) return;
+		const composition = this.#readCompositionPreconditions?.() ?? current.composition;
+		await this.synchronize(composition, current.routeId);
 	}
 
 	#abortAll(): void {
@@ -453,6 +548,7 @@ export class WebmcpToolController {
 	): Promise<WebmcpRegistrationSummary> {
 		return {
 			routeId,
+			authoringFamily: this.#authoringFamily,
 			registered: await readHostToolNames(this.#host),
 			added,
 			removed,
@@ -473,8 +569,8 @@ function isFailedOutcome(value: unknown): boolean {
 
 /**
  * Start the controller for this document, or answer why it stays inert. An
- * absent, framed, insecure, or opaque-origin document gets `null` and no console
- * noise: the page is expected to run without an agent attached.
+ * absent, pre-Chrome-153, framed, insecure, or opaque-origin document gets
+ * `null` and no console noise: the page is expected to run without an agent.
  */
 export function startWebmcpToolController(options: {
 	view: WebmcpExposureView;
@@ -486,6 +582,7 @@ export function startWebmcpToolController(options: {
 	return new WebmcpToolController({
 		host: exposure.host,
 		definitions: options.definitions,
-		lifetime: options.lifetime
+		lifetime: options.lifetime,
+		readCompositionPreconditions: readWebmcpCompositionPreconditions
 	});
 }

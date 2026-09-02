@@ -109,7 +109,8 @@ import type {
 	WebmcpExposureView,
 	WebmcpModelContextHost,
 	WebmcpToolCallResult,
-	WebmcpToolDescriptor
+	WebmcpToolDescriptor,
+	WebmcpToolRegistrationOptions
 } from './webmcp-tool-controller';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
@@ -128,9 +129,9 @@ const sessionStore = vi.mocked(userCompositionStore);
 class FakeModelContext implements WebmcpModelContextHost {
 	readonly #tools = new Map<string, WebmcpToolDescriptor>();
 
-	registerTool(descriptor: WebmcpToolDescriptor): void {
+	registerTool(descriptor: WebmcpToolDescriptor, options: WebmcpToolRegistrationOptions): void {
 		this.#tools.set(descriptor.name, descriptor);
-		descriptor.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
+		options.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
 			once: true
 		});
 	}
@@ -139,10 +140,14 @@ class FakeModelContext implements WebmcpModelContextHost {
 		return [...this.#tools.values()].map((descriptor) => ({ name: descriptor.name }));
 	}
 
-	call(name: string, args: unknown): Promise<WebmcpToolCallResult> {
+	call(
+		name: string,
+		args: unknown,
+		executionSignal: AbortSignal = new AbortController().signal
+	): Promise<WebmcpToolCallResult> {
 		const descriptor = this.#tools.get(name);
 		if (!descriptor) throw new Error(`No registered tool named ${name}`);
-		return descriptor.execute(args);
+		return descriptor.execute(args, { signal: executionSignal });
 	}
 
 	describe(name: string): WebmcpToolDescriptor | undefined {
@@ -196,6 +201,16 @@ function startController(
 	});
 }
 
+async function prepareAuthoringFamily(
+	host: FakeModelContext,
+	family: WebmcpOperationRow['family']
+): Promise<void> {
+	const result = await host.call(rowFor('capability.prepare-authoring-family').toolName, {
+		family
+	});
+	expect(result.isError).toBe(false);
+}
+
 /** Opens a composition an agent may edit — the state most of these tools need. */
 function openEditableComposition(): void {
 	compositionMeta.userCompositionSlug = 'untitled';
@@ -211,6 +226,7 @@ async function readCompositionJson(host: FakeModelContext): Promise<string> {
 function exposedView(host: WebmcpModelContextHost): WebmcpExposureView {
 	const view = {
 		document: { modelContext: host },
+		navigator: { userAgent: 'Mozilla/5.0 Chrome/153.0.0.0 Safari/537.36' },
 		isSecureContext: true,
 		origin: 'https://gfx.computer',
 		top: null as unknown,
@@ -247,12 +263,14 @@ describe('WebMCP untrusted composition content', () => {
 		host: FakeModelContext,
 		controller: WebmcpToolController
 	): Promise<void> {
+		await prepareAuthoringFamily(host, 'layer');
 		const added = await host.call(rowFor('layer.add-overlay').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			overlayType: 'lower-third'
 		});
 		expect(added.isError).toBe(false);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'content');
 
 		const titled = await host.call(rowFor('content.set-overlay-content').toolName, {
 			expectedRevision: compositionEditHistory.revision,
@@ -347,11 +365,13 @@ describe('WebMCP drift between a read and a write', () => {
 		const observed = compositionEditHistory.revision;
 
 		// What the person did while it thought.
+		await prepareAuthoringFamily(host, 'transport');
 		await host.call(rowFor('transport.set-orientation').toolName, {
 			expectedRevision: observed,
 			orientation: 'vertical'
 		});
 		const documentAfterTheirEdit = await readCompositionJson(host);
+		await prepareAuthoringFamily(host, 'appearance');
 
 		const stale = await host.call(rowFor('appearance.set-typography').toolName, {
 			expectedRevision: observed,
@@ -370,12 +390,14 @@ describe('WebMCP drift between a read and a write', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'transport');
 
 		await host.call(rowFor('transport.set-orientation').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			orientation: 'vertical'
 		});
 		const inspected = readPayload(await host.call(rowFor('composition.inspect').toolName, {}));
+		await prepareAuthoringFamily(host, 'appearance');
 
 		const retried = await host.call(rowFor('appearance.set-typography').toolName, {
 			expectedRevision: inspected.revision,
@@ -549,6 +571,7 @@ describe('WebMCP authoring without an interface', () => {
 		expect(created).toMatchObject({ status: 'applied', focus: 'composition-root' });
 
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'transport');
 		const framed = readPayload(
 			await host.call(rowFor('transport.set-orientation').toolName, {
 				expectedRevision: compositionEditHistory.revision,
@@ -557,6 +580,7 @@ describe('WebMCP authoring without an interface', () => {
 		);
 		expect(framed).toMatchObject({ status: 'applied', focus: { target: 'composition-root' } });
 
+		await prepareAuthoringFamily(host, 'layer');
 		const added = readPayload(
 			await host.call(rowFor('layer.add-overlay').toolName, {
 				expectedRevision: compositionEditHistory.revision,
@@ -566,6 +590,7 @@ describe('WebMCP authoring without an interface', () => {
 		expect(added).toMatchObject({ status: 'applied', focus: { target: 'overlay' } });
 
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'content');
 		const overlayId = engineState.overlays[0].id;
 		const written = readPayload(
 			await host.call(rowFor('content.set-overlay-content').toolName, {
@@ -606,6 +631,7 @@ describe('WebMCP authoring without an interface', () => {
 
 		for (const { operationId, args } of edits) {
 			const row = rowFor(operationId);
+			await prepareAuthoringFamily(host, row.family);
 			const payload = readPayload(
 				await host.call(row.toolName, {
 					expectedRevision: compositionEditHistory.revision,
@@ -633,6 +659,7 @@ describe('User Pack tools stay off the catalog (ADR-0055)', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'appearance');
 		const before = JSON.stringify(PACK_REGISTRY.syntax);
 
 		const save = readPayload(
@@ -663,6 +690,7 @@ describe('User Pack tools stay off the catalog (ADR-0055)', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), ROUTE);
+		await prepareAuthoringFamily(host, 'appearance');
 		const catalogBefore = Object.keys(PACK_CATALOG_REGISTRY);
 
 		const shadow = readPayload(

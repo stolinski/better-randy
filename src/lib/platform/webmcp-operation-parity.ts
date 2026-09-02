@@ -18,10 +18,9 @@
  * - **stale** — an operation module or a registered tool naming a row the
  *   inventory no longer declares, or a GUI surface no route reaches any more.
  * - **one-transport-only** — a row that resolves to fewer transports than its
- *   `exposure` promises. A row marked `internal-only` promises the GUI alone, so
- *   its missing tool is an intended absence rather than a defect; every other row
- *   promises both, and a tool that exposes an `internal-only` row is the same
- *   defect in the other direction.
+ *   `exposure` promises. An `internal-only` row promises the GUI alone; an
+ *   `agent-context` row promises the agent alone because it changes disclosure,
+ *   not authored state; every `agent-tool` row promises both.
  *
  * The module is deliberately pure: it reads the inventory and the evidence it is
  * handed and returns findings. Gathering the evidence needs a Vite module graph
@@ -100,8 +99,8 @@ export interface WebmcpParityRowResolution {
 	operationId: string;
 	family: WebmcpOperationFamilyName;
 	exposure: WebmcpOperationRow['exposure'];
-	/** The repo-relative GUI component that owns the same decision. */
-	guiSurface: string;
+	/** The repo-relative GUI component, or null for agent context control. */
+	guiSurface: string | null;
 	/** The WebMCP tool that exposes it, or null when the row is internal-only. */
 	toolName: string | null;
 	/** The operation module both transports run, or null when nothing implements it. */
@@ -118,12 +117,19 @@ export interface WebmcpParityReport {
 }
 
 /**
- * The transports a row's `exposure` promises. `internal-only` promises the GUI
- * alone — the operation still exists and still names its GUI surface, and only
- * the agent transport is deliberately withheld (ADR-0054 §2).
+ * The transports a row's `exposure` promises. Shared authoring reaches both;
+ * internal verification reaches the GUI; transport-only context control reaches
+ * the agent and changes no composition or Workspace state.
  */
 function expectedTransportsFor(row: WebmcpOperationRow): readonly WebmcpOperationTransport[] {
-	return row.exposure === 'internal-only' ? ['gui'] : ['gui', 'agent'];
+	switch (row.exposure) {
+		case 'agent-tool':
+			return ['gui', 'agent'];
+		case 'agent-context':
+			return ['agent'];
+		case 'internal-only':
+			return ['gui'];
+	}
 }
 
 function groupBindingModules(
@@ -221,7 +227,7 @@ export function auditWebmcpOperationParity(evidence: WebmcpParityEvidence): Webm
 				detail: 'The inventory keeps this row internal, but a registered tool exposes it.'
 			});
 		}
-		if (exposures.length === 0 && row.exposure === 'agent-tool') {
+		if (exposures.length === 0 && row.exposure !== 'internal-only') {
 			findings.push({
 				defect: 'missing-agent-transport',
 				operationId: row.id,
@@ -231,13 +237,13 @@ export function auditWebmcpOperationParity(evidence: WebmcpParityEvidence): Webm
 			});
 		}
 
-		const gui = guiBindings.get(row.guiSurface);
+		const gui = row.guiSurface === null ? undefined : guiBindings.get(row.guiSurface);
 		const guiResolved = gui?.exists === true && gui.reachableFromRoute;
-		if (!guiResolved) {
+		if (row.exposure !== 'agent-context' && !guiResolved) {
 			findings.push({
 				defect: 'missing-gui-transport',
 				operationId: row.id,
-				subject: row.guiSurface,
+				subject: row.guiSurface ?? row.id,
 				detail:
 					gui?.exists === true
 						? 'The GUI surface exists but no route reaches it, so the row anchors to a component a visitor never sees.'

@@ -8,21 +8,21 @@
  * value in place would freeze whatever the Pack happened to resolve at the time
  * and quietly break the next Pack the composition is shown under (ADR-0039).
  *
- * An Effect's parameters travel as JSON text. Their shape belongs to the
+ * An Effect's nested parameter object stays open here. Its shape belongs to the
  * Effect's own Pipeline and is only knowable once the caller has named which
- * Effect it means, so a schema frozen at registration would be a guess that is
- * wrong for every other Effect; the Pipeline answers a wrong body with findings
- * naming the exact field instead.
+ * Effect it means; the Pipeline answers a wrong body with findings naming the
+ * exact field. Legacy JSON text remains accepted for existing callers.
  */
 import { ANNOTATION_MARK_STYLES } from '../annotations/annotation-mark-styles';
 import {
 	readWebmcpClearableStringArgument,
-	readWebmcpJsonArgument,
 	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
 	readWebmcpOptionalNumberArgument,
+	readWebmcpOptionalRuntimeJsonArgument,
 	readWebmcpOptionalRecordArgument,
 	readWebmcpOptionalStringArgument,
+	readWebmcpRuntimeJsonArgument,
 	readWebmcpStringArgument,
 	runWebmcpToolOperation,
 	WebmcpArgumentError
@@ -47,7 +47,10 @@ import {
 	webmcpDerivedEnumProperty,
 	webmcpEntityIdProperty,
 	webmcpFractionProperty,
+	webmcpFractionTimeProperty,
 	webmcpObservedRevisionProperty,
+	webmcpRuntimeArrayOrJsonTextProperty,
+	webmcpRuntimeObjectOrJsonTextProperty,
 	WEBMCP_NO_ARGUMENTS_SCHEMA
 } from './webmcp-derived-tool-schemas';
 
@@ -67,11 +70,9 @@ function userPackRevisionProperty(): WebmcpSchemaProperty {
 	};
 }
 
-/** JSON text for a shape the pack contract owns; absent means "leave it as stored". */
+/** A runtime JSON value; absent means "leave it as stored". */
 function readOptionalJsonArgument(args: unknown, name: string): unknown {
-	return readWebmcpOptionalStringArgument(args, name) === undefined
-		? undefined
-		: readWebmcpJsonArgument(args, name);
+	return readWebmcpOptionalRuntimeJsonArgument(args, name);
 }
 
 /** One mark style's dressing, or `null` to hand the style back to the Pack. */
@@ -154,8 +155,12 @@ function stageProperty(): WebmcpSchemaProperty {
 						properties: {
 							from: webmcpFractionProperty('The depth it starts on.'),
 							to: webmcpFractionProperty('The depth it lands on.'),
-							start: webmcpFractionProperty('Where the pull opens, as a fraction of the clip.'),
-							duration: webmcpFractionProperty('How long it takes.')
+							start: webmcpFractionTimeProperty(
+								'Where the pull opens: legacy fraction, seconds, milliseconds, or frames.'
+							),
+							duration: webmcpFractionTimeProperty(
+								'How long it takes: legacy fraction, seconds, milliseconds, or frames.'
+							)
 						},
 						required: ['from', 'to', 'start', 'duration'],
 						additionalProperties: false
@@ -271,23 +276,17 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 				properties: {
 					slug: { type: 'string', description: 'Which User Pack to save.', minLength: 1 },
 					expectedContentHash: userPackRevisionProperty(),
-					document: {
-						type: 'string',
-						description:
-							'JSON text of a whole pack manifest ({ slug, label, description, roles, fonts }) replacing the stored one. Exclusive with the partial fields.'
-					},
+					document: webmcpRuntimeObjectOrJsonTextProperty(
+						'A whole pack manifest ({ slug, label, description, roles, fonts }) replacing the stored one. Exclusive with partial fields.'
+					),
 					label: { type: 'string', description: 'A new label.', minLength: 1 },
 					description: { type: 'string', description: 'A new description.' },
-					roles: {
-						type: 'string',
-						description:
-							'JSON text: an object from role name to { "kind": "style", "value": … } or { "kind": "chrome", "effects": [...] }, or null to drop that role. Roles not named stay as stored.'
-					},
-					fonts: {
-						type: 'string',
-						description:
-							'JSON text: the whole font declaration list, [{ "family", "weights"?, "style"? }], replacing the stored one. Google Fonts families only; cuts the family does not ship are refused.'
-					}
+					roles: webmcpRuntimeObjectOrJsonTextProperty(
+						'Role names mapped to style or chrome definitions. A null role removes it; omitted roles stay stored.'
+					),
+					fonts: webmcpRuntimeArrayOrJsonTextProperty(
+						'The whole Google Fonts declaration list replacing the stored one.'
+					)
 				},
 				required: ['slug', 'expectedContentHash'],
 				additionalProperties: false
@@ -330,18 +329,18 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 			inputSchema: {
 				type: 'object',
 				properties: {
-					document: {
-						type: 'string',
-						description:
-							'JSON text of the pack manifest to check ({ slug, label, description, roles, fonts }).'
-					}
+					document: webmcpRuntimeObjectOrJsonTextProperty(
+						'The pack manifest to check ({ slug, label, description, roles, fonts }).'
+					)
 				},
 				required: ['document'],
 				additionalProperties: false
 			},
 			run: (args) =>
 				runWebmcpToolOperation('appearance.validate-user-pack', () =>
-					runValidateUserPackOperation({ document: readWebmcpJsonArgument(args, 'document') })
+					runValidateUserPackOperation({
+						document: readWebmcpRuntimeJsonArgument(args, 'document')
+					})
 				)
 		},
 		{
@@ -407,12 +406,9 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 				properties: {
 					expectedRevision: webmcpObservedRevisionProperty(),
 					effectId: webmcpEntityIdProperty('The Effect in the chain to tune.'),
-					params: {
-						type: 'string',
-						description:
-							'The parameters as JSON text, in the shape this Effect type declares. A wrong shape is answered with findings naming the field.',
-						minLength: 1
-					}
+					params: webmcpRuntimeObjectOrJsonTextProperty(
+						'The parameters in the shape this Effect type declares.'
+					)
 				},
 				required: ['expectedRevision', 'effectId', 'params'],
 				additionalProperties: false
@@ -422,7 +418,7 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 					runSetCompositionEffectParamsOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						effectId: readWebmcpStringArgument(args, 'effectId'),
-						params: readWebmcpJsonArgument(args, 'params')
+						params: readWebmcpRuntimeJsonArgument(args, 'params')
 					})
 				)
 		},

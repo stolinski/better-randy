@@ -29,7 +29,7 @@ _Avoid_: **Public demo session** (opposite lifetime and opposite storage), rende
 ### Agent authoring transport
 
 **Operation**:
-One authoring decision a person or an agent can make — set the orientation, add an Overlay, weld this entrance to that one. Every operation exists exactly once in the **operation inventory**, is owned by exactly one **operation family**, and is reachable from both the GUI and WebMCP. Fixed in [ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md).
+One authoring decision a person or an agent can make — set the orientation, add an Overlay, weld this entrance to that one. Every authoring operation exists exactly once in the **operation inventory**, is owned by exactly one **operation family**, and is reachable from both the GUI and WebMCP. The inventory also records the non-authoring agent-context operation and the internal verification operations explicitly. Fixed in [ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md).
 _Avoid_: action, command, mutation, edit (too broad — an edit is what an operation applies), tool call (that is the WebMCP transport, not the decision).
 
 **Operation family**:
@@ -37,8 +37,12 @@ One of the fifteen non-overlapping domains an **Operation** belongs to, defined 
 _Avoid_: namespace, tool group, category, module.
 
 **Operation inventory**:
-The machine-readable contract in `src/lib/platform/webmcp-operation-inventory.ts` — one row per **Operation**, naming its family, WebMCP tool, written pointers, registration precondition, revision and undo obligations, Workspace focus, and GUI surface. The bidirectional parity gate (`pnpm audit:webmcp-parity`) reads it: a row reachable from only one transport is a defect, unless the row is annotated `internal-only`.
+The machine-readable contract in `src/lib/platform/webmcp-operation-inventory.ts` — one row per **Operation**, naming its family, WebMCP tool, written pointers, registration precondition, revision and undo obligations, Workspace focus, exposure, and GUI surface where one exists. The parity gate (`pnpm audit:webmcp-parity`) requires exactly the transports each exposure declares: `agent-tool` means GUI plus agent, `internal-only` means GUI, and `agent-context` means agent-only context management.
 _Avoid_: tool manifest, tool registry (the **Registry** is the Pipeline registry), API surface, schema.
+
+**Prepared authoring family**:
+The one on-demand **Operation family** whose currently usable WebMCP tools join the core menu. `gfx_capability_prepare_family` replaces the previous prepared family without changing the composition, Workspace, focus, or GUI. The core menu remains available throughout. This is context disclosure, not selection of an editor panel.
+_Avoid_: mode, panel, active operation family, tool category.
 
 **Composition revision**:
 The monotonic counter the open composition carries. Every mutating **Operation** supplies the revision its caller observed; a mismatch fails as `stale_revision` and applies nothing, so an agent cannot overwrite an edit it never saw. GUI and agent edits advance the same counter and record into the same undo history.
@@ -345,7 +349,7 @@ The named-observation format for advisory R-rule observations — pixel coordina
 - **"public"** now means one thing only. It is the name of a runtime profile — `GFX_RUNTIME_PROFILE=public`, and with it the public export lane, the public surface inventory, and the public response headers — which says how strictly a host behaves, not who can reach it. It never means "deployed to the internet": public deployment was descoped on 2026-08-31 ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) status), GFX is local-first, and gfx.computer is a reserved domain awaiting a docs site. A doc that says GFX is live is wrong, not merely imprecise.
 - **"session"** meant both the visitor's browsing context and a server-side encode. Resolved: a **Public demo session** is browser-scoped and holds composition state; an **Export session** is server-side, holds rendered frames only, and destroys itself. They never share storage or lifetime.
 - **"annotation"** was historically used both for the broad layer category and for the hand-claiming subset. Resolved: **Annotation** is the Layer; **Mark** is the narrower hand-claiming subset.
-- **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), that sense is retired; the unit of authoring is a **Preset**. The word now has exactly one live meaning: a **WebMCP tool**, the registered `document.modelContext` entry that exposes one **Operation** ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)). A tool is the transport; the **Operation** is the decision.
+- **"tool"** historically meant a per-route generator (`research-paper`, `quote-focus`). After [ADR-0002](adr/0002-per-tool-routes-to-preset-engine.md), that sense is retired; the unit of authoring is a **Preset**. The word now has exactly one live meaning: a **WebMCP tool**, a registered `document.modelContext` entry. Authoring tools expose one **Operation**; `gfx_capability_prepare_family` manages agent context only ([ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md)).
 - **"layer"** was used loosely for any z-stacked element. Resolved: **Layer** refers specifically to one of the five composition layers, each with its own Pipeline type and Registry section.
 - **"surface"** vs **"substrate"** were used interchangeably. Resolved: **Surface** is the renderer; **Substrate** is the material it claims.
 - **"chrome"** was used both for the channel's signature elements and for any layered Overlay. Resolved: **Channel chrome** is the specific channel-identity subset; **Overlay** is the general Layer.

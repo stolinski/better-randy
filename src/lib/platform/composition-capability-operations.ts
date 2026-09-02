@@ -3,11 +3,9 @@
  * public demo enforces
  * ([ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md) §2).
  *
- * Both operations answer before anything exists, which is what makes them the
- * cold page's opening move: a caller who has just landed asks what the
- * vocabulary is and what the envelope is, then creates a composition. Neither
- * reads the open document, neither writes, and neither can fail on composition
- * state — which is why they return a receipt rather than an outcome union.
+ * Vocabulary and limits answer before anything exists, which makes them the
+ * cold page's opening move. Preparing an authoring family appears only after a
+ * composition opens and changes agent context alone. None writes the document.
  *
  * Neither restates anything either. The vocabulary is the live registry read in
  * `webmcp-derived-tool-schemas`, and the limits are the ratified public export
@@ -23,17 +21,32 @@ import { readWebmcpDerivedEnums } from './webmcp-derived-tool-schemas';
 import { requireCompositionOperationRow } from './composition-operation-preflight';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
 import {
+	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
+	WEBMCP_DISCLOSED_REGISTERED_CEILING,
 	WEBMCP_RESULT_CHARACTER_BUDGET,
 	WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET
 } from './webmcp-operation-inventory';
 
 import type { WebmcpDerivedEnumName } from './webmcp-derived-tool-schemas';
+import type { WebmcpOperationFamilyName } from './webmcp-operation-inventory';
 
 /** How many members one vocabulary section names before it reports only the total. */
 export const CAPABILITY_VOCABULARY_MEMBER_LIMIT = 64;
 
 export interface InspectCapabilityVocabularyRequest {
 	section: WebmcpDerivedEnumName;
+}
+
+export interface PrepareCapabilityAuthoringFamilyRequest {
+	family: WebmcpOperationFamilyName;
+}
+
+/** A transport-only context change; the composition and Workspace stay untouched. */
+export interface CapabilityAuthoringFamilyReceipt {
+	status: 'prepared';
+	operationId: string;
+	family: WebmcpOperationFamilyName;
 }
 
 /** One vocabulary, as the caller asked for it: one section per call. */
@@ -75,11 +88,28 @@ export interface CapabilityLimitsReceipt {
 		maxStorageBytes: number;
 		maxCompositionBytes: number;
 	};
+	/** How many tool descriptors an agent reads in each disclosure state. */
+	toolContext: {
+		coldPageCeiling: number;
+		coreOpenCeiling: number;
+		disclosedOpenCeiling: number;
+	};
 	/** What a tool result may return before it fails rather than truncating. */
 	result: {
 		characterBudget: number;
 		wholeDocumentCharacterBudget: number;
 	};
+}
+
+/**
+ * Select the one on-demand family whose currently usable tools join the core
+ * menu. The controller applies the selection before returning this receipt.
+ */
+export function runPrepareCapabilityAuthoringFamilyOperation(
+	request: PrepareCapabilityAuthoringFamilyRequest
+): CapabilityAuthoringFamilyReceipt {
+	const row = requireCompositionOperationRow('capability.prepare-authoring-family');
+	return { status: 'prepared', operationId: row.id, family: request.family };
 }
 
 /**
@@ -133,6 +163,11 @@ export function runInspectCapabilityLimitsOperation(): CapabilityLimitsReceipt {
 		sessionStorage: {
 			maxStorageBytes: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxStorageBytes,
 			maxCompositionBytes: PUBLIC_COMPOSITION_SESSION_STORAGE_LIMITS.maxCompositionBytes
+		},
+		toolContext: {
+			coldPageCeiling: WEBMCP_ALWAYS_REGISTERED_CEILING,
+			coreOpenCeiling: WEBMCP_CORE_REGISTERED_CEILING,
+			disclosedOpenCeiling: WEBMCP_DISCLOSED_REGISTERED_CEILING
 		},
 		result: {
 			characterBudget: WEBMCP_RESULT_CHARACTER_BUDGET,

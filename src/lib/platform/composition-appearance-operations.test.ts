@@ -319,16 +319,34 @@ describe('composition depth stage', () => {
 		const changed = expectApplied(
 			await runSetCompositionStageOperation({
 				expectedRevision: 0,
-				stage: { type: 'depth', camera: { move: 'push' } }
+				stage: {
+					type: 'depth',
+					camera: { move: 'push' },
+					focus: {
+						pull: {
+							from: 0,
+							to: 1,
+							start: { seconds: 0.6 },
+							duration: { frames: 18 }
+						}
+					}
+				}
 			})
 		);
 
 		expect(changed).toContain('/state/stage');
-		expect(engineState.stage).toEqual({
+		expect(engineState.stage).toMatchObject({
 			type: 'depth',
 			camera: { move: 'push', amount: 0.5, ease: 'smooth' },
-			focus: { focusZ: 0, aperture: 0.6, band: 0 }
+			focus: {
+				focusZ: 0,
+				aperture: 0.6,
+				band: 0,
+				pull: { from: 0, to: 1 }
+			}
 		});
+		expect(engineState.stage?.focus.pull?.start).toBeCloseTo(0.1);
+		expect(engineState.stage?.focus.pull?.duration).toBeCloseTo(0.1);
 	});
 
 	it('removes the stage when the caller sends none', async () => {

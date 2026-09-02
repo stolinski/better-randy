@@ -35,7 +35,8 @@ import type {
 	WebmcpModelContextHost,
 	WebmcpToolCallResult,
 	WebmcpToolDefinition,
-	WebmcpToolDescriptor
+	WebmcpToolDescriptor,
+	WebmcpToolRegistrationOptions
 } from './webmcp-tool-controller.ts';
 import type { UserCompositionMeta } from './user-composition-store';
 import type { WebmcpCompositionPreconditions } from './webmcp-tool-preconditions.ts';
@@ -59,34 +60,48 @@ const sessionStore = vi.mocked(userCompositionStore);
  */
 class FakeModelContext implements WebmcpModelContextHost {
 	readonly #tools = new Map<string, WebmcpToolDescriptor>();
+	readonly #registrationSignals = new Map<string, AbortSignal>();
 
-	registerTool(descriptor: WebmcpToolDescriptor): void {
+	registerTool(descriptor: WebmcpToolDescriptor, options: WebmcpToolRegistrationOptions): void {
 		this.#tools.set(descriptor.name, descriptor);
-		descriptor.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
-			once: true
-		});
+		this.#registrationSignals.set(descriptor.name, options.signal);
+		options.signal.addEventListener(
+			'abort',
+			() => {
+				this.#tools.delete(descriptor.name);
+				this.#registrationSignals.delete(descriptor.name);
+			},
+			{ once: true }
+		);
 	}
 
 	getTools(): Iterable<{ name: string }> {
 		return [...this.#tools.values()].map((descriptor) => ({ name: descriptor.name }));
 	}
 
-	call(name: string, args: unknown): Promise<WebmcpToolCallResult> {
+	call(
+		name: string,
+		args: unknown,
+		executionSignal: AbortSignal = new AbortController().signal
+	): Promise<WebmcpToolCallResult> {
 		const descriptor = this.#tools.get(name);
 		if (!descriptor) throw new Error(`No registered tool named ${name}`);
-		return descriptor.execute(args);
+		return descriptor.execute(args, { signal: executionSignal });
 	}
 
 	describe(name: string): WebmcpToolDescriptor | undefined {
 		return this.#tools.get(name);
 	}
+
+	registrationSignal(name: string): AbortSignal | undefined {
+		return this.#registrationSignals.get(name);
+	}
 }
 
 /**
  * A `document.modelContext` that still holds names a previous controller has not
- * finished releasing. Re-registering one rejects the way Chrome 152 does —
- * `InvalidStateError: Duplicate tool name` — which is the teardown race a layout
- * re-mount loses.
+ * finished releasing. Re-registering one rejects with `InvalidStateError`, the
+ * teardown race a layout re-mount must report and retry.
  */
 class ContendedModelContext implements WebmcpModelContextHost {
 	readonly #heldNames: Set<string>;
@@ -101,12 +116,15 @@ class ContendedModelContext implements WebmcpModelContextHost {
 		this.#heldNames.clear();
 	}
 
-	async registerTool(descriptor: WebmcpToolDescriptor): Promise<void> {
+	async registerTool(
+		descriptor: WebmcpToolDescriptor,
+		options: WebmcpToolRegistrationOptions
+	): Promise<void> {
 		if (this.#heldNames.has(descriptor.name)) {
 			throw new DOMException('Duplicate tool name', 'InvalidStateError');
 		}
 		this.#accepted.set(descriptor.name, descriptor);
-		descriptor.signal.addEventListener('abort', () => this.#accepted.delete(descriptor.name), {
+		options.signal.addEventListener('abort', () => this.#accepted.delete(descriptor.name), {
 			once: true
 		});
 	}
@@ -184,6 +202,14 @@ function definition(
 	};
 }
 
+function familyDefinition(): WebmcpToolDefinition {
+	return definition('capability.prepare-authoring-family', async (args) => ({
+		status: 'prepared',
+		operationId: 'capability.prepare-authoring-family',
+		family: Reflect.get(args as object, 'family')
+	}));
+}
+
 function toolNameFor(operationId: string): string {
 	const row = WEBMCP_OPERATION_INVENTORY.find((entry) => entry.id === operationId);
 	if (!row) throw new Error(`The inventory declares no ${operationId}`);
@@ -193,6 +219,7 @@ function toolNameFor(operationId: string): string {
 function exposedView(host: WebmcpModelContextHost): WebmcpExposureView {
 	const view = {
 		document: { modelContext: host },
+		navigator: { userAgent: 'Mozilla/5.0 Chrome/153.0.0.0 Safari/537.36' },
 		isSecureContext: true,
 		origin: 'https://gfx.computer',
 		top: null as unknown,
@@ -218,9 +245,15 @@ describe('WebMCP exposure', () => {
 		});
 	});
 
-	it('refuses an insecure context, a frame, and an opaque origin', () => {
+	it('refuses Chrome 152, an insecure context, a frame, and an opaque origin', () => {
 		const host = new FakeModelContext();
 
+		expect(
+			readWebmcpToolExposure({
+				...exposedView(host),
+				navigator: { userAgent: 'Mozilla/5.0 Chrome/152.0.0.0 Safari/537.36' }
+			}).refusal
+		).toBe('unsupported-browser-version');
 		expect(readWebmcpToolExposure({ ...exposedView(host), isSecureContext: false }).refusal).toBe(
 			'insecure-context'
 		);
@@ -266,13 +299,19 @@ describe('WebMCP tool registration', () => {
 		const host = new FakeModelContext();
 		const controller = new WebmcpToolController({
 			host,
-			definitions: [definition('composition.inspect'), definition('layer.remove-overlay')],
+			definitions: [
+				definition('composition.inspect'),
+				familyDefinition(),
+				definition('layer.remove-overlay')
+			],
 			lifetime: new AbortController().signal
 		});
 
 		await controller.synchronize(OPEN_COMPOSITION, '/p/lower-third');
+		await host.call(toolNameFor('capability.prepare-authoring-family'), { family: 'layer' });
 		expect([...host.getTools()].map((tool) => tool.name)).toEqual([
-			toolNameFor('composition.inspect')
+			toolNameFor('composition.inspect'),
+			toolNameFor('capability.prepare-authoring-family')
 		]);
 
 		const withOverlay = await controller.synchronize(
@@ -284,6 +323,13 @@ describe('WebMCP tool registration', () => {
 		const withoutOverlay = await controller.synchronize(OPEN_COMPOSITION, '/p/lower-third');
 		expect(withoutOverlay.removed).toEqual([toolNameFor('layer.remove-overlay')]);
 		expect(withoutOverlay.registered).not.toContain(toolNameFor('layer.remove-overlay'));
+
+		const restored = await controller.synchronize(
+			{ ...OPEN_COMPOSITION, 'overlay-present': true },
+			'/p/lower-third'
+		);
+		expect(restored.added).toEqual([toolNameFor('layer.remove-overlay')]);
+		expect(restored.registered).toContain(toolNameFor('layer.remove-overlay'));
 	});
 
 	it('registers a session tool only once the browser session holds a composition', async () => {
@@ -318,9 +364,9 @@ describe('WebMCP tool registration', () => {
 		expect(moved.added).toEqual([]);
 		expect(moved.registered).toEqual([toolNameFor('composition.create-blank')]);
 		expect(moved.routeId).toBe('/p/lower-third');
-		// The same registration, not a replacement: a name given up is never
-		// offered back by the document this controller is written against.
-		expect(descriptor?.signal.aborted).toBe(false);
+		// The same registration remains active because its eligibility did not change.
+		expect(descriptor).toBe(host.describe(toolNameFor('composition.create-blank')));
+		expect(host.registrationSignal(toolNameFor('composition.create-blank'))?.aborted).toBe(false);
 	});
 
 	it('ends only the registrations the new route makes ineligible', async () => {
@@ -428,7 +474,7 @@ describe('WebMCP tool registration', () => {
 		const host = new FakeModelContext();
 		const controller = new WebmcpToolController({
 			host,
-			definitions: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool').map(
+			definitions: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure !== 'internal-only').map(
 				(row) => definition(row.id)
 			),
 			lifetime: new AbortController().signal
@@ -449,7 +495,12 @@ describe('WebMCP tool registration', () => {
 		});
 
 		await controller.synchronize(CLOSED_PAGE, '/');
-		expect(host.describe(row?.toolName ?? '')?.description).toBe(row?.summary);
+		const descriptor = host.describe(row?.toolName ?? '');
+		expect(descriptor?.description).toBe(row?.summary);
+		expect(descriptor?.annotations).toEqual({
+			readOnlyHint: false,
+			untrustedContentHint: true
+		});
 	});
 });
 
@@ -494,32 +545,32 @@ describe('WebMCP tool calls', () => {
 		expect(readPayload(result).code).toBe('storage_unavailable');
 	});
 
-	it('resolves a call as cancelled when its tool is unregistered mid flight', async () => {
+	it('passes Chrome execution cancellation into long-running work', async () => {
 		const host = new FakeModelContext();
-		let release: (value: unknown) => void = () => {};
+		const operationSignals: AbortSignal[] = [];
 		const controller = new WebmcpToolController({
 			host,
 			definitions: [
-				definition('layer.remove-overlay', () => {
-					return new Promise<unknown>((resolve) => {
-						release = resolve;
-					});
+				familyDefinition(),
+				definition('media.add-library-entry', (_args, signal) => {
+					operationSignals.push(signal);
+					return new Promise<unknown>(() => {});
 				})
 			],
 			lifetime: new AbortController().signal
 		});
 
 		await controller.synchronize(
-			{ ...OPEN_COMPOSITION, 'overlay-present': true },
+			{ ...OPEN_COMPOSITION, 'media-permitted': true },
 			'/p/lower-third'
 		);
-		const call = host.call(toolNameFor('layer.remove-overlay'), {});
+		await host.call(toolNameFor('capability.prepare-authoring-family'), { family: 'media' });
+		const execution = new AbortController();
+		const call = host.call(toolNameFor('media.add-library-entry'), {}, execution.signal);
+		execution.abort();
 
-		await controller.synchronize(OPEN_COMPOSITION, '/p/lower-third');
-		release({ status: 'applied' });
-
-		const payload = readPayload(await call);
-		expect(payload).toMatchObject({ status: 'cancelled', code: 'cancelled' });
+		expect(readPayload(await call)).toMatchObject({ status: 'cancelled', code: 'cancelled' });
+		expect(operationSignals[0]?.aborted).toBe(true);
 	});
 
 	it('fails a result that overruns its budget rather than truncating it', async () => {

@@ -123,13 +123,23 @@ describe('chat transcript and checklist entries', () => {
 				expectedRevision: 1,
 				messages: [
 					{ from: 'them', text: 'ship it?' },
-					{ from: 'me', text: 'shipping' }
+					{
+						from: 'me',
+						text: 'shipping',
+						enter: {
+							start: { milliseconds: 600 },
+							duration: { seconds: 1.2 },
+							ease: 'smooth'
+						}
+					}
 				]
 			})
 		);
 
 		expect(engineState.surface.content.messages).toHaveLength(2);
 		expect(engineState.surface.content.messages?.[1].from).toBe('me');
+		expect(engineState.surface.content.messages?.[1].enter?.start).toBeCloseTo(0.1);
+		expect(engineState.surface.content.messages?.[1].enter?.duration).toBeCloseTo(0.2);
 	});
 
 	it('refuses a transcript on a Surface with no chat and names the ones with it', async () => {
@@ -150,13 +160,23 @@ describe('chat transcript and checklist entries', () => {
 			await runSetCompositionChecklistEntriesOperation({
 				expectedRevision: 1,
 				items: [
-					{ text: 'Book the studio', checked: true },
+					{
+						text: 'Book the studio',
+						checked: true,
+						strike: {
+							start: { frames: 90 },
+							duration: { milliseconds: 300 },
+							ease: 'sharp'
+						}
+					},
 					{ text: 'Cut the trailer', checked: false }
 				]
 			})
 		);
 
 		expect(engineState.surface.content.items?.map((item) => item.checked)).toEqual([true, false]);
+		expect(engineState.surface.content.items?.[0].strike?.start).toBeCloseTo(0.5);
+		expect(engineState.surface.content.items?.[0].strike?.duration).toBeCloseTo(0.05);
 	});
 });
 
@@ -379,7 +399,9 @@ describe('captions', () => {
 	});
 
 	it('refuses clearing a caption track the composition never had', async () => {
-		const failure = expectFailed(await runClearCompositionCaptionsOperation({ expectedRevision: 0 }));
+		const failure = expectFailed(
+			await runClearCompositionCaptionsOperation({ expectedRevision: 0 })
+		);
 
 		expect(failure.code).toBe('precondition_unmet');
 	});

@@ -168,13 +168,14 @@ export async function collectWebmcpParityEvidence({
 	}
 
 	const reachable = collectRouteReachableFiles(repoRoot, sourceFiles);
-	const guiBindings = [...new Set(WEBMCP_OPERATION_INVENTORY.map((row) => row.guiSurface))].map(
-		(guiSurface) => ({
-			guiSurface,
-			exists: isFile(resolve(repoRoot, guiSurface)),
-			reachableFromRoute: reachable.has(guiSurface)
-		})
+	const guiSurfaces = WEBMCP_OPERATION_INVENTORY.map((row) => row.guiSurface).filter(
+		(guiSurface): guiSurface is string => guiSurface !== null
 	);
+	const guiBindings = [...new Set(guiSurfaces)].map((guiSurface) => ({
+		guiSurface,
+		exists: isFile(resolve(repoRoot, guiSurface)),
+		reachableFromRoute: reachable.has(guiSurface)
+	}));
 
 	const operationBindings = await collectClaims(
 		repoRoot,

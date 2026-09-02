@@ -37,6 +37,7 @@ import {
 	type SurfaceState
 } from './engine-schema';
 import { compositionEditHistory } from './composition-edit-history';
+import { resolveCompositionFractionTime } from './composition-time-input';
 import {
 	CompositionOperationError,
 	runCompositionEditTransaction,
@@ -56,6 +57,8 @@ import {
 } from './pipelines/definition-registry';
 import { describeCompositionSchemaFindings } from './composition-validation-findings';
 
+import type { CompositionTimeDuration } from './composition-time-input';
+import type { Preset } from './engine-schema';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /**
@@ -84,9 +87,24 @@ export interface SetCompositionSurfaceContentRequest {
  * beside the side, reaction, receipt, and optional window the bubble carries. A
  * bubble with no window rides the Surface's default staggered cadence.
  */
-export interface ChatTranscriptEntry extends Omit<ChatMessage, 'text'> {
+type ContentTimedWindowInput<TWindow extends { start: number; duration: number }> = Omit<
+	TWindow,
+	'start' | 'duration'
+> & {
+	start: CompositionTimeDuration;
+	duration: CompositionTimeDuration;
+};
+
+export interface ChatTranscriptEntry extends Omit<ChatMessage, 'text' | 'enter' | 'typing'> {
 	text: string;
+	enter?: ContentTimedWindowInput<NonNullable<ChatMessage['enter']>>;
+	typing?: { duration: CompositionTimeDuration };
 }
+
+export type ChecklistContentEntry = Omit<ChecklistItem, 'enter' | 'strike'> & {
+	enter?: ContentTimedWindowInput<NonNullable<ChecklistItem['enter']>>;
+	strike?: ContentTimedWindowInput<NonNullable<ChecklistItem['strike']>>;
+};
 
 export interface SetCompositionChatTranscriptRequest {
 	expectedRevision: number;
@@ -95,7 +113,7 @@ export interface SetCompositionChatTranscriptRequest {
 
 export interface SetCompositionChecklistEntriesRequest {
 	expectedRevision: number;
-	items: readonly ChecklistItem[];
+	items: readonly ChecklistContentEntry[];
 }
 
 export interface SetCompositionOverlayContentRequest {
@@ -277,6 +295,21 @@ function listDeclaredSurfaceContentSlots(surface: SurfaceState): readonly Surfac
 	return slots;
 }
 
+function resolveContentTimedWindow<TWindow extends { start: number; duration: number }>(
+	window: ContentTimedWindowInput<TWindow>,
+	document: Preset
+): TWindow {
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	return {
+		...window,
+		start: resolveCompositionFractionTime(window.start, grid),
+		duration: resolveCompositionFractionTime(window.duration, grid)
+	} as TWindow;
+}
+
 /** Replace the ordered chat transcript the message Surface renders. */
 export async function runSetCompositionChatTranscriptOperation(
 	request: SetCompositionChatTranscriptRequest
@@ -285,7 +318,8 @@ export async function runSetCompositionChatTranscriptOperation(
 	const refusal = refuseUnlessCompositionEditable(row);
 	if (refusal) return refusal;
 
-	const surface = readOpenCompositionDocument().state.surface;
+	const document = readOpenCompositionDocument();
+	const surface = document.state.surface;
 	if (!getSurfaceDefinition(surface.type)?.controls.messages) {
 		return refuseCompositionOperation(
 			row,
@@ -304,7 +338,16 @@ export async function runSetCompositionChatTranscriptOperation(
 		mutate: (draft) => {
 			draft.state.surface.content.messages = request.messages.map((message) => ({
 				...structuredClone(message),
-				text: parseAnnotationBodyText(message.text)
+				text: parseAnnotationBodyText(message.text),
+				enter: message.enter ? resolveContentTimedWindow(message.enter, document) : undefined,
+				typing: message.typing
+					? {
+							duration: resolveCompositionFractionTime(message.typing.duration, {
+								durationSeconds: document.state.transport.durationSeconds,
+								fps: document.state.transport.fps
+							})
+						}
+					: undefined
 			}));
 		}
 	});
@@ -318,7 +361,8 @@ export async function runSetCompositionChecklistEntriesOperation(
 	const refusal = refuseUnlessCompositionEditable(row);
 	if (refusal) return refusal;
 
-	const surface = readOpenCompositionDocument().state.surface;
+	const document = readOpenCompositionDocument();
+	const surface = document.state.surface;
 	if (!getSurfaceDefinition(surface.type)?.controls.items) {
 		return refuseCompositionOperation(
 			row,
@@ -335,7 +379,11 @@ export async function runSetCompositionChecklistEntriesOperation(
 		undoLabel: 'Set checklist entries',
 		focus: { target: 'surface' },
 		mutate: (draft) => {
-			draft.state.surface.content.items = request.items.map((item) => structuredClone(item));
+			draft.state.surface.content.items = request.items.map((item) => ({
+				...structuredClone(item),
+				enter: item.enter ? resolveContentTimedWindow(item.enter, document) : undefined,
+				strike: item.strike ? resolveContentTimedWindow(item.strike, document) : undefined
+			}));
 		}
 	});
 }

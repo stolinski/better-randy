@@ -274,15 +274,15 @@ describe('media library entries', () => {
 });
 
 describe('video track clips', () => {
-	it('cuts a clip at an exact frame and reveals it on the track', async () => {
+	it('normalizes direct time units onto exact clip frames', async () => {
 		await addReadableLibraryEntry();
 
 		const receipt = expectApplied(
 			await runAddCompositionVideoClipOperation({
 				expectedRevision: 1,
 				assetId: 'video-1',
-				timelineStartFrame: 30,
-				durationFrames: 60
+				timelineStartFrame: { seconds: 1 },
+				durationFrames: { milliseconds: 2000 }
 			})
 		);
 
@@ -416,7 +416,7 @@ describe('video track clips', () => {
 			await runUpdateCompositionVideoClipOperation({
 				expectedRevision: 2,
 				clipId: 'video-1:clip',
-				edit: { kind: 'move', timelineStartFrame: 90 }
+				edit: { kind: 'move', timelineStartFrame: { timecode: '00:00:03:00' } }
 			})
 		);
 

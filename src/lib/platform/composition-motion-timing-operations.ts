@@ -26,6 +26,7 @@
 import { CHART_MOTION_PHASE_NAMES, type ChartMotionPhaseName } from '../utils/chart-motion';
 import { ENGINE_EASES, type ChartMotionPhase, type Ease, type Transition } from './engine-schema';
 import { compositionEditHistory } from './composition-edit-history';
+import { resolveCompositionFractionTime } from './composition-time-input';
 import { replaceChartBlockMotion } from './chart-authoring';
 import {
 	CompositionOperationError,
@@ -40,7 +41,8 @@ import {
 	type CompositionOperationFailure
 } from './composition-operation-preflight';
 
-import type { TextAnimationParams } from './engine-schema';
+import type { Preset, TextAnimationParams } from './engine-schema';
+import type { CompositionTimeDuration } from './composition-time-input';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** The ease vocabulary, read off the engine's ease table rather than restated. */
@@ -52,6 +54,12 @@ export const COMPOSITION_MOTION_EASES = Object.keys(ENGINE_EASES) as readonly Ea
  * that is `sound.set-motion-override`'s decision, and it survives a retime here.
  */
 export interface CompositionMotionWindow {
+	start: CompositionTimeDuration;
+	duration: CompositionTimeDuration;
+	ease: Ease;
+}
+
+interface ResolvedCompositionMotionWindow {
 	start: number;
 	duration: number;
 	ease: Ease;
@@ -75,8 +83,8 @@ export interface SetCompositionMarkTimingRequest {
 	expectedRevision: number;
 	/** The Annotation Mark's index in `marks.timings`, in document order. */
 	markIndex: number;
-	start?: number;
-	duration?: number;
+	start?: CompositionTimeDuration;
+	duration?: CompositionTimeDuration;
 	ease?: Ease;
 	/** This mark's departure from the mark defaults; `null` returns it to them. */
 	color?: string | null;
@@ -92,11 +100,16 @@ export interface SetCompositionTextAnimationRequest {
 	params?: Partial<Record<keyof TextAnimationParams, number | null>>;
 }
 
+export type CompositionChartMotionPhaseInput = Omit<ChartMotionPhase, 'start' | 'duration'> & {
+	start: CompositionTimeDuration;
+	duration: CompositionTimeDuration;
+};
+
 export interface SetCompositionChartMotionRequest {
 	expectedRevision: number;
 	blockId: string;
 	/** The phases to move; the ones left out keep the windows they hold. */
-	phases: Partial<Record<ChartMotionPhaseName, ChartMotionPhase>>;
+	phases: Partial<Record<ChartMotionPhaseName, CompositionChartMotionPhaseInput>>;
 }
 
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
@@ -105,8 +118,33 @@ function isEngineEase(value: string): value is Ease {
 	return Object.hasOwn(ENGINE_EASES, value);
 }
 
+function resolveMotionWindow(
+	window: CompositionMotionWindow,
+	document: Preset
+): ResolvedCompositionMotionWindow {
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	return {
+		start: resolveCompositionFractionTime(window.start, grid),
+		duration: resolveCompositionFractionTime(window.duration, grid),
+		ease: window.ease
+	};
+}
+
+function resolveOptionalMotionWindow(
+	window: CompositionMotionWindow | null | undefined,
+	document: Preset
+): ResolvedCompositionMotionWindow | null | undefined {
+	return window ? resolveMotionWindow(window, document) : window;
+}
+
 /** Why a window is not authorable, or `null` when it is. */
-function describeUnauthorableWindow(window: CompositionMotionWindow, label: string): string | null {
+function describeUnauthorableWindow(
+	window: ResolvedCompositionMotionWindow,
+	label: string
+): string | null {
 	if (!Number.isFinite(window.start) || window.start < 0 || window.start > 1) {
 		return `The ${label} start is a fraction of the clip, from 0 through 1.`;
 	}
@@ -124,7 +162,7 @@ function describeUnauthorableWindow(window: CompositionMotionWindow, label: stri
 
 function refuseUnauthorableWindows(
 	row: WebmcpOperationRow,
-	windows: readonly (readonly [string, CompositionMotionWindow | null | undefined])[]
+	windows: readonly (readonly [string, ResolvedCompositionMotionWindow | null | undefined])[]
 ): CompositionOperationFailure | null {
 	for (const [label, window] of windows) {
 		if (!window) continue;
@@ -152,7 +190,7 @@ function refuseUnauthorableWindows(
  */
 function retimeMotionWindow(
 	current: Transition | undefined,
-	next: CompositionMotionWindow | null | undefined
+	next: ResolvedCompositionMotionWindow | null | undefined
 ): Transition | undefined {
 	if (next === undefined) return current;
 	if (next === null) return undefined;
@@ -186,9 +224,12 @@ export async function runSetCompositionSurfaceTimingOperation(
 	if (request.enter === undefined && request.exit === undefined) {
 		return refuseEmptyTimingEdit(row);
 	}
+	const document = readOpenCompositionDocument();
+	const enter = resolveOptionalMotionWindow(request.enter, document);
+	const exit = resolveOptionalMotionWindow(request.exit, document);
 	const windowRefusal = refuseUnauthorableWindows(row, [
-		['Surface enter', request.enter],
-		['Surface exit', request.exit]
+		['Surface enter', enter],
+		['Surface exit', exit]
 	]);
 	if (windowRefusal) return windowRefusal;
 
@@ -198,8 +239,8 @@ export async function runSetCompositionSurfaceTimingOperation(
 		undoLabel: 'Set Surface timing',
 		focus: { target: 'surface' },
 		mutate: (draft) => {
-			draft.state.surface.enter = retimeMotionWindow(draft.state.surface.enter, request.enter);
-			draft.state.surface.exit = retimeMotionWindow(draft.state.surface.exit, request.exit);
+			draft.state.surface.enter = retimeMotionWindow(draft.state.surface.enter, enter);
+			draft.state.surface.exit = retimeMotionWindow(draft.state.surface.exit, exit);
 		}
 	});
 }
@@ -212,7 +253,8 @@ export async function runSetCompositionOverlayTimingOperation(
 	const refusal = refuseUnlessCompositionEditable(row);
 	if (refusal) return refusal;
 
-	const overlays = readOpenCompositionDocument().state.overlays;
+	const document = readOpenCompositionDocument();
+	const overlays = document.state.overlays;
 	if (!overlays.some((overlay) => overlay.id === request.overlayId)) {
 		return refuseCompositionOperation(
 			row,
@@ -225,9 +267,11 @@ export async function runSetCompositionOverlayTimingOperation(
 	if (request.enter === undefined && request.exit === undefined) {
 		return refuseEmptyTimingEdit(row);
 	}
+	const enter = resolveOptionalMotionWindow(request.enter, document);
+	const exit = resolveOptionalMotionWindow(request.exit, document);
 	const windowRefusal = refuseUnauthorableWindows(row, [
-		['Overlay enter', request.enter],
-		['Overlay exit', request.exit]
+		['Overlay enter', enter],
+		['Overlay exit', exit]
 	]);
 	if (windowRefusal) return windowRefusal;
 
@@ -245,8 +289,8 @@ export async function runSetCompositionOverlayTimingOperation(
 					{ rejected: request.overlayId }
 				);
 			}
-			overlay.enter = retimeMotionWindow(overlay.enter, request.enter);
-			overlay.exit = retimeMotionWindow(overlay.exit, request.exit);
+			overlay.enter = retimeMotionWindow(overlay.enter, enter);
+			overlay.exit = retimeMotionWindow(overlay.exit, exit);
 		}
 	});
 }
@@ -266,7 +310,8 @@ export async function runSetCompositionMarkTimingOperation(
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const timings = readOpenCompositionDocument().state.marks.timings;
+	const document = readOpenCompositionDocument();
+	const timings = document.state.marks.timings;
 	const timing = timings[request.markIndex];
 	if (!timing) {
 		return refuseCompositionOperation(
@@ -299,12 +344,22 @@ export async function runSetCompositionMarkTimingOperation(
 		);
 	}
 
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	const start =
+		request.start === undefined ? undefined : resolveCompositionFractionTime(request.start, grid);
+	const duration =
+		request.duration === undefined
+			? undefined
+			: resolveCompositionFractionTime(request.duration, grid);
 	const windowRefusal = refuseUnauthorableWindows(row, [
 		[
 			`Mark ${request.markIndex}`,
 			{
-				start: request.start ?? timing.start,
-				duration: request.duration ?? timing.duration,
+				start: start ?? timing.start,
+				duration: duration ?? timing.duration,
 				ease: request.ease ?? timing.ease
 			}
 		]
@@ -347,8 +402,8 @@ export async function runSetCompositionMarkTimingOperation(
 					{ rejected: String(request.markIndex) }
 				);
 			}
-			if (request.start !== undefined) target.start = request.start;
-			if (request.duration !== undefined) target.duration = request.duration;
+			if (start !== undefined) target.start = start;
+			if (duration !== undefined) target.duration = duration;
 			if (request.ease !== undefined) target.ease = request.ease;
 			if (request.color !== undefined) target.color = request.color ?? undefined;
 			if (request.intensity !== undefined) target.intensity = request.intensity ?? undefined;
@@ -371,7 +426,8 @@ export async function runSetCompositionTextAnimationOperation(
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const entries = readOpenCompositionDocument().state.textAnimations;
+	const document = readOpenCompositionDocument();
+	const entries = document.state.textAnimations;
 	if (!entries.some((entry) => entry.id === request.textAnimationId)) {
 		return refuseCompositionOperation(
 			row,
@@ -393,9 +449,11 @@ export async function runSetCompositionTextAnimationOperation(
 			{ alternatives: ['enter', 'exit', 'params'] }
 		);
 	}
+	const enter = resolveOptionalMotionWindow(request.enter, document);
+	const exit = resolveOptionalMotionWindow(request.exit, document);
 	const windowRefusal = refuseUnauthorableWindows(row, [
-		['Text animation enter', request.enter],
-		['Text animation exit', request.exit]
+		['Text animation enter', enter],
+		['Text animation exit', exit]
 	]);
 	if (windowRefusal) return windowRefusal;
 
@@ -415,16 +473,16 @@ export async function runSetCompositionTextAnimationOperation(
 					{ rejected: request.textAnimationId }
 				);
 			}
-			const enter = retimeMotionWindow(entry.enter, request.enter);
-			if (!enter) {
+			const nextEnter = retimeMotionWindow(entry.enter, enter);
+			if (!nextEnter) {
 				throw new CompositionOperationError(
 					'invalid_argument',
 					'A text animation always has an enter window; retime it rather than removing it.',
 					{ rejected: 'enter' }
 				);
 			}
-			entry.enter = enter;
-			entry.exit = retimeMotionWindow(entry.exit, request.exit);
+			entry.enter = nextEnter;
+			entry.exit = retimeMotionWindow(entry.exit, exit);
 			if (request.params) {
 				const params: TextAnimationParams = { ...entry.params };
 				for (const [name, value] of Object.entries(request.params)) {
@@ -451,7 +509,8 @@ export async function runSetCompositionChartMotionOperation(
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
-	const items = readOpenCompositionDocument().state.surface.chart?.items ?? [];
+	const document = readOpenCompositionDocument();
+	const items = document.state.surface.chart?.items ?? [];
 	const block = items.find((item) => item.id === request.blockId);
 	if (!block) {
 		return refuseCompositionOperation(
@@ -485,6 +544,20 @@ export async function runSetCompositionChartMotionOperation(
 			);
 		}
 	}
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	const phases: Partial<Record<ChartMotionPhaseName, ChartMotionPhase>> = {};
+	for (const phaseName of CHART_MOTION_PHASE_NAMES) {
+		const phase = request.phases[phaseName];
+		if (!phase) continue;
+		phases[phaseName] = {
+			...phase,
+			start: resolveCompositionFractionTime(phase.start, grid),
+			duration: resolveCompositionFractionTime(phase.duration, grid)
+		};
+	}
 
 	return runCompositionEditTransaction({
 		operationId: row.id,
@@ -502,7 +575,7 @@ export async function runSetCompositionChartMotionOperation(
 			}
 			const motion = { ...target.motion };
 			for (const phaseName of CHART_MOTION_PHASE_NAMES) {
-				const phase = request.phases[phaseName];
+				const phase = phases[phaseName];
 				if (phase) motion[phaseName] = { ...phase };
 			}
 			if (!replaceChartBlockMotion(draft.state.surface, request.blockId, motion)) {

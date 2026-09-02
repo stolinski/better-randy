@@ -23,6 +23,7 @@ import {
 	secondsToFrames
 } from '../utils/composition-timing';
 import { compositionEditHistory } from './composition-edit-history';
+import { resolveCompositionFrameTime } from './composition-time-input';
 import {
 	refuseCompositionOperation,
 	refuseUnlessCompositionOpen,
@@ -31,6 +32,7 @@ import {
 } from './composition-operation-preflight';
 import { timelineHandle } from './timeline-handle.svelte';
 
+import type { CompositionTimePosition } from './composition-time-input';
 import type { WebmcpOperationFocusTarget, WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** Where the playhead sits and the grid it moves on. */
@@ -67,8 +69,8 @@ export interface CompositionPlayheadSeekReceipt extends CompositionPlayheadPosit
 }
 
 export interface SeekCompositionPlayheadRequest {
-	/** The zero-based frame to park on. */
-	frame: number;
+	/** An exact frame, or direct seconds, milliseconds, frames, or timecode. */
+	frame: CompositionTimePosition;
 }
 
 export type CompositionPlayheadInspectionOutcome =
@@ -145,20 +147,35 @@ export function runSeekCompositionPlayheadOperation(
 	}
 	const rate = resolveFrameRate(timeline.fps);
 	const frameCount = Math.max(1, secondsToFrames(timeline.durationSeconds, rate));
-	if (!Number.isSafeInteger(request.frame) || request.frame < 0 || request.frame >= frameCount) {
+	let frame: number;
+	try {
+		frame = resolveCompositionFrameTime(request.frame, {
+			durationSeconds: timeline.durationSeconds,
+			fps: timeline.fps
+		});
+	} catch (cause) {
+		return refuseCompositionOperation(
+			row,
+			compositionEditHistory.revision,
+			'invalid_argument',
+			cause instanceof Error ? cause.message : 'The playhead time could not be resolved.',
+			{ rejected: JSON.stringify(request.frame) }
+		);
+	}
+	if (!Number.isSafeInteger(frame) || frame < 0 || frame >= frameCount) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'invalid_argument',
 			`This composition runs ${frameCount} frames, so the playhead parks on frame 0 through ${frameCount - 1}.`,
-			{ rejected: String(request.frame), alternatives: ['0', String(frameCount - 1)] }
+			{ rejected: JSON.stringify(request.frame), alternatives: ['0', String(frameCount - 1)] }
 		);
 	}
 
 	// Pause first: a running transport would tick past the requested frame before
 	// anyone could look at it, and a seek is how an agent asks to look.
 	timeline.pause();
-	timeline.seek(framesToSeconds(request.frame, rate));
+	timeline.seek(framesToSeconds(frame, rate));
 
 	return {
 		status: 'moved',

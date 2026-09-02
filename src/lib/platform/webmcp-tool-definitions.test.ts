@@ -49,7 +49,8 @@ import type { UserVideoAssetDescriptor } from './user-video-asset';
 import type {
 	WebmcpModelContextHost,
 	WebmcpToolCallResult,
-	WebmcpToolDescriptor
+	WebmcpToolDescriptor,
+	WebmcpToolRegistrationOptions
 } from './webmcp-tool-controller';
 import type { WebmcpOperationRow } from './webmcp-operation-inventory';
 
@@ -99,9 +100,9 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 class FakeModelContext implements WebmcpModelContextHost {
 	readonly #tools = new Map<string, WebmcpToolDescriptor>();
 
-	registerTool(descriptor: WebmcpToolDescriptor): void {
+	registerTool(descriptor: WebmcpToolDescriptor, options: WebmcpToolRegistrationOptions): void {
 		this.#tools.set(descriptor.name, descriptor);
-		descriptor.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
+		options.signal.addEventListener('abort', () => this.#tools.delete(descriptor.name), {
 			once: true
 		});
 	}
@@ -110,10 +111,14 @@ class FakeModelContext implements WebmcpModelContextHost {
 		return [...this.#tools.values()].map((descriptor) => ({ name: descriptor.name }));
 	}
 
-	call(name: string, args: unknown): Promise<WebmcpToolCallResult> {
+	call(
+		name: string,
+		args: unknown,
+		executionSignal: AbortSignal = new AbortController().signal
+	): Promise<WebmcpToolCallResult> {
 		const descriptor = this.#tools.get(name);
 		if (!descriptor) throw new Error(`No registered tool named ${name}`);
-		return descriptor.execute(args);
+		return descriptor.execute(args, { signal: executionSignal });
 	}
 }
 
@@ -140,6 +145,16 @@ function startController(host: WebmcpModelContextHost): WebmcpToolController {
 		definitions: listWebmcpToolDefinitions(),
 		lifetime: new AbortController().signal
 	});
+}
+
+async function prepareAuthoringFamily(
+	host: FakeModelContext,
+	family: WebmcpOperationRow['family']
+): Promise<void> {
+	const result = await host.call(rowFor('capability.prepare-authoring-family').toolName, {
+		family
+	});
+	expect(result.isError).toBe(false);
 }
 
 function readPayload(result: WebmcpToolCallResult): Record<string, unknown> {
@@ -196,22 +211,23 @@ afterEach(() => {
 });
 
 describe('WebMCP tool definitions', () => {
-	// The bidirectional parity gate, in its mechanical form: the tools this build
-	// registers and the rows the inventory marks `agent-tool` are the same set. A
-	// row added without a tool fails here, and so does a tool without a row.
-	it('exposes every agent-tool row exactly once, and nothing else', () => {
+	// The parity gate includes shared authoring tools and the one transport-only
+	// context tool. Only internal verification stays unregistered.
+	it('exposes every agent-reachable row exactly once, and nothing else', () => {
 		const exposedIds = listWebmcpToolDefinitions().map((definition) => definition.operationId);
 		expect(new Set(exposedIds).size, 'a row is exposed twice').toBe(exposedIds.length);
 
-		const declared = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool').map(
-			(row) => row.id
-		);
+		const declared = WEBMCP_OPERATION_INVENTORY.filter(
+			(row) => row.exposure !== 'internal-only'
+		).map((row) => row.id);
 		expect(exposedIds.slice().sort()).toEqual(declared.slice().sort());
 	});
 
 	it('registers no operation the inventory keeps internal', () => {
 		for (const row of exposedRows()) {
-			expect(row.exposure, `${row.id} is registered but marked internal-only`).toBe('agent-tool');
+			expect(row.exposure, `${row.id} is registered but marked internal-only`).not.toBe(
+				'internal-only'
+			);
 		}
 	});
 
@@ -321,6 +337,7 @@ describe('WebMCP tool calls', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'transport');
 
 		const result = await host.call(rowFor('transport.set-orientation').toolName, {
 			expectedRevision: compositionEditHistory.revision,
@@ -344,6 +361,7 @@ describe('WebMCP tool calls', () => {
 		const controller = startController(host);
 		const route = '/p/untitled';
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'layer');
 
 		const added = readPayload(
 			await host.call(rowFor('layer.add-overlay').toolName, {
@@ -353,22 +371,28 @@ describe('WebMCP tool calls', () => {
 		);
 		expect(added).toMatchObject({ status: 'applied', focus: { target: 'overlay' } });
 
-		// The Overlay's own tools only exist once an Overlay does, so the caller's
-		// next verbs arrive with the state that makes them possible.
-		const withOverlay = await controller.synchronize(readWebmcpCompositionPreconditions(), route);
-		expect(withOverlay.added).toContain(rowFor('content.set-overlay-content').toolName);
-		expect(withOverlay.added).toContain(rowFor('placement.set-overlay-placement').toolName);
+		// The family selector keeps unrelated Overlay tools out of context until the
+		// agent asks for the decision family it needs next.
+		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'content');
+		expect([...host.getTools()].map((tool) => tool.name)).toContain(
+			rowFor('content.set-overlay-content').toolName
+		);
+		expect([...host.getTools()].map((tool) => tool.name)).not.toContain(
+			rowFor('placement.set-overlay-placement').toolName
+		);
 
 		const overlayId = engineState.overlays[0].id;
 		const written = readPayload(
 			await host.call(rowFor('content.set-overlay-content').toolName, {
 				expectedRevision: compositionEditHistory.revision,
 				overlayId,
-				content: JSON.stringify({ title: 'Syntax', subtitle: 'Web development podcast' })
+				content: { title: 'Syntax', subtitle: 'Web development podcast' }
 			})
 		);
 		expect(written).toMatchObject({ status: 'applied' });
 
+		await prepareAuthoringFamily(host, 'placement');
 		const placed = readPayload(
 			await host.call(rowFor('placement.set-overlay-placement').toolName, {
 				expectedRevision: compositionEditHistory.revision,
@@ -392,23 +416,26 @@ describe('WebMCP tool calls', () => {
 		const controller = startController(host);
 		const route = '/p/untitled';
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'layer');
 
 		await host.call(rowFor('layer.add-overlay').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			overlayType: 'lower-third'
 		});
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'motion');
 		const overlayId = engineState.overlays[0].id;
 
 		const retimed = readPayload(
 			await host.call(rowFor('motion.set-overlay-timing').toolName, {
 				expectedRevision: compositionEditHistory.revision,
 				overlayId,
-				enter: { start: 0.1, duration: 0.2, ease: 'settled' }
+				enter: { start: { seconds: 0.6 }, duration: { milliseconds: 1200 }, ease: 'settled' }
 			})
 		);
 		expect(retimed).toMatchObject({ status: 'applied', focus: { target: 'overlay', overlayId } });
-		expect(engineState.overlays[0].enter).toMatchObject({ start: 0.1, duration: 0.2 });
+		expect(engineState.overlays[0].enter?.start).toBeCloseTo(0.1);
+		expect(engineState.overlays[0].enter?.duration).toBeCloseTo(0.2);
 
 		const welded = readPayload(
 			await host.call(rowFor('motion.set-cascade-anchor').toolName, {
@@ -433,12 +460,14 @@ describe('WebMCP tool calls', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'motion');
 
 		await host.call(rowFor('motion.set-surface-timing').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			enter: { start: 0, duration: 0.25, ease: 'smooth' }
 		});
 
+		await prepareAuthoringFamily(host, 'sound');
 		const overridden = readPayload(
 			await host.call(rowFor('sound.set-motion-override').toolName, {
 				expectedRevision: compositionEditHistory.revision,
@@ -462,7 +491,9 @@ describe('WebMCP tool calls', () => {
 		const revision = compositionEditHistory.revision;
 
 		const moved = readPayload(
-			await host.call(rowFor('playhead.seek-frame').toolName, { frame: 90 })
+			await host.call(rowFor('playhead.seek-frame').toolName, {
+				frame: { timecode: '00:00:03:00' }
+			})
 		);
 
 		expect(moved).toMatchObject({
@@ -480,6 +511,7 @@ describe('WebMCP tool calls', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'appearance');
 
 		const result = await host.call(rowFor('appearance.set-typography').toolName, {
 			expectedRevision: compositionEditHistory.revision,
@@ -575,6 +607,7 @@ describe('WebMCP media consent', () => {
 		const route = '/p/untitled';
 
 		const withoutGrant = await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'media');
 		expect(withoutGrant.registered).not.toContain(rowFor('media.add-library-entry').toolName);
 
 		// The gesture only a person can make: a file dropped on the Media rail.
@@ -590,6 +623,7 @@ describe('WebMCP media consent', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'media');
 
 		const result = await host.call(rowFor('media.add-library-entry').toolName, {
 			expectedRevision: compositionEditHistory.revision,
@@ -616,6 +650,7 @@ describe('WebMCP tool arguments', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'motion');
 		const observed = compositionEditHistory.revision;
 
 		await host.call(rowFor('motion.set-surface-timing').toolName, {
@@ -636,6 +671,7 @@ describe('WebMCP tool arguments', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'transport');
 
 		const result = await host.call(rowFor('transport.set-orientation').toolName, {
 			expectedRevision: 0,
@@ -654,6 +690,7 @@ describe('WebMCP tool arguments', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'transport');
 
 		const result = await host.call(rowFor('transport.set-orientation').toolName, 'horizontal');
 
@@ -666,6 +703,7 @@ describe('WebMCP tool arguments', () => {
 		const controller = startController(host);
 		const route = '/p/untitled';
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'layer');
 		await host.call(rowFor('layer.add-overlay').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			overlayType: 'lower-third'
@@ -690,11 +728,13 @@ describe('WebMCP tool arguments', () => {
 		const controller = startController(host);
 		const route = '/p/untitled';
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'layer');
 		await host.call(rowFor('layer.add-diagram-primitive').toolName, {
 			expectedRevision: compositionEditHistory.revision,
 			primitiveType: 'node'
 		});
 		await controller.synchronize(readWebmcpCompositionPreconditions(), route);
+		await prepareAuthoringFamily(host, 'content');
 
 		const result = await host.call(rowFor('content.set-diagram-primitive').toolName, {
 			expectedRevision: compositionEditHistory.revision,
@@ -714,6 +754,7 @@ describe('WebMCP tool arguments', () => {
 		const host = new FakeModelContext();
 		const controller = startController(host);
 		await controller.synchronize(readWebmcpCompositionPreconditions(), '/p/untitled');
+		await prepareAuthoringFamily(host, 'content');
 
 		const result = await host.call(rowFor('content.set-surface-content').toolName, {
 			expectedRevision: compositionEditHistory.revision,

@@ -10,10 +10,11 @@
 #
 # Always use a distinct CDP port per mode. The script is idempotent: if Chrome
 # already answers on the selected port, that existing process is left alone.
+# CDP_CHROME_PATH may select Chrome Canary when a contract requires a newer API.
 set -euo pipefail
 
 MODE="${CDP_BROWSER_MODE:-canvas}"
-CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME="${CDP_CHROME_PATH:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 MODE_FLAGS=()
 MODE_LABEL=""
 DEFAULT_PORT=""

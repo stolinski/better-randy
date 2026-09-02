@@ -5,8 +5,8 @@
 // that owns the same decision and to the WebMCP tool this build registers for
 // it, and rejects the run when any row does not reach both transports its
 // exposure promises. Missing, duplicate, and stale claims fail on either side;
-// the two rows the inventory annotates `internal-only` are read as an intended
-// absence of the agent transport rather than a one-transport-only defect.
+// `internal-only` verification promises GUI-only reachability, while the
+// non-authoring `agent-context` selector promises agent-only reachability.
 //
 // The registered tool set and the derived vocabulary are read through Vite
 // rather than plain Node, because both resolve `import.meta.glob` over the sound
@@ -174,7 +174,8 @@ console.log(
 			digests,
 			counts: {
 				rows: report.rows.length,
-				agentToolRows: report.rows.filter((row) => row.exposure === 'agent-tool').length,
+				sharedAuthoringRows: report.rows.filter((row) => row.exposure === 'agent-tool').length,
+				agentContextRows: report.rows.filter((row) => row.exposure === 'agent-context').length,
 				internalOnlyRows: report.rows.filter((row) => row.exposure === 'internal-only').length,
 				registeredTools: registeredTools.length,
 				guiSurfaces: evidence.guiBindings.length
@@ -200,5 +201,5 @@ if (report.findings.length > 0) {
 }
 
 console.error(
-	`audit-webmcp-operation-parity: ${report.rows.length} rows reach both transports (${registeredTools.length} registered tools, ${evidence.guiBindings.length} GUI surfaces); schema ${digests.schema}, registry ${digests.registry}, tool ${digests.tool}`
+	`audit-webmcp-operation-parity: ${report.rows.length} rows reach their declared transports (${registeredTools.length} registered tools, ${evidence.guiBindings.length} GUI surfaces); schema ${digests.schema}, registry ${digests.registry}, tool ${digests.tool}`
 );

@@ -2,13 +2,10 @@
  * The machine-readable GFX authoring operation inventory ratified by
  * [ADR-0054](../../../docs/adr/0054-webmcp-operation-transaction-and-security-contract.md).
  *
- * One row per authoring decision a person or an agent can make. Each row names
- * the family that owns it, the WebMCP tool that exposes it, the composition
- * pointers it may write, the state in which its tool is registered, the
- * transports that reach it, and the GUI surface that owns the same decision. The
- * bidirectional parity gate reads this file: a decision reachable from only one
- * transport is a defect unless its row declares itself `internal-only`, and a
- * tool that is not a row here has no contract.
+ * One row per operation, including the one non-authoring context control. Each
+ * row names its family, tool, writes, registration state, transport exposure,
+ * and GUI owner where one exists. The parity gate requires exactly the transports
+ * each exposure declares, and a tool that is not a row here has no contract.
  *
  * This module is the contract, not the implementation. It deliberately carries
  * no runtime behavior — the operation layer, the WebMCP controller, and the
@@ -40,13 +37,14 @@ export type WebmcpOperationFamilyName =
  *
  * - `read` — returns state; changes nothing.
  * - `view` — moves ephemeral view state (the playhead); no document write.
+ * - `context` — changes only which tool descriptors an agent reads.
  * - `write` — edits the open composition through the transaction core.
  * - `history` — replays a recorded edit (undo / redo).
  * - `lifecycle` — changes which composition is open, or the session store.
  * - `deliver` — produces a rendered artifact the visitor receives.
  */
 export type WebmcpOperationEffectKind =
-	'read' | 'view' | 'write' | 'history' | 'lifecycle' | 'deliver';
+	'read' | 'view' | 'context' | 'write' | 'history' | 'lifecycle' | 'deliver';
 
 /**
  * The condition under which a tool is registered on `document.modelContext`.
@@ -85,9 +83,9 @@ export type WebmcpOperationPrecondition =
  * Which transports reach an authoring decision, and the one deliberate
  * exception.
  *
- * - `agent-tool` — the decision is reachable from the GUI *and* from a WebMCP
- *   tool. This is what the bidirectional parity gate holds every row to, and it
- *   is what all but two rows declare.
+ * - `agent-tool` — an authoring decision is reachable from the GUI and WebMCP.
+ * - `agent-context` — a WebMCP-only context change that touches no authored or
+ *   visible state. Only preparing one on-demand family uses this.
  * - `internal-only` — the page runs this operation for itself and never hands it
  *   to an agent. The gate reads it as an intended absence rather than a
  *   one-transport defect, and the WebMCP controller refuses a tool definition
@@ -100,7 +98,10 @@ export type WebmcpOperationPrecondition =
  * from a missing tool, because "unexposed on purpose" and "not built yet" have
  * to be distinguishable by a machine.
  */
-export type WebmcpOperationExposure = 'agent-tool' | 'internal-only';
+export type WebmcpOperationExposure = 'agent-tool' | 'agent-context' | 'internal-only';
+
+/** How a family's tools enter the agent's active context. */
+export type WebmcpOperationFamilyDisclosure = 'core' | 'on-demand' | 'internal';
 
 /**
  * A Workspace selection an operation can leave focused, so a person watching the
@@ -139,10 +140,12 @@ export interface WebmcpOperationFamily {
 	/** What an author decides here — the sentence that keeps families from overlapping. */
 	domain: string;
 	toolNamePrefix: string;
+	/** Core tools stay visible; one on-demand family joins them at a time. */
+	disclosure: WebmcpOperationFamilyDisclosure;
 	ownedPaths: readonly WebmcpOwnedCompositionPath[];
 }
 
-/** One authoring decision, exposed as exactly one WebMCP tool and one GUI path. */
+/** One operation and the transports its exposure contract requires. */
 export interface WebmcpOperationRow {
 	id: string;
 	family: WebmcpOperationFamilyName;
@@ -170,14 +173,20 @@ export interface WebmcpOperationRow {
 	focus: readonly WebmcpOperationFocusTarget[];
 	/** Whether an agent reaches this decision at all, or the page keeps it to itself. */
 	exposure: WebmcpOperationExposure;
-	/** Repo-relative GUI owner of the same decision — the parity gate's other side. */
-	guiSurface: string;
+	/**
+	 * Repo-relative GUI owner of the same authoring decision. Null only for an
+	 * `agent-context` row that changes tool disclosure rather than authored state.
+	 */
+	guiSurface: string | null;
 }
 
 /** WebMCP tool names: lower snake case under the GFX namespace (ADR-0053). */
 export const WEBMCP_TOOL_NAME_PATTERN = /^gfx_[a-z][a-z0-9_]*$/;
 
 export const WEBMCP_TOOL_NAME_MAX_LENGTH = 48;
+
+/** The first Chrome version with detachable registration and execution signals. */
+export const WEBMCP_MINIMUM_CHROME_MAJOR_VERSION = 153;
 
 /** Tool descriptions stay short enough that a full tool list fits an agent's budget. */
 export const WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH = 320;
@@ -202,6 +211,12 @@ export const WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET = 262144;
  * and the session catalog — every other precondition needs an open document.
  */
 export const WEBMCP_ALWAYS_REGISTERED_CEILING = 9;
+
+/** Core operations visible with a composition open before a family is prepared. */
+export const WEBMCP_CORE_REGISTERED_CEILING = 20;
+
+/** Core operations plus the largest single on-demand authoring family. */
+export const WEBMCP_DISCLOSED_REGISTERED_CEILING = 35;
 
 /**
  * Corrective failure codes. Every failure names one of these, the exact target
@@ -260,12 +275,14 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'capability',
 		domain: 'What this engine can express, and the limits the public demo enforces.',
 		toolNamePrefix: 'gfx_capability_',
+		disclosure: 'core',
 		ownedPaths: []
 	},
 	{
 		name: 'composition',
 		domain: 'Which composition exists and is open, and how the document identifies itself.',
 		toolNamePrefix: 'gfx_composition_',
+		disclosure: 'core',
 		ownedPaths: [
 			{ pointer: '/name', scope: 'value' },
 			{ pointer: '/description', scope: 'value' },
@@ -276,6 +293,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'session',
 		domain: 'The browser-scoped Public demo session: what it holds and how it is emptied.',
 		toolNamePrefix: 'gfx_session_',
+		disclosure: 'core',
 		ownedPaths: []
 	},
 	{
@@ -283,6 +301,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		domain:
 			'How the piece is framed and classified on output: orientation, time, rate, format, background.',
 		toolNamePrefix: 'gfx_transport_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/transport', scope: 'value' },
 			{ pointer: '/state/backgroundFill', scope: 'value' }
@@ -292,6 +311,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'layer',
 		domain: 'Which Layer entities exist, in what order, and which registered variant each one is.',
 		toolNamePrefix: 'gfx_layer_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/surface/type', scope: 'value' },
 			{ pointer: '/state/surface/variant', scope: 'value' },
@@ -309,6 +329,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'content',
 		domain: 'The words, values, and data an author writes into the piece.',
 		toolNamePrefix: 'gfx_content_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/surface/content', scope: 'value' },
 			{ pointer: '/state/surface/content/messages', scope: 'membership' },
@@ -323,6 +344,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'placement',
 		domain: 'Where an element sits in the frame, at each orientation.',
 		toolNamePrefix: 'gfx_placement_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/overlays/*/position', scope: 'value' },
 			{ pointer: '/state/overlays/*/z', scope: 'value' },
@@ -342,6 +364,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		domain:
 			'How the piece looks under its Pack: brand, type, mark styling, effect and stage treatment.',
 		toolNamePrefix: 'gfx_appearance_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/pack', scope: 'value' },
 			{ pointer: '/state/typography', scope: 'value' },
@@ -356,6 +379,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		domain:
 			'When and how things move: enter/exit windows, keyframe channels, Cascade welds, transitions.',
 		toolNamePrefix: 'gfx_motion_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/surface/enter', scope: 'value' },
 			{ pointer: '/state/surface/exit', scope: 'value' },
@@ -374,6 +398,7 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'sound',
 		domain: 'What the piece plays: manual cues, the single bed, and per-motion cue overrides.',
 		toolNamePrefix: 'gfx_sound_',
+		disclosure: 'on-demand',
 		ownedPaths: [
 			{ pointer: '/state/audioCues', scope: 'membership' },
 			{ pointer: '/state/audioCues/*', scope: 'value' },
@@ -388,33 +413,62 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 		name: 'media',
 		domain: 'The composition Media library and the primary Video track cut from it.',
 		toolNamePrefix: 'gfx_media_',
+		disclosure: 'on-demand',
 		ownedPaths: [{ pointer: '/state/media', scope: 'value' }]
 	},
 	{
 		name: 'playhead',
 		domain: 'Where the visible playhead sits, in exact frames.',
 		toolNamePrefix: 'gfx_playhead_',
+		disclosure: 'core',
 		ownedPaths: []
 	},
 	{
 		name: 'validation',
 		domain: 'What is wrong with the composition without rendering it.',
 		toolNamePrefix: 'gfx_validation_',
+		disclosure: 'core',
 		ownedPaths: []
 	},
 	{
 		name: 'verification',
 		domain: 'What the composition actually renders, measured on real pixels.',
 		toolNamePrefix: 'gfx_verification_',
+		disclosure: 'internal',
 		ownedPaths: []
 	},
 	{
 		name: 'delivery',
 		domain: 'Turning the composition into a file the visitor receives.',
 		toolNamePrefix: 'gfx_delivery_',
+		disclosure: 'core',
 		ownedPaths: []
 	}
 ];
+
+/** The families exposed only after `gfx_capability_prepare_family` selects one. */
+export const WEBMCP_ON_DEMAND_FAMILY_NAMES: readonly WebmcpOperationFamilyName[] =
+	WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'on-demand').map(
+		(family) => family.name
+	);
+
+/** Chrome hints derived from the operation contract rather than restated per tool. */
+export interface WebmcpToolAnnotations {
+	readOnlyHint: boolean;
+	untrustedContentHint: boolean;
+}
+
+/**
+ * Read operations do not change state. Every non-capability operation may return
+ * authored names, content, filenames, or validation findings, so it is marked
+ * untrusted before an agent decides whether to read its result.
+ */
+export function readWebmcpOperationAnnotations(row: WebmcpOperationRow): WebmcpToolAnnotations {
+	return {
+		readOnlyHint: row.effect === 'read',
+		untrustedContentHint: row.family !== 'capability'
+	};
+}
 
 export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 	// ---- capability: always registered, so a cold page still answers "what can you do?" ----
@@ -450,6 +504,22 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/Workspace.svelte'
 	},
+	{
+		id: 'capability.prepare-authoring-family',
+		family: 'capability',
+		toolName: 'gfx_capability_prepare_family',
+		summary:
+			'Prepare one authoring family so its currently usable tools join the core menu. Preparing another family replaces it.',
+		effect: 'context',
+		writes: [],
+		precondition: 'composition-open',
+		requiresExpectedRevision: false,
+		undoable: false,
+		cancellable: false,
+		focus: [],
+		exposure: 'agent-context',
+		guiSurface: null
+	},
 
 	// ---- composition: the document's existence and identity ----
 	{
@@ -473,7 +543,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_create_from_starter',
 		summary:
-			'Fork a named Starter template into a new session composition and open it for editing. The Starter itself is never modified.',
+			'Fork a named Starter template into a new editable session composition while preserving the original Starter.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'always',
@@ -521,7 +591,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'composition',
 		toolName: 'gfx_composition_inspect',
 		summary:
-			'Return the open composition revision, identity, transport, Pack, and its Layer tree as ids, kinds, and order — bounded, never the whole document body.',
+			'Return a bounded summary of the open composition: revision, identity, transport, Pack, and Layer ids, kinds, and order.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',
@@ -633,7 +703,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'session',
 		toolName: 'gfx_session_delete_composition',
 		summary:
-			'Delete one composition from this browser session. It cannot be recovered, and nothing was ever stored on the origin.',
+			'Permanently delete one composition from this browser session, which holds the only stored copy.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'session-composition-present',
@@ -649,7 +719,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'session',
 		toolName: 'gfx_session_clear',
 		summary:
-			'Delete every composition in this browser session. Requires explicit confirmation and cannot be undone.',
+			'Permanently delete every composition in this browser session after explicit confirmation.',
 		effect: 'lifecycle',
 		writes: [],
 		precondition: 'session-composition-present',
@@ -667,7 +737,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'transport',
 		toolName: 'gfx_transport_set_orientation',
 		summary:
-			'Set the delivery orientation to horizontal or vertical. Authored geometry reflows; it is never clamped.',
+			'Set the delivery orientation to horizontal or vertical and reflow authored geometry into that frame.',
 		effect: 'write',
 		writes: ['/state/transport'],
 		precondition: 'composition-editable',
@@ -1130,7 +1200,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'placement',
 		toolName: 'gfx_placement_set_overlay_depth',
 		summary:
-			"Set one Overlay's depth: 0 at the Surface plane, 1 at the backdrop, negative lifted toward the camera. On the depth stage an explicit depth gives the Overlay its own plane; inert without a depth-of-field Effect or a stage.",
+			"Set one Overlay's depth: 0 at the Surface plane, 1 at the backdrop, negative lifted toward the camera. A depth stage or depth-of-field Effect activates its plane.",
 		effect: 'write',
 		writes: ['/state/overlays/*/z'],
 		precondition: 'overlay-present',
@@ -1204,7 +1274,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'appearance',
 		toolName: 'gfx_appearance_set_pack',
 		summary:
-			'Bind the composition to a registered Pack or a User Pack from the store. Every Pack-resolved Role re-dresses; no composition content changes.',
+			'Bind the composition to a registered Pack or User Pack, re-dressing every Pack-resolved Role while preserving content.',
 		effect: 'write',
 		writes: ['/pack'],
 		precondition: 'composition-editable',
@@ -1288,7 +1358,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'appearance',
 		toolName: 'gfx_appearance_validate_user_pack',
 		summary:
-			'Check a User Pack manifest without storing it: the structural, Google Fonts catalog, and no-shadowing issues a save would refuse with.',
+			'Return the structural, Google Fonts catalog, and catalog-shadowing issues a User Pack save would need corrected.',
 		effect: 'read',
 		writes: [],
 		precondition: 'user-pack-store-served',
@@ -1630,7 +1700,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'media',
 		toolName: 'gfx_media_inspect_library',
 		summary:
-			'List the composition Media library entries and Video clips with their durations and availability, including entries whose bytes this browser cannot reach.',
+			'List Media library entries and Video clips with durations and availability, including an explicit unreachable status.',
 		effect: 'read',
 		writes: [],
 		precondition: 'composition-open',
@@ -1649,7 +1719,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		// demo video yet, so this summary names only the source that exists today:
 		// a description promising a catalog an agent cannot reach is a defect.
 		summary:
-			'Add a video the visitor has already granted this page to the composition Media library, naming the grant. Never opens a file picker and never reads the disk.',
+			'Add a video from a grant the visitor already gave this page to the composition Media library.',
 		effect: 'write',
 		writes: ['/state/media'],
 		precondition: 'media-permitted',

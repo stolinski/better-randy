@@ -165,18 +165,24 @@ async function probeCapabilities(page, port) {
 		if (webmcp.exposed) {
 			try {
 				const name = 'gfx_standard_browser_probe_' + Math.random().toString(16).slice(2);
-				await document.modelContext.registerTool({
-					name,
-					description: 'Returns a deterministic capability-probe token.',
-					inputSchema: { type: 'object', additionalProperties: false },
-					execute: async () => ({ content: [{ type: 'text', text: 'gfx-probe-ok' }] })
-				});
+				const registration = new AbortController();
+				await document.modelContext.registerTool(
+					{
+						name,
+						description: 'Returns a deterministic capability-probe token.',
+						inputSchema: { type: 'object', additionalProperties: false },
+						annotations: { readOnlyHint: true, untrustedContentHint: false },
+						execute: async () => ({ content: [{ type: 'text', text: 'gfx-probe-ok' }] })
+					},
+					{ signal: registration.signal }
+				);
 				const tools = await document.modelContext.getTools();
 				webmcp = {
 					exposed: true,
 					registered: Array.from(tools).some((tool) => tool.name === name),
 					prototype: Object.getOwnPropertyNames(Object.getPrototypeOf(document.modelContext))
 				};
+				registration.abort();
 			} catch (error) {
 				webmcp = { exposed: true, registered: false, error: error.message };
 			}

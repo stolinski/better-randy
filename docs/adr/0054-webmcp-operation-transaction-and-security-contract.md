@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (contract ratified; the operation layer, the WebMCP controller, and the parity gate it governs are separate changes).** **Amended 2026-08-31:** the body opens on gfx.computer going public, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. Nothing in the operation, transaction, or security contract depends on that: a browser agent authors through `document.modelContext` on whichever origin serves the app, and §7's same-origin, top-level, secure-context registration rule is the same rule on a local origin.
+**Canon (built).** **Amended 2026-08-31:** the body opens on gfx.computer going public, which [ADR-0052](0052-public-runtime-and-retention-architecture.md) descoped that day. Nothing in the operation, transaction, or security contract depends on that: a browser agent authors through `document.modelContext` on whichever origin serves the app. **Amended 2026-09-02:** Chrome 153 is now the minimum WebMCP host; registration and execution cancellation use its separate signals, Chrome annotation hints ship, direct time units and nested runtime objects supplement the storage-native arguments, and one prepared authoring family at a time joins a bounded core tool menu.
 
 Date: 2026-08-28
 
@@ -12,7 +12,7 @@ Builds on: [ADR-0032](0032-gui-agent-parity-authoring.md) (GUI ↔ agent parity 
 
 gfx.computer goes public as a no-account authoring demo where a browser agent is a first-class author. WebMCP is the transport: the page registers tools on `document.modelContext`, and a supported browser's agent calls them.
 
-The measured surface is small. Chrome 152 exposes `registerTool`, `getTools`, `executeTool`, and `ontoolchange`, protocol version 1.3, behind the `WebMCP` Blink feature, with `tools` in the effective Permissions Policy ([`../standard-browser-rendering-probe.md`](../standard-browser-rendering-probe.md)). Everything that makes agent authoring safe or unsafe is ours to decide on top of that.
+The first measured surface was Chrome 152, protocol 1.3 ([`../standard-browser-rendering-probe.md`](../standard-browser-rendering-probe.md)). Chrome 152 coupled registration lifetime and execution cancellation and retained aborted names, so a reversible state change could strand a dynamically removed tool. Chrome 153 fixes that lifecycle: `registerTool(tool, { signal })` removes a registration while each `execute(args, { signal })` receives an independent caller-cancellation signal. GFX requires Chrome 153 for WebMCP; older browsers keep the full GUI and register no tools.
 
 Three tempting shapes have to be rejected before anything is built, because each of them looks like progress and each of them ends somewhere we cannot return from.
 
@@ -32,9 +32,9 @@ One more constraint shapes all of it. This runs in the visitor's browser, on the
 
 An **operation** is one authoring decision — "set the orientation", "add an Overlay", "weld this entrance to that one". Every operation exists once, in [`../../src/lib/platform/webmcp-operation-inventory.ts`](../../src/lib/platform/webmcp-operation-inventory.ts), which records for each row: the family that owns it, the WebMCP tool that exposes it, the composition pointers it may write, the state in which its tool is registered, whether it needs the caller's observed revision, whether it is undoable, whether it is cancellable, the Workspace focus it must move, the **exposure** that says which transports reach it, and the GUI surface that owns the same decision.
 
-That file is machine-readable on purpose. The bidirectional parity gate reads it and rejects a row reachable from only one transport; the WebMCP controller registers exactly its tools; the operation layer implements exactly its rows. A tool with no row has no contract, and a row with no tool is a gap, not a nuance — unless the row itself declares the absence, which is what `exposure` is for (§2).
+That file is machine-readable on purpose. The bidirectional parity gate reads it and rejects a row reachable from fewer transports than its `exposure` promises; the WebMCP controller registers exactly its tools; the operation layer implements exactly its rows. A tool with no row has no contract, and a row with no tool is a gap unless the row declares an intended absence.
 
-Both transports run the same operation. There is no WebMCP-only edit path, no WebMCP-only encoder, and no agent-only branch inside an operation.
+Both authoring transports run the same authoring operation. There is no WebMCP-only edit path, encoder, or authoring branch. The one `agent-context` row, `capability.prepare-authoring-family`, is not authoring: it changes only which tool descriptors the agent reads, never composition, Workspace, focus, history, or GUI state.
 
 ### 2. Fifteen families, each owning its own subtrees
 
@@ -67,7 +67,7 @@ Two boundary calls are worth recording, because both were genuinely ambiguous:
 
 **`verification` is internal-only, by design.** Every family above is reachable over WebMCP except this one. Measuring real pixels — rendering an exact frame, auditing what it reads — serves this project's own render gates, and no authoring decision needs it: an agent repairs a piece from `validation`, which reads the document and costs nothing, and looks at a frame through `playhead`. Registering the rendered-verification operations would instead hand any attached agent a way to drive repeated full-frame render work with no authoring result at the end of it, on a public origin whose export limits are decided elsewhere ([ADR-0052](0052-public-runtime-and-retention-architecture.md)).
 
-The operations still exist, still run in-process, and still name their GUI surface. The narrowing is on the transport only, and it is **recorded rather than inferred**: both rows carry `exposure: 'internal-only'`, so the parity gate reads them as an intended absence and every other row as a promise that a tool exists. "Unexposed on purpose" and "not built yet" have to be distinguishable by a machine, or the gate degrades into an argument. Adding a family or a row to this disposition means editing that field and this paragraph together.
+The operations still exist, still run in-process, and still name their GUI surface. The narrowing is **recorded rather than inferred**: both verification rows carry `exposure: 'internal-only'`, shared authoring carries `agent-tool`, and the transport-only family selector carries `agent-context` with no GUI surface. The parity gate therefore expects GUI-only, GUI-plus-agent, or agent-only reachability exactly as declared. Adding a row to either one-transport disposition means editing that field and this paragraph together.
 
 ### 3. Every edit is a revisioned, atomic transaction
 
@@ -92,16 +92,18 @@ Read-only operations carry no revision requirement and record no history. Destro
 
 Tools are registered against `document.modelContext` by a controller that owns the whole lifecycle:
 
-- **Feature detection first.** No `document.modelContext`, no registration, no console noise.
-- **Dynamic membership.** A tool is registered only in a state where it can succeed. `gfx_layer_remove_overlay` does not exist until an Overlay does; `gfx_composition_undo` does not exist with an empty history. An impossible verb should be absent, not present-and-refusing — that is what stops an agent from planning around a tool it cannot run.
-- **A short cold-page menu.** At most `WEBMCP_ALWAYS_REGISTERED_CEILING` tools are registered before a composition is open. A visitor who has just landed gets "see what this can do" and "make something", not the whole inventory.
-- **AbortSignal owns unregistration.** Registration is scoped to a signal the controller aborts on route change, state change, and teardown. Because the measured API's authority on what is registered is `getTools()`, the lifecycle tests assert against `getTools()` rather than against the controller's own bookkeeping, and an in-flight call whose tool has been unregistered resolves as `cancelled` rather than mutating a composition that has moved on.
-- **Schemas are derived, never restated.** Every enum an agent picks from — Surface, Block, Annotation, Overlay, Effect and transition types, Pack slugs, Starter slugs, sound events, text effects, orientations, rates, formats — is generated from the live registries and the Zod schema. A handwritten list is rejected in review and caught by the schema digest the parity gate records: a registry change that does not move the digest means something was copied.
+- **Feature and version detection first.** No `document.modelContext`, or Chrome earlier than 153, means no registration and no console noise.
+- **Dynamic membership.** A tool is registered only in a state where it can succeed. `gfx_layer_remove_overlay` does not exist until an Overlay does; `gfx_composition_undo` exists only while history holds an edit to replay.
+- **Progressive family disclosure.** `capability`, `composition`, `session`, `playhead`, `validation`, and `delivery` form the core menu. `transport`, `layer`, `content`, `placement`, `appearance`, `motion`, `sound`, and `media` are on-demand. `gfx_capability_prepare_family` selects one on-demand family; its currently usable tools join the core and replace the previous family. This is agent context management, not a GUI gesture or authoring decision.
+- **Three hard ceilings.** A cold page stays within `WEBMCP_ALWAYS_REGISTERED_CEILING`; an open core stays within `WEBMCP_CORE_REGISTERED_CEILING`; core plus one family stays within `WEBMCP_DISCLOSED_REGISTERED_CEILING`. The controller rejects an overrun instead of truncating the menu.
+- **Chrome 153 signal separation.** Registration uses the second `registerTool` argument. Execution receives Chrome's independent signal. Cancellable GFX operations combine caller cancellation with registration lifetime, so user cancellation, route changes, and teardown stop long work. Aborting a registration does not rely on cancelling an in-flight execution.
+- **Schemas are derived, never restated.** Every closed enum is generated from live registries and Zod. Runtime-variant objects stay open in the WebMCP schema and validate strictly in their owning operation. Existing JSON-text and storage-native numeric forms remain accepted; direct nested objects, seconds, milliseconds, frames, and editor timecode let the operation do deterministic conversion instead of asking the agent to calculate it.
 
 ### 6. Budgets, because tool text is context
 
 - Tool names: `gfx_<family>_<operation>`, lower snake case, at most `WEBMCP_TOOL_NAME_MAX_LENGTH` characters.
 - Descriptions: at most `WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH` characters, saying what the operation decides and what it costs — never how to click anything.
+- Active descriptors: at most the applicable cold, core-open, or one-family ceiling from §5.
 - Results: at most `WEBMCP_RESULT_CHARACTER_BUDGET` characters. Lists are bounded and report their true total and whether they were truncated.
 - The single exception is `gfx_composition_export_json`, capped at `WEBMCP_WHOLE_DOCUMENT_CHARACTER_BUDGET`. `gfx_composition_inspect` returns structure — ids, kinds, order, counts, revision — not the document body, so the ordinary "what am I working on" call stays cheap.
 
@@ -111,7 +113,7 @@ Tools are registered against `document.modelContext` by a controller that owns t
 - **No tool fetches a URL the caller supplies.** There is no agent-reachable request to an arbitrary address. The site-capture surface stays development-only, as [ADR-0053](0053-gfx-namespace-and-legacy-supers-compatibility.md) classifies it.
 - **No tool opens a file picker, and no tool reads the disk.** `gfx_media_add_library_entry` accepts a bundled demo asset or a handle the visitor has already granted this page through their own gesture. An agent may ask the person to grant one; it may not grant it for them. A missing grant returns `consent_required`.
 - **Export waits for the real outcome.** `gfx_delivery_export_video` returns a receipt only after the browser download actually completes. A cancelled or failed export returns `cancelled` or `export_failed` — never a success receipt for a file that does not exist.
-- **Composition content is untrusted.** Text, captured document bodies, media filenames, validation finding messages, and rendered readable-text audits are the visitor's content, not instructions. Results that carry it annotate it as untrusted so a model reading a receipt does not treat a caption as a command.
+- **Composition content is untrusted.** Text, captured document bodies, media filenames, validation finding messages, and rendered readable-text audits are the visitor's content, not instructions. Results still label it explicitly, and every registered descriptor also carries Chrome's `readOnlyHint` and `untrustedContentHint` derived from its operation row before the agent chooses it.
 - **Nothing leaves the browser.** Composition JSON is never sent to the origin, never logged, and never attached to telemetry. The Export session receives rendered frames only, and destroys itself ([ADR-0052](0052-public-runtime-and-retention-architecture.md)).
 - **Failures are corrective.** Every failure names one code from `WEBMCP_OPERATION_ERROR_CODES`, the exact target it rejected, and the valid alternatives. `unsupported_variant` says which variants exist. `stale_revision` says which revision is current. "Invalid input" on its own is a defect.
 
@@ -127,15 +129,15 @@ Tools are registered against `document.modelContext` by a controller that owns t
 - **A generic patch tool over the Zod schema.** Total coverage in one tool, and no preconditions, no ownership, no undo labels, no corrective errors, no way to hide an impossible verb. Rejected in §Context; the inventory exists so that coverage does not have to mean genericity.
 - **UI-actuation tools.** Rejected as not-authoring: coupled to layout, unable to describe its own effect, and permanently behind the GUI.
 - **A separate agent edit history.** Simpler to implement and it makes "undo the last thing" ambiguous for both authors. Rejected for one shared stack.
-- **Registering the whole inventory at all times.** Simplest lifecycle, worst agent behavior: a cold page would offer dozens of verbs that cannot run, and an agent would plan around them. Rejected for state-aware registration plus the cold-page ceiling.
+- **Registering the whole inventory at all times.** Simplest lifecycle, worst agent behavior: an open composition would expose dozens of individually correct tools at once. Rejected for state-aware registration plus a bounded core and one explicitly prepared authoring family.
 - **An export progress-polling tool.** Invites a busy loop and gives an agent a second way to ask about work it already started. Rejected: one call, one AbortSignal, one receipt.
 - **Family-per-inspector-panel.** Would have made the boundaries obvious to whoever wrote the panels and meaningless to an agent, and it would break the moment the GUI reorganizes. Rejected for ownership by composition subtree.
 
 ## Consequences
 
 - Implementation stops re-deciding. The operation layer, the WebMCP controller, the tool registrations, the agent evals, and the parity gate all read one inventory; a change to the authoring surface is a change to that file plus its two implementations.
-- The parity gate becomes mechanical. Every row names its transports, so "GUI-only" and "agent-only" are detectable rather than argued, and the one deliberate exception is a declared value rather than a missing tool. It runs as [`../../scripts/audit-webmcp-operation-parity.ts`](../../scripts/audit-webmcp-operation-parity.ts) (`pnpm audit:webmcp-parity`), which resolves each row against the tool set `listWebmcpToolDefinitions()` actually registers, the operation module that claims it, and whether a route still reaches its GUI surface — then records the schema, registry, and tool digests for release acceptance. The same resolution runs under `pnpm test` in [`../../src/lib/platform/webmcp-operation-parity.test.ts`](../../src/lib/platform/webmcp-operation-parity.test.ts).
-- Adding a capability now costs a row. That is deliberate: an operation without an owning family, a precondition, and a GUI path is not finished.
+- The parity gate becomes mechanical. Shared authoring promises GUI plus agent, verification promises GUI only, and context control promises agent only. It runs as [`../../scripts/audit-webmcp-operation-parity.ts`](../../scripts/audit-webmcp-operation-parity.ts) (`pnpm audit:webmcp-parity`) and records schema, registry, and tool digests for release acceptance.
+- Adding an authoring capability still costs a row with an owning family, precondition, operation, and GUI path. Agent context control is explicitly non-authoring and gets no GUI path.
 - Non-overlap is testable. Family pointer ownership is checked in [`../../src/lib/platform/webmcp-operation-inventory.test.ts`](../../src/lib/platform/webmcp-operation-inventory.test.ts), so a new operation cannot quietly reach into another family's subtree.
-- The registered tool set changes as the composition changes. `ontoolchange` fires more often than a static registration would, and an agent that caches a tool list will occasionally call a tool that has just been unregistered — which is why in-flight calls resolve as `cancelled` instead of applying.
+- The registered tool set changes with composition state and the prepared family. Chrome 153 can remove and later re-register the same name. Cancellable calls stop on caller cancellation or expired registration; quick atomic calls finish truthfully.
 - Two things stay outside this contract on purpose: how the standard-browser fallback renders frames, and what the public origin's export limits are. Both are decided elsewhere ([ADR-0052](0052-public-runtime-and-retention-architecture.md) and the browser-rendering lane) and surface here only through `gfx_capability_inspect_limits` and the corrective codes.

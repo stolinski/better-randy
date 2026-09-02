@@ -27,15 +27,18 @@ import {
 } from './composition-media-operations';
 import {
 	readWebmcpLiteralArgument,
-	readWebmcpNumberArgument,
 	readWebmcpObservedRevisionArgument,
-	readWebmcpOptionalNumberArgument,
+	readWebmcpOptionalTimeDurationArgument,
+	readWebmcpOptionalTimePositionArgument,
 	readWebmcpRecordArgument,
 	readWebmcpStringArgument,
+	readWebmcpTimePositionArgument,
 	runWebmcpToolOperation
 } from './webmcp-tool-arguments';
 import {
 	webmcpEntityIdProperty,
+	webmcpFrameDurationProperty,
+	webmcpFrameTimeProperty,
 	webmcpObservedRevisionProperty,
 	WEBMCP_NO_ARGUMENTS_SCHEMA
 } from './webmcp-derived-tool-schemas';
@@ -45,7 +48,7 @@ import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
 
 function timelineFrameProperty(description: string): WebmcpSchemaProperty {
-	return { type: 'integer', description, minimum: 0 };
+	return webmcpFrameTimeProperty(description);
 }
 
 /**
@@ -84,11 +87,14 @@ function readVideoClipEdit(args: unknown): CompositionVideoClipEdit {
 	switch (kind) {
 		case 'move':
 		case 'trim-start':
-			return { kind, timelineStartFrame: readWebmcpNumberArgument(edit, 'timelineStartFrame') };
+			return {
+				kind,
+				timelineStartFrame: readWebmcpTimePositionArgument(edit, 'timelineStartFrame')
+			};
 		case 'trim-end':
-			return { kind, timelineEndFrame: readWebmcpNumberArgument(edit, 'timelineEndFrame') };
+			return { kind, timelineEndFrame: readWebmcpTimePositionArgument(edit, 'timelineEndFrame') };
 		case 'slip':
-			return { kind, sourceStartFrame: readWebmcpNumberArgument(edit, 'sourceStartFrame') };
+			return { kind, sourceStartFrame: readWebmcpTimePositionArgument(edit, 'sourceStartFrame') };
 	}
 }
 
@@ -148,12 +154,9 @@ export function listWebmcpMediaToolDefinitions(): readonly WebmcpToolDefinition[
 					expectedRevision: webmcpObservedRevisionProperty(),
 					assetId: webmcpEntityIdProperty('The Media library entry to cut from.'),
 					timelineStartFrame: timelineFrameProperty('The frame the clip starts on.'),
-					durationFrames: {
-						type: 'integer',
-						description:
-							'Whole frames of source to cut. Omit it to take as much as legally fits before the next clip or the end.',
-						minimum: 1
-					},
+					durationFrames: webmcpFrameDurationProperty(
+						'How long to cut, as legacy whole frames, seconds, milliseconds, or frames. Omit it to take as much as legally fits.'
+					),
 					sourceStartFrame: timelineFrameProperty(
 						'Where the cut starts inside the source. Omit it to start at the head.'
 					)
@@ -166,9 +169,9 @@ export function listWebmcpMediaToolDefinitions(): readonly WebmcpToolDefinition[
 					runAddCompositionVideoClipOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						assetId: readWebmcpStringArgument(args, 'assetId'),
-						timelineStartFrame: readWebmcpNumberArgument(args, 'timelineStartFrame'),
-						durationFrames: readWebmcpOptionalNumberArgument(args, 'durationFrames'),
-						sourceStartFrame: readWebmcpOptionalNumberArgument(args, 'sourceStartFrame')
+						timelineStartFrame: readWebmcpTimePositionArgument(args, 'timelineStartFrame'),
+						durationFrames: readWebmcpOptionalTimeDurationArgument(args, 'durationFrames'),
+						sourceStartFrame: readWebmcpOptionalTimePositionArgument(args, 'sourceStartFrame')
 					})
 				)
 		},

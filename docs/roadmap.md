@@ -59,7 +59,9 @@ The capability and core parity arcs are complete. Dex carries executable edges. 
 
 12. 🔨 **3D Canvas Upgrade** — active since 2026-09-01 (epic `sh9b6qxd`; [ADR-0057](adr/0057-filmed-canvas-camera-pose-and-posed-planes.md) orders [ADR-0051](adr/0051-pipeline-defined-dimensional-stage-geometry.md)): **phase 1 shipped 2026-09-02** — the depth Stage has a real camera pose, posed Overlay planes, a depth-tested plane-basis compositor, and a filmed framing for captured pages, proven by `website-filmed` and approved on gfx-review; phase 2 lands Pipeline-defined TypeGPU geometry through that camera. See § Designed, not built for the full arc.
 
-13. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
+13. 🔨 **Chrome 153 WebMCP context alignment** — active (epic `12g0sphz`; [ADR-0054](adr/0054-webmcp-operation-transaction-and-security-contract.md) amendment): require Chrome 153's separate registration and execution signals, keep a bounded core tool menu plus one prepared authoring family, add standard read-only/untrusted-content hints, and accept nested runtime objects plus direct human time units without breaking storage-native callers.
+
+14. **Pull production and research work by demand** — Resolve follow-ups, rubric research, Critic research, optional diagram polish, and rendering residuals remain valid but do not interrupt the ordered product runway.
 
 At an epic boundary that lane still stops for the human as required by the execution loop; other independent epic lanes may continue. A task that is advisory, speculative, or waiting on a design ruling must not remain an unblocked priority-1 leaf.
 

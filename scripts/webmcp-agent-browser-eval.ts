@@ -1,14 +1,14 @@
 // Drive the real WebMCP transport in a real browser and prove an agent gets the
 // surface ADR-0054 promises: a short cold-page menu of tools that all exist in
 // the operation inventory, a vocabulary read that comes from the live registries,
-// state-aware growth as a composition is created, corrective refusals on a stale
-// revision, untrusted-content annotation on the document body, and no tool at all
-// for the operations the inventory keeps internal.
+// state-aware growth as a composition is created, Chrome 153 family disclosure
+// with reversible registration, corrective stale-revision refusals, annotation
+// hints plus untrusted result labeling, and no internal verification tool.
 //
 // This is a deterministic script on the sanctioned CDP harness — one invocation,
-// no interactive tooling. It needs a server already answering for this build and
-// starts (or reuses) Chrome in the combined `agent` mode (CanvasDrawElement +
-// WebMCP, the default local agent mode since qju2qity): tools register only
+// no interactive tooling. It needs Chrome 153 or newer and a server already
+// answering for this build, then starts (or reuses) the combined `agent` mode
+// (CanvasDrawElement + WebMCP): tools register only
 // where the real renderer runs, so this is the one harness that offers them:
 //
 //   pnpm eval:webmcp                                   # the dev server on :7263
@@ -28,8 +28,13 @@ import { spawnSync } from 'node:child_process';
 import { format, resolveConfig } from 'prettier';
 
 import {
+	readWebmcpOperationAnnotations,
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
+	WEBMCP_DISCLOSED_REGISTERED_CEILING,
 	WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS,
+	WEBMCP_MINIMUM_CHROME_MAJOR_VERSION,
+	WEBMCP_ON_DEMAND_FAMILY_NAMES,
 	WEBMCP_OPERATION_INVENTORY,
 	WEBMCP_RESULT_CHARACTER_BUDGET,
 	WEBMCP_TOOL_DESCRIPTION_MAX_LENGTH,
@@ -40,7 +45,10 @@ import type { WebmcpOperationRow } from '../src/lib/platform/webmcp-operation-in
 import { hashWebmcpToolSchemaSurface } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
 import type { WebmcpRegisteredToolDescriptor } from '../src/lib/platform/webmcp-tool-schema-digest.ts';
 
-const COMBINED_AGENT_PORT = 9229;
+const COMBINED_AGENT_PORT = Number(process.env.GFX_WEBMCP_CDP_PORT ?? 9229);
+if (!Number.isSafeInteger(COMBINED_AGENT_PORT) || COMBINED_AGENT_PORT < 1) {
+	throw new TypeError('GFX_WEBMCP_CDP_PORT must be a positive integer.');
+}
 const PAGE_ORIGIN = process.env.GFX_EVAL_ORIGIN ?? 'http://localhost:7263';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const evidencePath = resolve(
@@ -51,7 +59,9 @@ const evidencePath = resolve(
 const REGISTRATION_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 250;
 
-const AGENT_TOOL_ROWS = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-tool');
+const AGENT_TOOL_ROWS = WEBMCP_OPERATION_INVENTORY.filter(
+	(row) => row.exposure !== 'internal-only'
+);
 const INTERNAL_ONLY_ROWS = WEBMCP_OPERATION_INVENTORY.filter(
 	(row) => row.exposure === 'internal-only'
 );
@@ -71,12 +81,11 @@ const ALWAYS_REGISTERED_TOOL_NAMES = new Set(
 	AGENT_TOOL_ROWS.filter((row) => row.precondition === 'always').map((row) => row.toolName)
 );
 
-/** The operations this eval goes on to look for once a composition is open. */
+/** Core operations this eval looks for before an authoring family is prepared. */
 const OPEN_COMPOSITION_OPERATION_IDS: readonly string[] = [
+	'capability.prepare-authoring-family',
 	'composition.inspect',
 	'composition.export-json',
-	'transport.set-orientation',
-	'layer.add-overlay',
 	'validation.inspect-findings',
 	'delivery.export-video'
 ];
@@ -211,6 +220,10 @@ async function readRegisteredTools(page: CdpPage): Promise<WebmcpRegisteredToolD
 		return tools.map((tool) => ({
 			name: tool.name,
 			description: tool.description,
+			annotations: {
+				readOnlyHint: tool.annotations?.readOnlyHint === true,
+				untrustedContentHint: tool.annotations?.untrustedContentHint === true
+			},
 			inputSchema: typeof tool.inputSchema === 'string'
 				? tool.inputSchema
 				: JSON.stringify(tool.inputSchema)
@@ -254,7 +267,7 @@ async function awaitRegistration(
 /**
  * Call one registered tool the way an attached agent does: pick it out of
  * `getTools()` and hand `executeTool` the tool and its arguments as JSON text —
- * the shape the measured Chrome 152 surface accepts.
+ * the Chrome 153 manual-execution shape.
  */
 async function callTool(
 	page: CdpPage,
@@ -346,10 +359,20 @@ runCommand('scripts/launch-cdp-chrome.sh', [], {
 });
 
 const page = await openCdpPage(COMBINED_AGENT_PORT);
+const browserVersion = (await (
+	await fetch(`http://localhost:${COMBINED_AGENT_PORT}/json/version`)
+).json()) as { Browser?: unknown };
+const chromeMajor = Number(/^Chrome\/(\d+)/.exec(String(browserVersion.Browser))?.[1]);
+if (!Number.isSafeInteger(chromeMajor) || chromeMajor < WEBMCP_MINIMUM_CHROME_MAJOR_VERSION) {
+	await page.close();
+	throw new Error(
+		`WebMCP evaluation requires Chrome ${WEBMCP_MINIMUM_CHROME_MAJOR_VERSION} or newer; the harness is ${String(browserVersion.Browser)}.`
+	);
+}
 await page.send('Page.navigate', { url: `${PAGE_ORIGIN}/` });
 const coldPageTools = await awaitRegistration(page, ALWAYS_REGISTERED_TOOL_NAMES);
-
 const harness = await readHarnessCapabilities(page);
+
 check(harness.modelContext === true, 'the CDP session does not expose document.modelContext');
 check(
 	harness.canvasDrawElement === true,
@@ -371,6 +394,11 @@ for (const tool of coldPageTools) {
 	check(
 		tool.description === row?.summary,
 		`${tool.name} is described with text the inventory row does not carry`
+	);
+	check(
+		row !== undefined &&
+			JSON.stringify(tool.annotations) === JSON.stringify(readWebmcpOperationAnnotations(row)),
+		`${tool.name} is missing its read-only or untrusted-content annotation`
 	);
 	check(
 		tool.name.length <= WEBMCP_TOOL_NAME_MAX_LENGTH,
@@ -416,11 +444,24 @@ const openPageTools = await awaitRegistration(
 	new Set(OPEN_COMPOSITION_OPERATION_IDS.map(toolNameFor))
 );
 const openPageToolNames = new Set(openPageTools.map((tool) => tool.name));
+const observedTools = new Map(openPageTools.map((tool) => [tool.name, tool] as const));
 for (const operationId of OPEN_COMPOSITION_OPERATION_IDS) {
 	check(
 		openPageToolNames.has(toolNameFor(operationId)),
 		`${operationId} did not appear once a composition was open`
 	);
+}
+check(
+	openPageTools.length <= WEBMCP_CORE_REGISTERED_CEILING,
+	`the open core registered ${openPageTools.length} tools, past its ${WEBMCP_CORE_REGISTERED_CEILING}-tool ceiling`
+);
+for (const family of WEBMCP_ON_DEMAND_FAMILY_NAMES) {
+	for (const row of AGENT_TOOL_ROWS.filter((entry) => entry.family === family)) {
+		check(
+			!openPageToolNames.has(row.toolName),
+			`${row.toolName} appeared before ${family} was prepared`
+		);
+	}
 }
 for (const row of INTERNAL_ONLY_ROWS) {
 	check(
@@ -429,11 +470,31 @@ for (const row of INTERNAL_ONLY_ROWS) {
 	);
 }
 for (const tool of openPageTools) {
+	const row = ROWS_BY_TOOL_NAME.get(tool.name);
 	check(
-		ROWS_BY_TOOL_NAME.get(tool.name)?.exposure === 'agent-tool',
-		`${tool.name} is registered without an agent-tool inventory row`
+		row !== undefined && row.exposure !== 'internal-only',
+		`${tool.name} is registered without an agent-reachable inventory row`
+	);
+	check(
+		row !== undefined &&
+			JSON.stringify(tool.annotations) === JSON.stringify(readWebmcpOperationAnnotations(row)),
+		`${tool.name} is missing its read-only or untrusted-content annotation`
 	);
 }
+
+const prepareTransport = await callTool(page, toolNameFor('capability.prepare-authoring-family'), {
+	family: 'transport'
+});
+check(!prepareTransport.isError, 'preparing the transport family refused');
+const transportTools = await awaitRegistration(
+	page,
+	new Set([toolNameFor('transport.set-orientation')])
+);
+for (const tool of transportTools) observedTools.set(tool.name, tool);
+check(
+	transportTools.length <= WEBMCP_DISCLOSED_REGISTERED_CEILING,
+	`the transport family produced ${transportTools.length} active tools, past the ${WEBMCP_DISCLOSED_REGISTERED_CEILING}-tool ceiling`
+);
 
 // The revision contract, over the real transport.
 const inspected = await callTool(page, toolNameFor('composition.inspect'), {});
@@ -471,12 +532,72 @@ check(
 	'the applied edit is not visible in the next inspection'
 );
 
+const preparedLayer = await callTool(page, toolNameFor('capability.prepare-authoring-family'), {
+	family: 'layer'
+});
+check(!preparedLayer.isError, 'preparing the layer family refused');
+const layerTools = await awaitRegistration(page, new Set([toolNameFor('layer.add-overlay')]));
+for (const tool of layerTools) observedTools.set(tool.name, tool);
+check(
+	!layerTools.some((tool) => tool.name === toolNameFor('transport.set-orientation')),
+	'the transport family stayed in context after the layer family replaced it'
+);
+const addedOverlay = await callTool(page, toolNameFor('layer.add-overlay'), {
+	expectedRevision: Number(applied.payload.revision),
+	overlayType: 'lower-third'
+});
+check(!addedOverlay.isError, 'adding an Overlay through the prepared layer family refused');
+const overlayIdValue = (addedOverlay.payload.focus as { overlayId?: unknown } | undefined)
+	?.overlayId;
+const overlayId = typeof overlayIdValue === 'string' ? overlayIdValue : '';
+check(overlayId.length > 0, 'the Overlay receipt named no id');
+
+const preparedContent = await callTool(page, toolNameFor('capability.prepare-authoring-family'), {
+	family: 'content'
+});
+check(!preparedContent.isError, 'preparing the content family refused');
+const contentTools = await awaitRegistration(
+	page,
+	new Set([toolNameFor('content.set-overlay-content')])
+);
+for (const tool of contentTools) observedTools.set(tool.name, tool);
+const wroteContent = await callTool(page, toolNameFor('content.set-overlay-content'), {
+	expectedRevision: Number(addedOverlay.payload.revision),
+	overlayId,
+	content: { title: 'Chrome 153', subtitle: 'WebMCP family disclosure' }
+});
+check(!wroteContent.isError, 'writing a nested Overlay content object refused');
+
+const preparedTransportAgain = await callTool(
+	page,
+	toolNameFor('capability.prepare-authoring-family'),
+	{ family: 'transport' }
+);
+check(!preparedTransportAgain.isError, 'preparing the transport family a second time refused');
+const transportToolsAgain = await awaitRegistration(
+	page,
+	new Set([toolNameFor('transport.set-orientation')])
+);
+for (const tool of transportToolsAgain) observedTools.set(tool.name, tool);
+check(
+	transportToolsAgain.some((tool) => tool.name === toolNameFor('transport.set-orientation')),
+	'a family tool did not re-register after another family replaced it'
+);
+
 const exported = await callTool(page, toolNameFor('composition.export-json'), {});
 check(!exported.isError, 'exporting the composition JSON refused');
 check(
 	exported.payload.contentTrust === 'untrusted',
 	'the whole-document read does not annotate the composition body as untrusted'
 );
+for (const tool of observedTools.values()) {
+	const row = ROWS_BY_TOOL_NAME.get(tool.name);
+	check(
+		row !== undefined &&
+			JSON.stringify(tool.annotations) === JSON.stringify(readWebmcpOperationAnnotations(row)),
+		`${tool.name} is missing its Chrome annotation hints`
+	);
+}
 
 const framed = await readFramedRegistration(page);
 check(
@@ -514,10 +635,13 @@ const evidence = {
 	// The schemas an agent was actually offered, not the ones the inventory says
 	// it should have been. A build that renamed one argument is a different
 	// authoring surface, and receipts taken against the older one are stale.
-	toolSchemaDigest: await hashWebmcpToolSchemaSurface(openPageTools),
+	toolSchemaDigest: await hashWebmcpToolSchemaSurface([...observedTools.values()]),
 	inventory: {
 		rows: WEBMCP_OPERATION_INVENTORY.length,
 		agentTools: AGENT_TOOL_ROWS.length,
+		agentContext: WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure === 'agent-context').map(
+			(row) => row.id
+		),
 		internalOnly: INTERNAL_ONLY_ROWS.map((row) => row.id)
 	},
 	coldPage: {
@@ -526,16 +650,28 @@ const evidence = {
 	},
 	openComposition: {
 		slug: openSlug,
-		registered: [...openPageToolNames].sort(),
+		coreRegistered: [...openPageToolNames].sort(),
+		coreCeiling: WEBMCP_CORE_REGISTERED_CEILING,
+		disclosedCeiling: WEBMCP_DISCLOSED_REGISTERED_CEILING,
+		familyRegisteredCounts: {
+			transport: transportTools.length,
+			layer: layerTools.length,
+			content: contentTools.length,
+			transportAgain: transportToolsAgain.length
+		},
 		verificationToolsRegistered: INTERNAL_ONLY_ROWS.filter((row) =>
-			openPageToolNames.has(row.toolName)
+			observedTools.has(row.toolName)
 		).map((row) => row.toolName)
 	},
 	calls: {
 		vocabularyMembers: vocabulary.payload.members,
 		staleWriteCode: stale.payload.code,
 		appliedRevision: applied.payload.revision,
-		exportedCharacterCount: exported.payload.characterCount,
+		nestedContentRevision: wroteContent.payload.revision,
+		reversibleFamilyRegistration: transportToolsAgain.some(
+			(tool) => tool.name === toolNameFor('transport.set-orientation')
+		),
+		exportedCharacterCount: exported.characterCount,
 		contentTrust: {
 			inspect: inspected.payload.contentTrust,
 			exportJson: exported.payload.contentTrust
@@ -559,6 +695,6 @@ if (failures.length > 0) {
 	process.exitCode = 1;
 } else {
 	console.log(
-		`WebMCP agent eval passed: ${coldPageTools.length} cold-page tools, ${openPageToolNames.size} with a composition open, ${INTERNAL_ONLY_ROWS.length} internal-only rows unexposed.`
+		`WebMCP agent eval passed: ${coldPageTools.length} cold-page tools, ${openPageToolNames.size} in the open core, reversible family disclosure, ${INTERNAL_ONLY_ROWS.length} internal-only rows unexposed.`
 	);
 }

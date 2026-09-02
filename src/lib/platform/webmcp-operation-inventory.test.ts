@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
+	readWebmcpOperationAnnotations,
 	WEBMCP_ALWAYS_REGISTERED_CEILING,
+	WEBMCP_CORE_REGISTERED_CEILING,
+	WEBMCP_DISCLOSED_REGISTERED_CEILING,
 	WEBMCP_FORBIDDEN_TOOL_NAME_FRAGMENTS,
 	WEBMCP_OPERATION_ERROR_CODES,
 	WEBMCP_OPERATION_FAMILIES,
@@ -82,6 +85,28 @@ describe('WebMCP operation families', () => {
 			const rows = WEBMCP_OPERATION_INVENTORY.filter((row) => row.family === family.name);
 			expect(rows.length, `${family.name} has no operations`).toBeGreaterThan(0);
 		}
+	});
+
+	it('keeps authored families on demand and support families in the core menu', () => {
+		expect(
+			WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'on-demand').map(
+				(family) => family.name
+			)
+		).toEqual([
+			'transport',
+			'layer',
+			'content',
+			'placement',
+			'appearance',
+			'motion',
+			'sound',
+			'media'
+		]);
+		expect(
+			WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'internal').map(
+				(family) => family.name
+			)
+		).toEqual(['verification']);
 	});
 });
 
@@ -182,9 +207,25 @@ describe('WebMCP operation inventory', () => {
 		}
 	});
 
-	it('keeps the cold-page tool list short', () => {
-		const always = WEBMCP_OPERATION_INVENTORY.filter((row) => row.precondition === 'always');
-		expect(always.length).toBeLessThanOrEqual(WEBMCP_ALWAYS_REGISTERED_CEILING);
+	it('keeps every disclosure state inside its tool-count budget', () => {
+		const agentRows = WEBMCP_OPERATION_INVENTORY.filter((row) => row.exposure !== 'internal-only');
+		const cold = agentRows.filter((row) => row.precondition === 'always');
+		const core = agentRows.filter(
+			(row) =>
+				WEBMCP_OPERATION_FAMILIES.find((family) => family.name === row.family)?.disclosure ===
+				'core'
+		);
+		const largestOnDemandFamily = Math.max(
+			...WEBMCP_OPERATION_FAMILIES.filter((family) => family.disclosure === 'on-demand').map(
+				(family) => agentRows.filter((row) => row.family === family.name).length
+			)
+		);
+
+		expect(cold.length).toBeLessThanOrEqual(WEBMCP_ALWAYS_REGISTERED_CEILING);
+		expect(core.length).toBeLessThanOrEqual(WEBMCP_CORE_REGISTERED_CEILING);
+		expect(core.length + largestOnDemandFamily).toBeLessThanOrEqual(
+			WEBMCP_DISCLOSED_REGISTERED_CEILING
+		);
 	});
 
 	it('uses every declared precondition at least once', () => {
@@ -233,23 +274,58 @@ describe('WebMCP operation inventory', () => {
 		// An unexposed row is still a decision a person can make, so it still names
 		// its GUI surface — the disposition narrows the transport, not the parity.
 		for (const row of internal) {
-			expect(row.guiSurface.length, `${row.id} names no GUI surface`).toBeGreaterThan(0);
+			expect(row.guiSurface?.length, `${row.id} names no GUI surface`).toBeGreaterThan(0);
 		}
 	});
 
-	it('anchors every row to a GUI surface that exists', () => {
-		for (const row of WEBMCP_OPERATION_INVENTORY) {
+	it('keeps agent context control outside authored GUI parity', () => {
+		const contextRows = WEBMCP_OPERATION_INVENTORY.filter(
+			(row) => row.exposure === 'agent-context'
+		);
+		expect(contextRows.map((row) => row.id)).toEqual(['capability.prepare-authoring-family']);
+		for (const row of contextRows) {
+			expect(row.effect).toBe('context');
+			expect(row.guiSurface).toBeNull();
+			expect(row.writes).toEqual([]);
+			expect(row.focus).toEqual([]);
+		}
+	});
+
+	it('anchors every authored row to a GUI surface that exists', () => {
+		for (const row of WEBMCP_OPERATION_INVENTORY.filter(
+			(entry) => entry.exposure !== 'agent-context'
+		)) {
+			expect(row.guiSurface).not.toBeNull();
 			expect(
-				existsSync(resolve(repoRoot, row.guiSurface)),
+				existsSync(resolve(repoRoot, row.guiSurface ?? '')),
 				`${row.id} names a missing GUI surface: ${row.guiSurface}`
 			).toBe(true);
 		}
+	});
+
+	it('derives Chrome annotation hints from operation effects and content trust', () => {
+		const limits = WEBMCP_OPERATION_INVENTORY.find((row) => row.id === 'capability.inspect-limits');
+		const inspect = WEBMCP_OPERATION_INVENTORY.find((row) => row.id === 'composition.inspect');
+		const write = WEBMCP_OPERATION_INVENTORY.find((row) => row.id === 'transport.set-orientation');
+		expect(limits && readWebmcpOperationAnnotations(limits)).toEqual({
+			readOnlyHint: true,
+			untrustedContentHint: false
+		});
+		expect(inspect && readWebmcpOperationAnnotations(inspect)).toEqual({
+			readOnlyHint: true,
+			untrustedContentHint: true
+		});
+		expect(write && readWebmcpOperationAnnotations(write)).toEqual({
+			readOnlyHint: false,
+			untrustedContentHint: true
+		});
 	});
 
 	it('covers the full create-to-export arc', () => {
 		const ids = new Set(WEBMCP_OPERATION_INVENTORY.map((row) => row.id));
 		for (const id of [
 			'capability.inspect-vocabulary',
+			'capability.prepare-authoring-family',
 			'composition.create-blank',
 			'composition.create-from-starter',
 			'composition.inspect',

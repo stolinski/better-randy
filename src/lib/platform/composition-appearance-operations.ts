@@ -32,6 +32,10 @@ import {
 	type AnnotationMarkStyle
 } from '../annotations/annotation-mark-styles';
 import { compositionEditHistory } from './composition-edit-history';
+import {
+	isCompositionTimeDuration,
+	resolveCompositionFractionTime
+} from './composition-time-input';
 import { describeCompositionSchemaFindings } from './composition-validation-findings';
 import { packState } from './engine-state.svelte';
 import {
@@ -41,6 +45,7 @@ import {
 	type FontFamily,
 	type MarkAppearance,
 	type MarksState,
+	type Preset,
 	type Stage
 } from './engine-schema';
 import { getPack, listRuntimeUserPacks, PACK_REGISTRY } from './packs/registry';
@@ -463,6 +468,24 @@ export async function runSetCompositionEffectParamsOperation(
 	});
 }
 
+function normalizeStageTimeInputs(stage: unknown, document: Preset): unknown {
+	if (!isRecord(stage)) return stage;
+	const normalized = structuredClone(stage);
+	if (!isRecord(normalized.focus) || !isRecord(normalized.focus.pull)) return normalized;
+	const pull = normalized.focus.pull;
+	const grid = {
+		durationSeconds: document.state.transport.durationSeconds,
+		fps: document.state.transport.fps
+	};
+	if (isCompositionTimeDuration(pull.start)) {
+		pull.start = resolveCompositionFractionTime(pull.start, grid);
+	}
+	if (isCompositionTimeDuration(pull.duration)) {
+		pull.duration = resolveCompositionFractionTime(pull.duration, grid);
+	}
+	return normalized;
+}
+
 /**
  * Declare or remove the dimensional stage: the camera move, the focal plane and
  * its aperture, and the backdrop the far plane carries.
@@ -483,8 +506,9 @@ export async function runSetCompositionStageOperation(
 	if (refusal) return refusal;
 
 	const revision = compositionEditHistory.revision;
+	const document = readOpenCompositionDocument();
 	if (request.stage === null || request.stage === undefined) {
-		if (!readOpenCompositionDocument().state.stage) {
+		if (!document.state.stage) {
 			return refuseCompositionOperation(
 				row,
 				revision,
@@ -503,7 +527,7 @@ export async function runSetCompositionStageOperation(
 		});
 	}
 
-	const parsed = StageSchema.safeParse(request.stage);
+	const parsed = StageSchema.safeParse(normalizeStageTimeInputs(request.stage, document));
 	if (!parsed.success) {
 		return refuseCompositionOperation(
 			row,
@@ -525,7 +549,7 @@ export async function runSetCompositionStageOperation(
 		);
 	}
 
-	if (readOpenCompositionDocument().state.media.videoTrack.clips.length > 0) {
+	if (document.state.media.videoTrack.clips.length > 0) {
 		return refuseCompositionOperation(
 			row,
 			revision,

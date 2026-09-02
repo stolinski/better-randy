@@ -9,12 +9,14 @@ const SURFACE: readonly WebmcpRegisteredToolDescriptor[] = [
 	{
 		name: 'gfx_layer_add_overlay',
 		description: 'Add an Overlay to the open composition.',
+		annotations: { readOnlyHint: false, untrustedContentHint: true },
 		inputSchema:
 			'{"type":"object","properties":{"type":{"type":"string"},"expectedRevision":{"type":"number"}}}'
 	},
 	{
 		name: 'gfx_composition_inspect',
 		description: 'Read the open composition.',
+		annotations: { readOnlyHint: true, untrustedContentHint: true },
 		inputSchema: '{"type":"object","properties":{}}'
 	}
 ];
@@ -55,11 +57,19 @@ describe('hashWebmcpToolSchemaSurface', () => {
 		);
 	});
 
-	it('reports a changed description as a different surface', async () => {
+	it('reports changed text or annotations as a different surface', async () => {
 		const rewritten = [{ ...SURFACE[0], description: 'Add a Layer.' }, SURFACE[1]];
+		const reclassified = [
+			{ ...SURFACE[0], annotations: { ...SURFACE[0].annotations, readOnlyHint: true } },
+			SURFACE[1]
+		];
 		assert.notEqual(
 			await hashWebmcpToolSchemaSurface(SURFACE),
 			await hashWebmcpToolSchemaSurface(rewritten)
+		);
+		assert.notEqual(
+			await hashWebmcpToolSchemaSurface(SURFACE),
+			await hashWebmcpToolSchemaSurface(reclassified)
 		);
 	});
 

@@ -25,6 +25,11 @@ import {
 } from './composition-operation-preflight';
 
 import type { CompositionOperationFailure } from './composition-operation-preflight';
+import type {
+	CompositionTimeDuration,
+	CompositionTimePosition,
+	CompositionTimeQuantity
+} from './composition-time-input';
 import type { WebmcpOperationErrorCode } from './webmcp-operation-inventory';
 
 /**
@@ -143,6 +148,96 @@ export function readWebmcpOptionalNumberArgument(args: unknown, name: string): n
 		});
 	}
 	return value;
+}
+
+function readWebmcpTimeQuantity(
+	value: Record<string, unknown>,
+	name: string
+): CompositionTimeQuantity {
+	const keys = Object.keys(value);
+	if (keys.length !== 1) {
+		throw new WebmcpArgumentError(
+			'invalid_argument',
+			`"${name}" must name exactly one direct time unit.`,
+			{
+				rejected: describeRejectedArgument(value),
+				alternatives: ['seconds', 'milliseconds', 'frames']
+			}
+		);
+	}
+	const unit = keys[0];
+	if (unit !== 'seconds' && unit !== 'milliseconds' && unit !== 'frames') {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" names an unsupported time unit.`, {
+			rejected: unit,
+			alternatives: ['seconds', 'milliseconds', 'frames']
+		});
+	}
+	const amount = readWebmcpNumberArgument(value, unit);
+	if (amount < 0 || (unit === 'frames' && !Number.isSafeInteger(amount))) {
+		throw new WebmcpArgumentError(
+			'invalid_argument',
+			`"${name}.${unit}" must be ${unit === 'frames' ? 'a non-negative whole number' : 'non-negative'}.`,
+			{ rejected: describeRejectedArgument(amount) }
+		);
+	}
+	return unit === 'seconds'
+		? { seconds: amount }
+		: unit === 'milliseconds'
+			? { milliseconds: amount }
+			: { frames: amount };
+}
+
+/** A legacy duration number or a direct seconds, milliseconds, or frames object. */
+export function readWebmcpTimeDurationArgument(
+	args: unknown,
+	name: string
+): CompositionTimeDuration {
+	const value = readArgumentRecord(args)[name];
+	if (typeof value === 'number') return readWebmcpNumberArgument(args, name);
+	if (!isRecord(value)) {
+		throw new WebmcpArgumentError(
+			'invalid_argument',
+			`"${name}" must be a number or time object.`,
+			{
+				rejected: describeRejectedArgument(value)
+			}
+		);
+	}
+	return readWebmcpTimeQuantity(value, name);
+}
+
+export function readWebmcpOptionalTimeDurationArgument(
+	args: unknown,
+	name: string
+): CompositionTimeDuration | undefined {
+	if (readArgumentRecord(args)[name] === undefined) return undefined;
+	return readWebmcpTimeDurationArgument(args, name);
+}
+
+/** A frame position may additionally use the editor's displayed timecode. */
+export function readWebmcpTimePositionArgument(
+	args: unknown,
+	name: string
+): CompositionTimePosition {
+	const value = readArgumentRecord(args)[name];
+	if (typeof value === 'number') return readWebmcpNumberArgument(args, name);
+	if (!isRecord(value)) {
+		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a frame or time object.`, {
+			rejected: describeRejectedArgument(value)
+		});
+	}
+	if (Object.keys(value).length === 1 && typeof value.timecode === 'string') {
+		return { timecode: readWebmcpStringArgument(value, 'timecode') };
+	}
+	return readWebmcpTimeQuantity(value, name);
+}
+
+export function readWebmcpOptionalTimePositionArgument(
+	args: unknown,
+	name: string
+): CompositionTimePosition | undefined {
+	if (readArgumentRecord(args)[name] === undefined) return undefined;
+	return readWebmcpTimePositionArgument(args, name);
 }
 
 /** A number a caller may also clear, so a field returns to what the engine resolves. */
@@ -307,10 +402,7 @@ export function readWebmcpJsonArgument(args: unknown, name: string): unknown {
  * schema that owns it, which answers a wrong body with findings naming the exact
  * field; this reader only proves it is an object at all.
  */
-export function readWebmcpJsonRecordArgument(
-	args: unknown,
-	name: string
-): Record<string, unknown> {
+export function readWebmcpJsonRecordArgument(args: unknown, name: string): Record<string, unknown> {
 	const value = readWebmcpJsonArgument(args, name);
 	if (!isRecord(value)) {
 		throw new WebmcpArgumentError('invalid_argument', `"${name}" must be a JSON object.`, {
@@ -318,6 +410,43 @@ export function readWebmcpJsonRecordArgument(
 		});
 	}
 	return value;
+}
+
+/**
+ * Runtime-variant content can arrive as the nested JSON value an agent naturally
+ * produces. JSON text remains accepted so existing callers keep working.
+ */
+export function readWebmcpRuntimeJsonArgument(args: unknown, name: string): unknown {
+	const value = readArgumentRecord(args)[name];
+	if (typeof value === 'string') return readWebmcpJsonArgument(args, name);
+	if (value !== undefined) return value;
+	throw new WebmcpArgumentError(
+		'invalid_argument',
+		`"${name}" must be a nested JSON value or JSON text.`,
+		{ rejected: describeRejectedArgument(value) }
+	);
+}
+
+export function readWebmcpOptionalRuntimeJsonArgument(
+	args: unknown,
+	name: string
+): unknown | undefined {
+	if (readArgumentRecord(args)[name] === undefined) return undefined;
+	return readWebmcpRuntimeJsonArgument(args, name);
+}
+
+/** The object-only form used by runtime chart schemas. */
+export function readWebmcpRuntimeObjectArgument(
+	args: unknown,
+	name: string
+): Record<string, unknown> {
+	const value = readWebmcpRuntimeJsonArgument(args, name);
+	if (isRecord(value)) return value;
+	throw new WebmcpArgumentError(
+		'invalid_argument',
+		`"${name}" must be a JSON object or JSON text containing one.`,
+		{ rejected: describeRejectedArgument(value) }
+	);
 }
 
 /**
