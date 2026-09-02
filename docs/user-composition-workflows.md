@@ -131,6 +131,10 @@ npm run gfx -- render --preset episode-title --out ./out/episode-title.mov
 
 Standalone Preset JSON does not embed or copy video bytes. It is standalone composition data, not a media bundle or Project artifact. Moving a composition to another local GFX workspace therefore requires ingesting each Media asset there and updating the corresponding library entry's `assetUrl` to the content address returned by that workspace. Multiple compositions or entries may reference one deduplicated URL; removing membership never deletes those shared bytes.
 
+### Website captures
+
+A `website-screenshot` Surface takes exactly one capture source. The GUI's capture (the Surface inspector's capture action, or `POST /api/website-capture`) stores the PNG in the same content-addressed asset store and writes its `/api/user-assets/<sha256>.png` URL into `content.imageUrl`; that is the User composition path and it stays workspace-local like every other asset. A corpus deliverable must render from a clean checkout, so it references a **bundled capture** instead: `content.captureAsset` names an entry of the registry in `src/lib/platform/capture-assets.ts`, whose PNG lives in `src/lib/assets/captures/` and is authored once with `scripts/capture-website.ts <url> --out src/lib/assets/captures/<slug>.png --scale 2 --width 2560 --height 2000`. The two are mutually exclusive; validation rejects a Surface that sets both or neither, and an unregistered `captureAsset` name.
+
 ## GUI interchange
 
 The home screen's **Import JSON** action derives the User composition slug from the filename. Importing `episode-title.json` creates or replaces `episode-title`. Schema and semantic errors block persistence; static-linter warnings and errors do not, because a valid agent-authored Preset must be able to enter the GUI for repair. Its linter findings appear live in the composition inspector after import.
