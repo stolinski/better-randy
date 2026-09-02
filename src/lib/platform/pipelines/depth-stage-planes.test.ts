@@ -278,6 +278,49 @@ describe('posed Overlay planes (ADR-0057)', () => {
 		assert.ok(axial < STAGE_CAM_Z, 'the close camera makes the quad smaller in world units');
 	});
 
+	it('stays the world-fixed frontal plane through a legacy push or drift, so shipped Presets keep their parallax', () => {
+		for (const move of ['push', 'drift'] as const) {
+			const camera = { move, amount: 0.6, ease: 'smooth' } as never;
+			for (const time of [0, 0.35, 0.5, 1]) {
+				const rig = createStageCameraRig({ aspect: ASPECT, camera, time });
+				assertBasisClose(
+					createPosedOverlayPlaneBasis({
+						rig,
+						aspect: ASPECT,
+						overlayZ: 0.45,
+						pose: undefined,
+						pivot: { x: 0.2, y: 0.85 }
+					}),
+					createFrontalStagePlaneBasis(ASPECT, stageOverlayPlaneDepth(0.45))
+				);
+			}
+		}
+	});
+
+	it('is carried by the pose and travel only: a legacy move on top leaves the plane where the posed camera put it', () => {
+		const pose = { yaw: -20, pitch: 6, roll: 0, distance: 0.5, aim: { x: 0.72, y: 0.4 } };
+		const posedOnly = createStageCameraRig({
+			aspect: ASPECT,
+			camera: { move: 'static', amount: 0.5, ease: 'smooth', pose } as never,
+			time: 0.5
+		});
+		const posedAndPushed = createStageCameraRig({
+			aspect: ASPECT,
+			camera: { move: 'push', amount: 0.6, ease: 'smooth', pose } as never,
+			time: 0.5
+		});
+		assert.notDeepEqual(posedAndPushed.eye, posedOnly.eye, 'the push moved the eye');
+		const plane = (rig: typeof posedOnly) =>
+			createPosedOverlayPlaneBasis({
+				rig,
+				aspect: ASPECT,
+				overlayZ: -0.18,
+				pose: { yaw: 10, pitch: -3, roll: 0 },
+				pivot: { x: 0.2, y: 0.85 }
+			});
+		assertBasisClose(plane(posedAndPushed), plane(posedOnly));
+	});
+
 	it('falls back to the world-fixed frontal plane when the ray through the pivot never reaches it', () => {
 		const camera = {
 			move: 'static',

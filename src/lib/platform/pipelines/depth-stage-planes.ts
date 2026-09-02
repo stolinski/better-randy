@@ -13,7 +13,8 @@ import {
 	createStageCameraRig,
 	stageCameraFrameRay,
 	stagePlaneHalfExtents,
-	type StageCameraRig
+	type StageCameraRig,
+	type StageCameraView
 } from './depth-stage-camera';
 
 // Plane geometry of the depth stage (ADR-0057 phase 1). Every captured Layer
@@ -298,9 +299,12 @@ export interface PosedOverlayPlaneInput {
  * the shipped frontal camera this is the frontal plane at the Overlay's depth;
  * under a posed camera the Overlay stays where the author put it in frame
  * while the page moves behind it, so safe areas hold and a lower-third stays a
- * lower-third. When the ray through the pivot never reaches the plane (an
- * extreme pose looking past it) the quad falls back to the world-fixed frontal
- * plane rather than inventing a position.
+ * lower-third. The frame is the rig's `anchor` — the posed camera before the
+ * legacy push / drift offset — so those moves still parallax the plane as the
+ * world-fixed plane it always was, and a shipped Preset with an explicit `z`
+ * renders exactly as before. When the ray through the pivot never reaches the
+ * plane (an extreme pose looking past it) the quad falls back to the
+ * world-fixed frontal plane rather than inventing a position.
  */
 export function createPosedOverlayPlaneBasis({
 	rig,
@@ -311,11 +315,12 @@ export function createPosedOverlayPlaneBasis({
 }: PosedOverlayPlaneInput): StagePlaneBasis {
 	const depth = stageOverlayPlaneDepth(overlayZ);
 	const planeZ = -depth;
-	const ray = stageCameraFrameRay(rig, aspect, pivot.x, pivot.y);
-	const axial = Math.abs(ray[2]) > 1e-8 ? (planeZ - rig.eye[2]) / ray[2] : Number.NaN;
+	const view = rig.anchor;
+	const ray = stageCameraFrameRay(view, aspect, pivot.x, pivot.y);
+	const axial = Math.abs(ray[2]) > 1e-8 ? (planeZ - view.eye[2]) / ray[2] : Number.NaN;
 	const unposed: StagePlaneBasis =
 		axial > 0
-			? framedPlaneBasis(rig, aspect, axial, ray, planeZ, pivot)
+			? framedPlaneBasis(view, aspect, axial, ray, planeZ, pivot)
 			: createFrontalStagePlaneBasis(aspect, depth);
 	if (!pose || (pose.yaw === 0 && pose.pitch === 0 && pose.roll === 0)) return unposed;
 	const yaw = (pose.yaw * Math.PI) / 180;
@@ -337,9 +342,10 @@ export function createPosedOverlayPlaneBasis({
 }
 
 // The page-parallel, frame-subtending quad whose `pivot` fraction sits where
-// the camera ray meets the plane at `planeZ`, `axial` camera units from the eye.
+// the viewpoint's ray meets the plane at `planeZ`, `axial` camera units from
+// the eye.
 function framedPlaneBasis(
-	rig: StageCameraRig,
+	view: StageCameraView,
 	aspect: number,
 	axial: number,
 	ray: StagePlaneVector,
@@ -348,8 +354,8 @@ function framedPlaneBasis(
 ): StagePlaneBasis {
 	const { halfW, halfH } = stagePlaneHalfExtents(axial, aspect);
 	const pivotWorld: StagePlaneVector = [
-		rig.eye[0] + ray[0] * axial,
-		rig.eye[1] + ray[1] * axial,
+		view.eye[0] + ray[0] * axial,
+		view.eye[1] + ray[1] * axial,
 		planeZ
 	];
 	return {

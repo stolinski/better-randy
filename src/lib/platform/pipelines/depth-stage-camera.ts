@@ -198,15 +198,25 @@ export interface StageCameraRigInput {
 	time: number;
 }
 
-/** The camera at one instant, ready for the renderer and the projector. */
-export interface StageCameraRig {
-	pose: StageCameraPoseFrame;
+/** One camera viewpoint: where it is, where it looks, which way is up. */
+export interface StageCameraView {
 	eye: Vec3Tuple;
+	/** Unit line of sight. */
+	forward: Vec3Tuple;
+	up: Vec3Tuple;
+}
+
+/** The camera at one instant, ready for the renderer and the projector. */
+export interface StageCameraRig extends StageCameraView {
+	pose: StageCameraPoseFrame;
 	/** The aim point on the Surface plane, in world units. */
 	aim: Vec3Tuple;
-	up: Vec3Tuple;
-	/** Unit line of sight, eye → aim. */
-	forward: Vec3Tuple;
+	/** The posed camera before the legacy push / drift offset is applied — the
+	 *  frame posed Overlay planes are placed in (ADR-0057). Attaching them here
+	 *  rather than to `eye` keeps the legacy moves what they always were,
+	 *  parallax over world-fixed planes, so every shipped Preset renders as
+	 *  before; only an authored pose or travel carries an Overlay with it. */
+	anchor: StageCameraView;
 	viewProjection: Float32Array;
 	/** Camera-space distance from the eye to the aim point — the depth focusZ 0 keeps sharp. */
 	aimDistance: number;
@@ -238,15 +248,22 @@ export function createStageCameraRig({
 	];
 	// The camera's right axis at zero roll — the legacy drift slides along it.
 	const lateral = normalize(cross(WORLD_UP, back));
-	const distance = pose.distance * STAGE_CAM_Z + offset.dolly;
-	const eye = add(add(aim, scale(back, distance)), scale(lateral, offset.lateral));
-	const forward = normalize(subtract(aim, eye));
-	let up: Vec3Tuple = WORLD_UP;
-	if (roll !== 0) {
+	const rolledUp = (forward: Vec3Tuple): Vec3Tuple => {
+		if (roll === 0) return WORLD_UP;
 		const right = normalize(cross(forward, WORLD_UP));
 		const trueUp = cross(right, forward);
-		up = add(scale(trueUp, Math.cos(roll)), scale(right, Math.sin(roll)));
-	}
+		return add(scale(trueUp, Math.cos(roll)), scale(right, Math.sin(roll)));
+	};
+	const anchorEye = add(aim, scale(back, pose.distance * STAGE_CAM_Z));
+	const anchorForward = normalize(subtract(aim, anchorEye));
+	const anchor: StageCameraView = {
+		eye: anchorEye,
+		forward: anchorForward,
+		up: rolledUp(anchorForward)
+	};
+	const eye = add(add(anchorEye, scale(back, offset.dolly)), scale(lateral, offset.lateral));
+	const forward = normalize(subtract(aim, eye));
+	const up = rolledUp(forward);
 	const projection = mat4.perspective(STAGE_FOV, aspect, 0.1, 100);
 	const view = mat4.lookAt(eye, aim, up);
 	const viewProjection = mat4.multiply(projection, view) as Float32Array;
@@ -259,6 +276,7 @@ export function createStageCameraRig({
 		aim,
 		up,
 		forward,
+		anchor,
 		viewProjection,
 		aimDistance: length(subtract(eye, aim)),
 		backdropDistance: dotProduct(subtract(backdropPoint, eye), forward)
@@ -266,25 +284,25 @@ export function createStageCameraRig({
 }
 
 /**
- * The ray from the eye through a frame point (fractions, y down), in world
- * units, scaled so one unit along it is one unit of camera-space (axial)
- * distance — the quantity the plane pass writes as depth. Built from the same
- * look-at basis and field of view the rig's matrices use, so a point placed
- * along this ray projects back to exactly `fx, fy`.
+ * The ray from a viewpoint's eye through a frame point (fractions, y down),
+ * in world units, scaled so one unit along it is one unit of camera-space
+ * (axial) distance — the quantity the plane pass writes as depth. Built from
+ * the same look-at basis and field of view the rig's matrices use, so a point
+ * placed along this ray projects back to exactly `fx, fy` for that viewpoint.
  */
 export function stageCameraFrameRay(
-	rig: StageCameraRig,
+	view: StageCameraView,
 	aspect: number,
 	fx: number,
 	fy: number
 ): Vec3Tuple {
-	const right = normalize(cross(rig.forward, rig.up));
-	const trueUp = cross(right, rig.forward);
+	const right = normalize(cross(view.forward, view.up));
+	const trueUp = cross(right, view.forward);
 	const tanHalf = Math.tan(STAGE_FOV / 2);
 	const ndcX = 2 * fx - 1;
 	const ndcY = 1 - 2 * fy;
 	return add(
-		rig.forward,
+		view.forward,
 		add(scale(right, ndcX * tanHalf * aspect), scale(trueUp, ndcY * tanHalf))
 	);
 }
