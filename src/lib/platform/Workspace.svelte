@@ -1097,14 +1097,30 @@
 					}
 				});
 			};
-			const overlayIds = candidateIds.filter(
-				(candidateId) => candidateId === 'overlay-root' || candidateId.startsWith('overlay:')
-			);
+			// A posed Overlay (ADR-0057) is hoisted into its own frame-sized root,
+			// so its candidate is measured there; every other Overlay candidate is
+			// measured in the shared Overlay root as before.
+			const sharedOverlayIds: string[] = [];
+			const posedGroups: { root: HTMLElement; ids: string[] }[] = [];
 			for (const candidateId of candidateIds) {
-				if (candidateId === 'composition-root')
+				if (candidateId === 'composition-root') {
 					elements[candidateId] = { x: 0, y: 0, width, height };
+					continue;
+				}
+				if (candidateId !== 'overlay-root' && !candidateId.startsWith('overlay:')) continue;
+				const posedRoot = candidateId.startsWith('overlay:')
+					? posedOverlayRootElements[candidateId.slice('overlay:'.length)]
+					: null;
+				if (!posedRoot) {
+					sharedOverlayIds.push(candidateId);
+					continue;
+				}
+				const group = posedGroups.find((entry) => entry.root === posedRoot);
+				if (group) group.ids.push(candidateId);
+				else posedGroups.push({ root: posedRoot, ids: [candidateId] });
 			}
-			measureWithin(localOverlayRoot ?? localCompositionRoot, overlayIds);
+			measureWithin(localOverlayRoot ?? localCompositionRoot, sharedOverlayIds);
+			for (const group of posedGroups) measureWithin(group.root, group.ids);
 			return { elements };
 		};
 		window.__configureGfxDeterministicRenderCell = async (input) => {
