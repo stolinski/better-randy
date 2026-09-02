@@ -135,7 +135,7 @@ A composition-wide authored operation with one of three registry-owned execution
 _Avoid_: filter, shader (a shader is the WebGPU implementation; an Effect is the authored registry entry), per-layer effect (the engine no longer supports per-layer chains — see ADR-0018), assuming every Effect is a post-process pass or an `effects[]` entry.
 
 **Dimensional Stage**:
-The optional composition-wide spatial compositor that places captured Layer output and bounded Pipeline-owned geometry inside one camera, depth, focus, and lighting space. It changes how the five Layers compose and is not content or a sixth Layer; the shipped `depth` Stage is its current registered form. Its expansion is the **3D Canvas Upgrade**, ordered in two phases by [ADR-0057](adr/0057-filmed-canvas-camera-pose-and-posed-planes.md): the filmed canvas (a **Stage camera pose** and **posed planes**, shipped 2026-09-02 and proven by `website-filmed`) first, then Pipeline-defined geometry as designed in [ADR-0051](adr/0051-pipeline-defined-dimensional-stage-geometry.md).
+The optional composition-wide spatial compositor that places captured Layer output and bounded Pipeline-owned geometry inside one camera, depth, focus, and lighting space. It changes how the five Layers compose and is not content or a sixth Layer; the shipped `depth` Stage is its current registered form. Its expansion is the **3D Canvas Upgrade**, ordered in two phases by [ADR-0057](adr/0057-filmed-canvas-camera-pose-and-posed-planes.md): the filmed canvas (a **Stage camera pose** and **posed planes**, shipped 2026-09-02 and proven by `website-filmed`) first, then bodies as designed in [ADR-0051](adr/0051-pipeline-defined-dimensional-stage-geometry.md) — the first of them the **physical screen** of [ADR-0059](adr/0059-compiled-stage-models-and-the-physical-screen.md).
 _Avoid_: 3D canvas (the Canvas is the output target; "3D Canvas Upgrade" is the initiative name only), 3D Layer, scene Layer, generic scene editor.
 
 **Stage camera pose**:
@@ -147,8 +147,16 @@ An **Overlay** riding its own capture plane on the **Dimensional Stage** because
 _Avoid_: 3D object, scene node, floating layer, card mesh (a posed plane is a captured plane, not geometry).
 
 **Stage geometry contribution**:
-A bounded 3D render contribution owned by a registered Surface, Block, or Overlay Pipeline and consumed by the **Dimensional Stage**. It retains the Pipeline's Layer identity; it is not a free-standing scene object or entry in a generic object tree. Phase 2 of the 3D Canvas Upgrade; its first consumers are the `dimensional-form` Overlay and the physical screen and paper bodies of existing Surfaces.
-_Avoid_: 3D object Layer, scene node, model document, `stage.objects`.
+A bounded 3D render contribution owned by a registered Surface, Block, or Overlay Pipeline and consumed by the **Dimensional Stage**. It retains the Pipeline's Layer identity; it is not a free-standing scene object or entry in a generic object tree. Phase 2 of the 3D Canvas Upgrade; its first consumer is the **physical screen**, and dimensional type is the first Overlay-owned one. A rendered contribution is a **body**: a registered mesh drawn depth-tested among the captured planes, lit by the Pack key, casting and receiving shadow.
+_Avoid_: 3D object Layer, scene node, model document, `stage.objects`, card mesh (a flat card is CSS, never a body).
+
+**Stage model**:
+An authored part — a nurb / build123d solid, never a downloaded asset — compiled once by `scripts/compile-stage-model.ts` into a bundled `.stagemesh` and registered in `stage-models.ts` with its provenance, its material regions (intrinsic object materials, not Pack Roles), and, for a screen, where its glass is ([ADR-0059](adr/0059-compiled-stage-models-and-the-physical-screen.md)). Nothing at runtime loads a model the registry does not name; the general importer stays rejected ([ADR-0047](adr/0047-reject-general-asset-to-geometry-import.md)).
+_Avoid_: GLB import, asset library, mesh loader, 3D asset (the part is authored and compiled, not imported).
+
+**Physical screen**:
+The Surface plane as the glass of a **Stage model** (`stage.screen`): the model's opening fits inside the frame plane, the composition covers it, and the housing stands around the glass lit by the Pack key and by the picture itself. The camera aim, focus, and canvas hit-tests keep addressing the glass. The first body of the 3D Canvas Upgrade, proven by `crt-filmed` on the FW900 CRT.
+_Avoid_: monitor Surface, CRT variant (the screen is Stage vocabulary any Surface can be filmed on), screen Effect (the `crt-tube` Effect is a post-process; a screen is geometry).
 
 **Cascade**:
 A declarative timing relationship between elements: an element's enter anchors to another element's enter plus an offset (kicker → title +120 ms → subtitle), so reading-order choreography re-times as one unit instead of drifting apart across hand-set absolute starts. The timing peer of an automatic **audio cue** — welded, never hand-synced. Shipped with generalized keyframes ([ADR-0035](adr/0035-generalized-keyframes-and-cascade.md)).

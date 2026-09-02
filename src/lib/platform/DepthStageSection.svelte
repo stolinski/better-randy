@@ -8,6 +8,7 @@
 		type StageCameraPose,
 		type StageCameraTravel
 	} from './engine-schema';
+	import { getStageModel, listStageModels } from './stage-models';
 	import { listSubstrateAssets } from './substrate-textures';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
@@ -17,7 +18,14 @@
 	// focus, and the substrate backdrop. Unavailable while Video clips are on
 	// the timeline (the stage is a synthetic-camera construct).
 	const substrateAssets = listSubstrateAssets();
+	// The physical screens the Surface plane can be the glass of (ADR-0051 phase 2).
+	const stageModels = listStageModels();
 	const easeOptions = Object.entries(ENGINE_EASES) as [Ease, (typeof ENGINE_EASES)[Ease]][];
+
+	function setScreen(model: string): void {
+		const stage = ensureStage();
+		stage.screen = model === '' ? undefined : { model };
+	}
 
 	function ensureStage(): Stage {
 		if (!engineState.stage) {
@@ -436,6 +444,17 @@
 				/>
 			</Field>
 		{/if}
+		<Field label="Screen">
+			<select
+				value={stage.screen?.model ?? ''}
+				onchange={(e) => setScreen((e.currentTarget as HTMLSelectElement).value)}
+			>
+				<option value="">None</option>
+				{#each stageModels as model (model)}
+					<option value={model}>{getStageModel(model)?.label ?? model}</option>
+				{/each}
+			</select>
+		</Field>
 		<Field label="Backdrop">
 			<InspectorToggle
 				checked={!!stage.backdrop?.image}

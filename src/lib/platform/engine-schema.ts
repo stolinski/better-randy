@@ -1478,6 +1478,14 @@ const StageBackdropSchema = z.object({
 /** How the stage camera travels, read off the camera schema's own union. */
 export const STAGE_CAMERA_MOVES = StageCameraSchema.shape.move.def.innerType.options;
 
+// The Surface plane as the glass of a physical screen (ADR-0051 phase 2): a
+// registered stage model (`stage-models.ts`, validated at load) whose opening
+// the composition covers; the housing stands around it, lit by the key and by
+// the picture. Absent means the bare Surface plane of the shipped stage.
+const StageScreenSchema = z.object({
+	model: z.string().min(1)
+});
+
 export const StageSchema = z.object({
 	type: z.string().min(1),
 	// prefault (not default): zod v4 `.default()` short-circuits without parsing,
@@ -1486,7 +1494,8 @@ export const StageSchema = z.object({
 	// filling move/amount/ease and focusZ/aperture/band.
 	camera: StageCameraSchema.prefault({}),
 	focus: StageFocusSchema.prefault({}),
-	backdrop: StageBackdropSchema.optional()
+	backdrop: StageBackdropSchema.optional(),
+	screen: StageScreenSchema.optional()
 });
 
 // ---- Audio cues (ADR-0033 §4, §5) ----

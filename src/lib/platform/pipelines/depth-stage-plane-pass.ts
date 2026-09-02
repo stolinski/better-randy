@@ -1,6 +1,13 @@
 import tgpu, { d } from 'typegpu';
 
-import { STAGE_PLANE_CEILINGS } from './depth-stage-planes';
+import {
+	allCasterShadowsWgsl,
+	shadowMapOcclusionWgsl,
+	STAGE_CASTER_LAYOUT_ENTRIES,
+	STAGE_CASTER_UNIFORM_FIELDS,
+	STAGE_SHADOW_MAP_LAYOUT_ENTRIES,
+	STAGE_SHADOW_MAP_UNIFORM_FIELDS
+} from './depth-stage-shadow';
 
 // The depth stage's scene pass (ADR-0057 phase 1): every captured plane is a
 // quad on a general basis (origin, half-width vector, half-height vector,
@@ -18,8 +25,9 @@ import { STAGE_PLANE_CEILINGS } from './depth-stage-planes';
 //      never occludes, and a thin sharp feature keeps its own plane's depth.
 //
 // The frontal planes of the shipped stage are the axis-aligned special case of
-// this basis; posed Overlay planes (the next leaf) and Pipeline geometry
-// (phase 2) join the same passes.
+// this basis; posed Overlay planes ride the same passes, and Pipeline bodies
+// (ADR-0051 phase 2, `depth-stage-body-pass.ts`) join them in the same
+// depth-tested targets and throw shadow onto them through the shadow map.
 
 export const STAGE_DEPTH_SIDECAR_FORMAT: GPUTextureFormat = 'r16float';
 export const STAGE_DEPTH_ATTACHMENT_FORMAT: GPUTextureFormat = 'depth24plus';
@@ -28,9 +36,6 @@ export const STAGE_DEPTH_ATTACHMENT_FORMAT: GPUTextureFormat = 'depth24plus';
  *  plane's depth instead of taking the backdrop's and blurring away. */
 export const STAGE_PLANE_OPAQUE_PRESENCE = 0.3;
 const SKIRT_PRESENCE_FLOOR = 0.003;
-const SHADOW_TAPS = 8; // caster-alpha disc taps per shadow (penumbra)
-const SHADOW_PENUMBRA = 0.1; // penumbra radius (world units) per unit plane gap
-export const STAGE_MAX_CASTERS = STAGE_PLANE_CEILINGS.maxCasters;
 
 /**
  * One plane's uniforms. `origin.w` = textured (1) or solid colour (0);
@@ -38,8 +43,11 @@ export const STAGE_MAX_CASTERS = STAGE_PLANE_CEILINGS.maxCasters;
  * surround) or opaque (the backdrop); `axisV.w` = the composition-owned fade
  * that multiplies presence; `normal.w` = centre-darken strength for a textured
  * backdrop; `misc` = (depthNear, depthFar, halfW, halfH); `light` = the key's
- * unit travel vector + intensity. Caster k: origin.w = shadow strength (0 =
- * empty slot), U/V carry the UNIT axes with the half-lengths in w.
+ * unit travel vector + intensity; `uvWindow` = the capture rect (x, y, w, h)
+ * the quad shows — the whole capture for every plane but a screen's glass,
+ * which crops the composition to its opening. The caster slots and the
+ * shadow-map fields are the shared receiver vocabulary in
+ * `depth-stage-shadow.ts`.
  */
 export const StagePlaneUniforms = d.struct({
 	mvp: d.mat4x4f,
@@ -50,20 +58,17 @@ export const StagePlaneUniforms = d.struct({
 	misc: d.vec4f,
 	baseColor: d.vec4f,
 	light: d.vec4f,
-	casterOrigin: d.arrayOf(d.vec4f, STAGE_MAX_CASTERS),
-	casterU: d.arrayOf(d.vec4f, STAGE_MAX_CASTERS),
-	casterV: d.arrayOf(d.vec4f, STAGE_MAX_CASTERS),
-	casterNormal: d.arrayOf(d.vec4f, STAGE_MAX_CASTERS)
+	uvWindow: d.vec4f,
+	...STAGE_SHADOW_MAP_UNIFORM_FIELDS,
+	...STAGE_CASTER_UNIFORM_FIELDS
 });
 
 export const stagePlaneLayout = tgpu.bindGroupLayout({
 	planeTexture: { texture: d.texture2d(d.f32) },
-	casterTexture0: { texture: d.texture2d(d.f32) },
-	casterTexture1: { texture: d.texture2d(d.f32) },
-	casterTexture2: { texture: d.texture2d(d.f32) },
-	casterTexture3: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
-	plane: { uniform: StagePlaneUniforms }
+	plane: { uniform: StagePlaneUniforms },
+	...STAGE_SHADOW_MAP_LAYOUT_ENTRIES,
+	...STAGE_CASTER_LAYOUT_ENTRIES
 });
 
 // The unit quad on its basis: clip position, capture uv, camera-space distance
@@ -95,42 +100,6 @@ export const stagePlaneVertexFn = tgpu['~unstable'].vertexFn({
 	return Out(clip, uv[in.vertexIndex], clip.w, world, local);
 }`.$uses({ layout: stagePlaneLayout });
 
-function shadowFromCaster(slot: number): string {
-	return /* wgsl */ `
-	{
-		let co = plane.casterOrigin[${slot}];
-		if (co.w > 0.001) {
-			let cn = plane.casterNormal[${slot}].xyz;
-			let denom = dot(light.xyz, cn);
-			if (abs(denom) > 1e-4) {
-				// March back along the light to the caster plane; s > 0 means the
-				// caster lies between this fragment and the key.
-				let s = dot(in.world - co.xyz, cn) / denom;
-				if (s > 0.001) {
-					let hit = in.world - light.xyz * s;
-					let cu = plane.casterU[${slot}];
-					let cv = plane.casterV[${slot}];
-					let lu = dot(hit - co.xyz, cu.xyz) / max(cu.w, 1e-4);
-					let lv = dot(hit - co.xyz, cv.xyz) / max(cv.w, 1e-4);
-					let cuv = vec2f((lu + 1.0) * 0.5, 1.0 - (lv + 1.0) * 0.5);
-					let rad = ${SHADOW_PENUMBRA} * s;
-					var occ = 0.0;
-					for (var i: u32 = 0u; i < ${SHADOW_TAPS}u; i = i + 1u) {
-						let st = (f32(i) + 0.5) / ${SHADOW_TAPS}.0;
-						let ang = f32(i) * 2.39996;
-						let o = vec2f(cos(ang), sin(ang)) * sqrt(st) * rad;
-						let tuv = cuv + vec2f(o.x / cu.w, -o.y / cv.w) * 0.5;
-						if (all(tuv >= vec2f(0.0)) && all(tuv <= vec2f(1.0))) {
-							occ = occ + textureSampleLevel(layout.$.casterTexture${slot}, layout.$.samp, tuv, 0.0).a;
-						}
-					}
-					shade = max(shade, (occ / ${SHADOW_TAPS}.0) * co.w);
-				}
-			}
-		}
-	}`;
-}
-
 type StagePlanePassMode = 'opaque' | 'skirt';
 
 const DISCARD_RULE: Record<StagePlanePassMode, string> = {
@@ -146,7 +115,8 @@ function planeFragmentBody(mode: StagePlanePassMode): string {
 	var color = plane.baseColor.rgb;
 	var coverage = 1.0;
 	if (plane.origin.w > 0.5) {
-		let s = textureSample(layout.$.planeTexture, layout.$.samp, in.uv); // premultiplied
+		let captureUv = plane.uvWindow.xy + in.uv * plane.uvWindow.zw;
+		let s = textureSample(layout.$.planeTexture, layout.$.samp, captureUv); // premultiplied
 		if (plane.axisU.w > 0.5) { coverage = min(s.a, 1.0); }
 		color = s.rgb / max(s.a, 0.001); // un-premultiply: the plane's own colour
 		// Backdrop-only: a soft central darken of the photo for near-plane text
@@ -170,7 +140,9 @@ function planeFragmentBody(mode: StagePlanePassMode): string {
 	//  - facing: a plane turned away from the key receives less of it
 	//    (frontal planes get exactly 1, so the shipped look is untouched);
 	//  - cast shadow: march back along the light to each caster plane,
-	//    sample its alpha in a small disc (penumbra grows with the gap), darken.
+	//    sample its alpha in a small disc (penumbra grows with the gap), darken;
+	//  - body shadow: read the shadow map the bodies rendered (absent bodies
+	//    leave its strength at 0, so no read happens).
 	// intensity 0 skips everything — pixel-identical to the unlit stage.
 	let light = plane.light;
 	if (light.w > 0.001) {
@@ -185,7 +157,9 @@ function planeFragmentBody(mode: StagePlanePassMode): string {
 		let facing = max(dot(plane.normal.xyz, -light.xyz), 0.0) / max(-light.z, 1e-4);
 		color = color * (1.0 + (facing - 1.0) * light.w * 0.6);
 		var shade = 0.0;
-		${Array.from({ length: STAGE_MAX_CASTERS }, (_, slot) => shadowFromCaster(slot)).join('\n')}
+		${allCasterShadowsWgsl('plane')}
+		let N = plane.normal.xyz;
+		${shadowMapOcclusionWgsl('plane')}
 		color = color * (1.0 - min(shade, 1.0));
 	}
 	let depth01 = clamp((in.dist - plane.misc.x) / (plane.misc.y - plane.misc.x), 0.0, 1.0);

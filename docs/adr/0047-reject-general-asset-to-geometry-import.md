@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (broad import scope rejected; TypeGPU-native Pipeline geometry expansion designed in [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md)).**
+**Canon (broad import scope rejected; TypeGPU-native Pipeline geometry expansion designed in [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md)). The one-asset-class revisit below was taken by [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md) on 2026-09-02: authored nurb parts compiled once into registered stage models, with no runtime loader.**
 
 Date: 2026-07-29
 Builds on: [ADR-0002](0002-per-tool-routes-to-preset-engine.md) (one constrained engine), [ADR-0023](0023-pack-is-appearance-only.md) (Pack-neutral composition), [ADR-0046](0046-seekable-simulation-and-deformation-families.md) (procedural deformation families)

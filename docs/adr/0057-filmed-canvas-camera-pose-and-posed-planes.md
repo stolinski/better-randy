@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (phase 1 built 2026-09-02, approved on gfx-review); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) as phase 2, still designed.** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. The phase-1 Brief `filmed-canvas` was retired with the landing change on 2026-09-02, as the Brief lifecycle requires.
+**Canon (phase 1 built 2026-09-02, approved on gfx-review); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) as phase 2, now building — its first body, the physical screen, is [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md).** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. The phase-1 Brief `filmed-canvas` was retired with the landing change on 2026-09-02, as the Brief lifecycle requires.
 
 Date: 2026-09-01
 

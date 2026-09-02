@@ -56,12 +56,14 @@
 		type DiagramLabelTextBoxSnapshot
 	} from './canvas-text-box-resize';
 	import { engineState } from './engine-state.svelte';
+	import { resolveStageScreenGlass } from './pipelines/depth-stage-geometry';
 	import {
 		createStageProjector,
 		isPosedStageOverlay,
 		posedOverlayStagePlane,
 		type StagePlane
 	} from './pipelines/depth-stage-planes';
+	import { getStageModel } from './stage-models';
 	import {
 		canvasElementSelection,
 		layerSelection,
@@ -247,10 +249,16 @@
 		// Posed Overlays turn about their measured centres, so re-measure with
 		// the same epoch the boxes use.
 		void measureEpoch;
+		const aspect = compositionSize.width / compositionSize.height;
+		// A screen's glass is the Surface plane (ADR-0051 phase 2): the same
+		// opening and crop the renderer builds, so page hit-tests land on the tube.
+		const screenModel = stage.screen ? getStageModel(stage.screen.model) : null;
+		const screenGlass = screenModel ? resolveStageScreenGlass(aspect, screenModel.screen) : undefined;
 		return createStageProjector({
-			aspect: compositionSize.width / compositionSize.height,
+			aspect,
 			camera: stage.camera,
 			overlayZ: 0.7,
+			screenGlass,
 			posedOverlayPlanes: engineState.overlays.filter(isPosedStageOverlay).map((overlay) => ({
 				overlayId: overlay.id,
 				z: overlay.z ?? 0.7,

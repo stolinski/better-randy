@@ -7554,6 +7554,18 @@
                   "maximum": 1
                 }
               }
+            },
+            "screen": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "model"
+              ]
             }
           },
           "required": [

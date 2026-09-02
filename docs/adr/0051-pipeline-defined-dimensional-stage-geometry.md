@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built.** Ordered as phase 2 of the 3D Canvas Upgrade by [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) (2026-09-01): the stage camera pose, posed Overlay planes, depth-tested plane-basis compositor, and filmed page framing land first, and the geometry contract below is built through that camera. ADR-0057 also adds physical screen and paper bodies as the first Surface-owned contributions.
+**Canon (phase 2 building since 2026-09-02; first body landed by ADR-0059).** Ordered as phase 2 of the 3D Canvas Upgrade by [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) (2026-09-01): the stage camera pose, posed Overlay planes, depth-tested plane-basis compositor, and filmed page framing landed first, and the geometry below is built through that camera. [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md) landed the first body — the physical screen, a compiled authored model whose glass is the Surface plane — together with the body pass, multisampled scene, shadow map, and ceilings every later body shares. The procedural `dimensional-form` Overlay this ADR named as the first Pipeline was built as a card and rejected on 2026-09-02 (a CSS-able element remade in 3D); dimensional type takes its place as the first Overlay-owned body.
 
 Date: 2026-08-26
 

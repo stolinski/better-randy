@@ -206,6 +206,10 @@ export function lintPreset(preset: Preset): RubricIssue[] {
 function checkFilmedPageInShot(preset: Preset, issues: RubricIssue[]): void {
 	const stage = preset.state.stage;
 	if (!stage || stage.type !== 'depth') return;
+	// On a physical screen (ADR-0059) the page is the picture on the glass and
+	// the housing stands around it: the camera is meant to see past the page,
+	// so the rule that holds a filmed page to the frame does not apply.
+	if (stage.screen) return;
 	for (const [orientation, frame] of [
 		['horizontal', FRAME_HORIZONTAL],
 		['vertical', FRAME_VERTICAL]

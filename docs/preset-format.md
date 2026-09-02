@@ -424,9 +424,12 @@ Opt-in composition-wide 3D compositor ([ADR-0028](adr/0028-dimensional-depth-sta
   "backdrop": {                     // optional image on the far (backdrop) plane
     "image": { "asset": "substrate-slug" },  // registered substrate (substrate-textures.ts); absent → backgroundFill colour
     "contrast": 0..1                // centre darken of the image for near-plane text legibility (default 0)
-  }
+  },
+  "screen": { "model": "crt-fw900" }  // optional physical screen (ADR-0059): a registered stage model (stage-models.ts) whose glass the Surface plane is
 }
 ```
+
+A `screen` films the Surface on a real object: the model's opening fits inside the frame plane and the composition covers it (a widescreen tube shows nearly all of a horizontal frame and the middle band of a vertical one), the housing stands around the glass lit by the Pack key and by the picture itself, casts a real shadow, and occludes the glass from an oblique camera. The model's plastics are its own; a Pack changes the field, the light, and what is on the screen. Aim, focus, and canvas hit-tests keep addressing the glass.
 
 Focus follows the aim: `focusZ` 0 keeps the aimed page point sharp (the Surface plane's centre under the frontal camera), `focusZ` 1 reaches the backdrop straight behind it, and a `travel` that moves the aim racks focus with it. A pose widens the stage's depth encoding to the distances the move can reach and scales the lens with the camera's nearness — the circle of confusion per world unit grows as one over the focus distance squared, as a thin lens does, so a camera at `distance` 0.5 defocuses the same page four times as hard as the rest camera; with no `pose` or `travel` every existing Preset renders pixel-identical.
 

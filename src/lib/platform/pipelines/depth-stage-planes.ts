@@ -400,6 +400,13 @@ export interface StageProjectorPosedOverlay {
 	pivot: StagePlanePivot;
 }
 
+/** The Surface plane as a screen's glass (ADR-0051 phase 2): the opening quad
+ *  and the composition rect it shows, the same values the renderer builds. */
+export interface StageProjectorScreenGlass {
+	basis: StagePlaneBasis;
+	uvWindow: [number, number, number, number];
+}
+
 export interface StageProjectorInput {
 	/** Frame aspect (width / height). */
 	aspect: number;
@@ -408,6 +415,8 @@ export interface StageProjectorInput {
 	overlayZ: number;
 	/** Overlays riding their own posed plane, keyed `overlay:<id>` in `StagePlane`. */
 	posedOverlayPlanes?: readonly StageProjectorPosedOverlay[];
+	/** The screen whose glass the Surface plane is, when the stage has one. */
+	screenGlass?: StageProjectorScreenGlass;
 	/** Clip progress 0..1 — the same frame-deterministic time the renderer gets. */
 	time: number;
 }
@@ -444,7 +453,19 @@ export function createStageProjector(input: StageProjectorInput): StageProjector
 	const inverseViewProjection = mat4.invert(viewProjection) as Float32Array;
 
 	const bases = new Map<StagePlane, StagePlaneBasis>();
-	bases.set('surface', createFrontalStagePlaneBasis(input.aspect, 0));
+	const screenGlass = input.screenGlass;
+	bases.set('surface', screenGlass ? screenGlass.basis : createFrontalStagePlaneBasis(input.aspect, 0));
+	// A glass shows a window of the capture: composition fractions map through
+	// that window onto the quad and back.
+	const window: [number, number, number, number] = screenGlass ? screenGlass.uvWindow : [0, 0, 1, 1];
+	const toPlaneFraction = (plane: StagePlane, u: number, v: number): { u: number; v: number } =>
+		plane === 'surface'
+			? { u: (u - window[0]) / window[2], v: (v - window[1]) / window[3] }
+			: { u, v };
+	const fromPlaneFraction = (plane: StagePlane, u: number, v: number): { x: number; y: number } =>
+		plane === 'surface'
+			? { x: window[0] + u * window[2], y: window[1] + v * window[3] }
+			: { x: u, y: v };
 	bases.set(
 		'overlay',
 		createFrontalStagePlaneBasis(
@@ -472,8 +493,9 @@ export function createStageProjector(input: StageProjectorInput): StageProjector
 			const { origin, u: axisU, v: axisV } = basisFor(plane);
 			// Capture UV → the plane's world point (the plane quad maps uv 0..1
 			// across its ±half-extents, v downward).
-			const su = 2 * u - 1;
-			const sv = 1 - 2 * v;
+			const local = toPlaneFraction(plane, u, v);
+			const su = 2 * local.u - 1;
+			const sv = 1 - 2 * local.v;
 			const world = vec4.transformMat4(
 				[
 					origin[0] + su * axisU[0] + sv * axisV[0],
@@ -491,7 +513,7 @@ export function createStageProjector(input: StageProjectorInput): StageProjector
 			if (!hit) {
 				return null;
 			}
-			return { x: (hit.u + 1) / 2, y: (1 - hit.v) / 2 };
+			return fromPlaneFraction(plane, (hit.u + 1) / 2, (1 - hit.v) / 2);
 		}
 	};
 }

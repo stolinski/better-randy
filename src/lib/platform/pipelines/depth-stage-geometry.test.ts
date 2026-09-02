@@ -1,0 +1,158 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'vitest';
+import { vec4 } from 'wgpu-matrix';
+
+import { getStageModel } from '../stage-models';
+import { STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import {
+	assertStageBodyCeilings,
+	createStageShadowProjection,
+	resolveStageBodyFocusPull,
+	resolveStageScreenBodyPlacement,
+	resolveStageScreenGlass,
+	STAGE_BODY_CEILINGS,
+	StageBodyCeilingError
+} from './depth-stage-geometry';
+
+const crt = getStageModel('crt-fw900');
+
+describe('resolveStageScreenGlass', () => {
+	it('covers a horizontal frame with the opening width and shows almost all of it', () => {
+		assert.ok(crt);
+		const glass = resolveStageScreenGlass(16 / 9, crt.screen);
+		const { halfW, halfH } = stagePlaneHalfExtents(STAGE_CAM_Z, 16 / 9);
+		// The FW900 opening (523×295) is a hair taller than 16:9, so the height
+		// sets the scale and a sliver of width is cropped.
+		assert.ok(Math.abs(glass.basis.v[1] - halfH) < 1e-9);
+		assert.ok(glass.basis.u[0] <= halfW + 1e-9);
+		assert.ok(glass.uvWindow[3] === 1 && glass.uvWindow[2] > 0.99 && glass.uvWindow[2] <= 1);
+		assert.ok(Math.abs(glass.uvWindow[0] - (1 - glass.uvWindow[2]) / 2) < 1e-12);
+		assert.ok(glass.scale > 0);
+	});
+
+	it('shows the middle band of a vertical frame through a landscape opening', () => {
+		assert.ok(crt);
+		const glass = resolveStageScreenGlass(9 / 16, crt.screen);
+		const { halfW, halfH } = stagePlaneHalfExtents(STAGE_CAM_Z, 9 / 16);
+		assert.ok(Math.abs(glass.basis.u[0] - halfW) < 1e-9, 'opening width matches the frame');
+		assert.ok(glass.basis.v[1] < halfH, 'opening is shorter than the frame');
+		assert.equal(glass.uvWindow[2], 1);
+		assert.ok(glass.uvWindow[3] < 0.6 && glass.uvWindow[3] > 0.2);
+		assert.ok(Math.abs(glass.uvWindow[1] - (1 - glass.uvWindow[3]) / 2) < 1e-12);
+	});
+});
+
+describe('resolveStageScreenBodyPlacement', () => {
+	it('lands the model screen centre on the origin with the housing proud of the glass', () => {
+		assert.ok(crt);
+		const mesh = { min: [-304.5, -288, -522] as const, max: [304.5, 173.5, 0] as const };
+		const placement = resolveStageScreenBodyPlacement(16 / 9, crt, {
+			min: [...mesh.min],
+			max: [...mesh.max]
+		});
+		const s = placement.glass.scale;
+		const centre = vec4.transformMat4(
+			[crt.screen.center[0], crt.screen.center[1], crt.screen.center[2], 1],
+			placement.model
+		);
+		// Float32 matrices: compare at float32 precision.
+		assert.ok(Math.abs(centre[0]) < 1e-6 && Math.abs(centre[1]) < 1e-6 && Math.abs(centre[2]) < 1e-6);
+		// The front face (model z 0) stands proud of the glass by the glass's
+		// authored depth inside the housing.
+		const front = vec4.transformMat4([0, 0, 0, 1], placement.model);
+		assert.ok(Math.abs(front[2] - -crt.screen.center[2] * s) < 1e-6);
+		assert.ok(front[2] > 0);
+		assert.ok(placement.radius > 0 && placement.center[2] < 0, 'the body sits behind its glass');
+		// Uniform scale, no rotation.
+		assert.ok(Math.abs(placement.model[0] - s) < 1e-6 && Math.abs(placement.model[5] - s) < 1e-6);
+		assert.equal(placement.model[1], 0);
+	});
+});
+
+describe('resolveStageBodyFocusPull', () => {
+	const eye: [number, number, number] = [0, 0, STAGE_CAM_Z];
+	const forward: [number, number, number] = [0, 0, -1];
+
+	it('racks to the nearest present body by its presence and ignores absent ones', () => {
+		const pull = resolveStageBodyFocusPull(
+			[
+				{ center: [0, 0, 0.5], presence: 0.4 },
+				{ center: [0.2, 0, 0.9], presence: 1 },
+				{ center: [0, 0, 3], presence: 0 }
+			],
+			eye,
+			forward
+		);
+		assert.ok(pull);
+		assert.ok(Math.abs(pull.distance - (STAGE_CAM_Z - 0.9)) < 1e-9);
+		assert.equal(pull.pull, 1);
+		assert.equal(resolveStageBodyFocusPull([{ center: [0, 0, 0], presence: 0 }], eye, forward), null);
+		assert.equal(resolveStageBodyFocusPull([], eye, forward), null);
+	});
+});
+
+describe('createStageShadowProjection', () => {
+	it('fits the casters and maps them inside the light clip volume', () => {
+		const direction: [number, number, number] = [0.14, -0.16, -0.977];
+		const casters = [
+			{ center: [0.4, -0.2, 0.3] as [number, number, number], radius: 0.5 },
+			{ center: [-0.3, 0.1, 0.1] as [number, number, number], radius: 0.2 }
+		];
+		const projection = createStageShadowProjection(direction, casters, 3);
+		assert.ok(projection);
+		const viewProjection: Float32Array = projection.viewProjection;
+		assert.ok(Math.abs(Math.hypot(...projection.direction) - 1) < 1e-9);
+		for (const caster of casters) {
+			for (const sign of [-1, 1]) {
+				const point: number[] = caster.center.map((c) => c + sign * caster.radius);
+				const clip: Float32Array = vec4.transformMat4(
+					[point[0], point[1], point[2], 1],
+					viewProjection
+				) as Float32Array;
+				assert.ok(Math.abs(clip[0]) <= 1 && Math.abs(clip[1]) <= 1, 'inside the footprint');
+				assert.ok(clip[2] >= 0 && clip[2] <= 1, 'inside the depth range');
+			}
+		}
+		// A receiver straight behind the casters along the light is still in range.
+		const behind = vec4.transformMat4(
+			[0, 0, 0.2 + direction[2] * 2.5, 1],
+			projection.viewProjection
+		);
+		assert.ok(behind[2] > 0 && behind[2] <= 1);
+		assert.ok(projection.extent > 2 * (0.5 + 0.2));
+		assert.equal(createStageShadowProjection(direction, [], 3), null);
+	});
+});
+
+describe('assertStageBodyCeilings', () => {
+	it('throws the first ceiling a budget exceeds, naming it', () => {
+		const within = { bodyCount: 1, vertexCount: 1000, indexCount: 6000, meshBytes: 1, residentBytes: 1 };
+		assert.doesNotThrow(() => assertStageBodyCeilings(within));
+		assert.throws(
+			() => assertStageBodyCeilings({ ...within, bodyCount: STAGE_BODY_CEILINGS.maxBodies + 1 }),
+			(error: unknown) => error instanceof StageBodyCeilingError && error.ceiling === 'maxBodies'
+		);
+		assert.throws(
+			() =>
+				assertStageBodyCeilings({
+					...within,
+					residentBytes: STAGE_BODY_CEILINGS.maxResidentBytes + 1
+				}),
+			(error: unknown) =>
+				error instanceof StageBodyCeilingError && error.ceiling === 'maxResidentBytes'
+		);
+	});
+
+	it('keeps the registered CRT inside the ceilings', () => {
+		assert.ok(crt);
+		assert.doesNotThrow(() =>
+			assertStageBodyCeilings({
+				bodyCount: 1,
+				vertexCount: crt.vertices,
+				indexCount: crt.triangles * 3,
+				meshBytes: crt.vertices * 28 + crt.triangles * 12,
+				residentBytes: 0
+			})
+		);
+	});
+});

@@ -257,7 +257,8 @@ export function applyCompositionState(preset: Preset): void {
 							image: next.stage.backdrop.image ? { ...next.stage.backdrop.image } : undefined,
 							contrast: next.stage.backdrop.contrast
 						}
-					: undefined
+					: undefined,
+				screen: next.stage.screen ? { model: next.stage.screen.model } : undefined
 			}
 		: undefined;
 	// Captions track (creator blocks): pure JSON (style knobs + ms cues), so

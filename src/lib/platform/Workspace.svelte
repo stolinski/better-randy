@@ -35,6 +35,8 @@
 	import { fontsReady } from './fonts';
 	import { createGpuHost, type GpuHost } from './gpu-host';
 	import { disposeSubstrateTextures, getSubstrateTexture } from './substrate-textures';
+	import { loadStageModelMesh } from './stage-model-assets';
+	import { StageModelController } from './stage-model-controller';
 	import {
 		CanvasPaintGenerationTracker,
 		clearCanvasPaintHandler,
@@ -146,6 +148,16 @@
 		onError: (error) => {
 			console.error('Stage substrate preparation failed.', error);
 			status = error instanceof Error ? error.message : 'Stage substrate preparation failed.';
+		}
+	});
+	const stageModelController = new StageModelController({
+		load: loadStageModelMesh,
+		onReady: () => {
+			if (canvas && !isWorkspaceDestroyed) requestCanvasPaint(canvas);
+		},
+		onError: (error) => {
+			console.error('Stage model preparation failed.', error);
+			status = error instanceof Error ? error.message : 'Stage model preparation failed.';
 		}
 	});
 	const posterCaptureController = new PosterCaptureController({
@@ -447,6 +459,7 @@
 		const localPackSlug = packState.slug;
 		const localPack = getPack(localPackSlug);
 		const localStageReadiness = stageSubstrateController.snapshot();
+		const localStageModelReadiness = stageModelController.snapshot();
 
 		if (!localCompositionElement) {
 			throw new Error('Composition root is unavailable while waiting for resources.');
@@ -462,7 +475,10 @@
 				...localPosedOverlayRoots.map((root) => root.element)
 			],
 			flushDom: tick,
-			waitForStage: () => localStageReadiness.promise,
+			waitForStage: () =>
+				Promise.all([localStageReadiness.promise, localStageModelReadiness.promise]).then(
+					() => undefined
+				),
 			waitForMedia: () => videoUnderlayRuntimeController.waitForReadiness(signal),
 			signal
 		});
@@ -488,6 +504,7 @@
 			throw new Error('Composition GPU host changed while resource readiness was pending.');
 		}
 		stageSubstrateController.assertCurrent(localStageReadiness);
+		stageModelController.assertCurrent(localStageModelReadiness);
 	}
 
 	async function settleCompositionPaint(signal: AbortSignal): Promise<void> {
@@ -537,6 +554,7 @@
 			overlayRootElement,
 			posedOverlayRoots,
 			substrateTexture: stageSubstrateController.texture(),
+			stageModelMesh: stageModelController.mesh(),
 			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
 			readableProbeMode,
 			domCapture: {
@@ -716,6 +734,14 @@
 				stageIdentity: localStage ?? null,
 				asset: stageAsset
 			});
+		});
+	});
+
+	$effect(() => {
+		const localStage = engineState.stage;
+		const screenModel = localStage?.type === 'depth' ? (localStage.screen?.model ?? null) : null;
+		untrack(() => {
+			stageModelController.update({ stageIdentity: localStage ?? null, model: screenModel });
 		});
 	});
 
@@ -1285,6 +1311,7 @@
 		compositionRenderResourceController.dispose();
 		renderResourceSet = null;
 		stageSubstrateController.dispose();
+		stageModelController.dispose();
 		disposeSubstrateTextures();
 		host?.dispose();
 		host = null;

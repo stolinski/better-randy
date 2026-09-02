@@ -17,6 +17,7 @@ import {
 	isTransitionEffectType
 } from './pipelines/transition-definition-registry';
 import { isCaptureAsset, listCaptureAssets } from './capture-assets';
+import { isStageModel, listStageModels } from './stage-models';
 import { isSubstrateAsset } from './substrate-textures';
 import { resolveFrameRate, secondsToFrames } from '../utils/composition-timing';
 import { normalizeWebsiteCaptureUrl } from '../utils/website-showcase';
@@ -289,6 +290,14 @@ function validateStageSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 		issues.push({
 			path: ['state', 'stage', 'backdrop', 'image', 'asset'],
 			message: `Unknown substrate asset "${asset}"`
+		});
+	}
+	// The physical screen (ADR-0051 phase 2) must be a registered model.
+	const screenModel = preset.state.stage?.screen?.model;
+	if (screenModel !== undefined && !isStageModel(screenModel)) {
+		issues.push({
+			path: ['state', 'stage', 'screen', 'model'],
+			message: `Unknown stage model "${screenModel}". Registered models: ${listStageModels().join(', ')}`
 		});
 	}
 	// Each posed Overlay (an explicit z or a pose) rides its own capture plane

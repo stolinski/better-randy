@@ -61,14 +61,15 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0048](0048-agent-authored-chart-domain.md)                        | Canon (built)                                                                                | Strict Block-domain charts with Pack-owned appearance and intrinsic deterministic motion                |
 | [0049](0049-lazy-pipeline-renderer-loading.md)                     | Canon (built)                                                                                | Synchronous Pipeline definitions with Preset-scoped lazy renderer loading                               |
 | [0050](0050-layout-contract-verification.md)                       | Build-harness (built)                                                                        | Geometry-first exhaustive Layout Contract verification; pixel capture is diagnostic only                |
-| [0051](0051-pipeline-defined-dimensional-stage-geometry.md)        | Designed, not built (phase 2 of the 3D Canvas Upgrade, ordered by 0057)                      | TypeGPU-native Pipeline geometry evolves the existing Dimensional Stage in place                        |
+| [0051](0051-pipeline-defined-dimensional-stage-geometry.md)        | Canon (phase 2 of the 3D Canvas Upgrade building; first body landed by 0059)                 | TypeGPU-native Pipeline geometry evolves the existing Dimensional Stage in place                        |
 | [0052](0052-public-runtime-and-retention-architecture.md)          | Canon (ratified; public deployment descoped 2026-08-31 — local-first)                        | Node/ffmpeg origin served locally, Cloudflare as DNS/proxy only, bounded export, zero content retention |
 | [0053](0053-gfx-namespace-and-legacy-supers-compatibility.md)      | Canon (contract ratified; renames are separate changes)                                      | GFX namespace, one disposition per Legacy Supers name, and the public-session boundary                  |
 | [0054](0054-webmcp-operation-transaction-and-security-contract.md) | Canon (built; Chrome 153 context amendment shipped 2026-09-02)                                          | Shared revisioned operations with bounded WebMCP family disclosure and explicit security hints          |
 | [0055](0055-user-defined-packs.md)                                 | Canon (built 2026-09-01)                                                                     | User Packs as validated JSON documents behind a UserPackStore; renderable, never catalog                |
 | [0056](0056-newspaper-photographed-page.md)                        | Canon (built 2026-09-01)                                                                     | The newspaper is a full-bleed photographed page, fully Pack-immune, with a camera instead of a card     |
-| [0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)         | Canon (phase 1 built 2026-09-02); phase 2 is 0051, still designed                            | The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry                       |
+| [0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)         | Canon (phase 1 built 2026-09-02); phase 2 is 0051, building                                  | The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry                       |
 | [0058](0058-stale-build-recovery-for-on-demand-imports.md)         | Canon (built 2026-09-02)                                                                     | A tab that outlives a rebuild reloads onto the current build instead of failing an on-demand import     |
+| [0059](0059-compiled-stage-models-and-the-physical-screen.md)      | Canon (built 2026-09-02, awaiting the aesthetic gate on `crt-filmed`)                        | Authored parts compile into registered stage models; the physical screen is the first body              |
 
 ## Supersession And Refinement
 
@@ -76,7 +77,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0005` + `0008` -> invocation by `0010` -> deterministic context by `0013`.
 - `0014` + `0015` -> `0019` -> appearance-only/core fallback in `0023` + `0024` -> Preset-side completion in `0038`.
 - `0004` -> superseded recipe cookbook -> shipped Starter-template fork model in `0032`.
-- `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057`.
+- `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057` -> first body (the compiled screen model) landed by `0059`, which takes the one-asset-class revisit `0047` reserved.
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
 - `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.

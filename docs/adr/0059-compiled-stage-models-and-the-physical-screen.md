@@ -1,0 +1,50 @@
+# ADR-0059 — Compiled stage models, and the physical screen as the first body
+
+## Status
+
+**Canon (built 2026-09-02, awaiting the human aesthetic gate on `crt-filmed`).** Opens the bounded model lane [ADR-0047](0047-reject-general-asset-to-geometry-import.md) reserved for one asset class, and lands the first body of [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) through the [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) camera. Dex epic `sh9b6qxd`, phase 2. Brief: [`docs/briefs/stage-bodies.md`](../briefs/stage-bodies.md).
+
+Date: 2026-09-02
+
+Builds on: [ADR-0028](0028-dimensional-depth-stage.md) (the depth Stage), [ADR-0047](0047-reject-general-asset-to-geometry-import.md) (no general importer), [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) (Pipeline-defined geometry), [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) (the filmed canvas and its ordering)
+
+## Context
+
+Phase 2 of the 3D Canvas Upgrade was designed as a geometry contract proven by a procedural `dimensional-form` Overlay. On 2026-09-02 that proof was built as a rounded Syntax card — a lit slab carrying a kicker and a title, floating in front of the filmed page — and Scott rejected it: it remakes what the CSS card system already does in two dimensions, and under another Pack it reads as a generic grey object. His framing for the phase: real models and real 3D type are a capability GFX wants for all kinds of pieces; a flat card is not where 3D earns its keep.
+
+Scott already authors physical objects for his talks as nurb / build123d parts — a real B-rep kernel, exported to glTF and placed by one uniform scale. His CRT monitor (`parts/crt_monitor.py` in the mental-health talk) is one watertight solid of about 20,000 triangles with a screen opening, a pocket floor, and a stand underside that are the part's own runtime contract. That is authored geometry with a build step, not an asset downloaded from a marketplace: exactly the "narrowly compiled geometry" ADR-0051 allows and the one-asset-class revisit ADR-0047 reserved.
+
+The Stage already had what such a body needs by the end of phase 1: a depth-tested plane compositor with a general plane basis, a camera pose and travel, plane-to-plane shadow, and a depth sidecar the lens reads.
+
+## Decision
+
+### The compiled-model lane
+
+1. **A stage model is an authored part, compiled once and registered.** `scripts/compile-stage-model.ts <slug> <part.glb>` reads the part's own glTF export — one node, one mesh, one indexed triangle primitive with float positions and normals, no transform — assigns every triangle to a material region from its centroid, splits vertices where regions meet so the region never interpolates, and writes `src/lib/assets/models/<slug>.stagemesh`. The format (`stage-mesh-format.ts`) is a fixed header, a tightly packed position/normal/region stream, and 32-bit indices; the compile script under Node and the browser loader share its encoder and decoder. The registry (`stage-models.ts`) names each model with its provenance (part, export date, source sha256), the triangle and vertex counts the bytes must match, its material regions, the region rule, and, for a screen, where its glass is. Nothing at runtime reads a model the registry does not name; the general importer stays rejected.
+2. **Materials are intrinsic to the object.** A model's regions carry their own colour and roughness in the Stage's display space. A monitor is dark plastic under every Pack; the Pack changes the field, the key light, and what is on the screen. Object materials are not Pack Roles, and no Pack material vocabulary is added.
+3. **Readiness is a resource seam, like the backdrop substrate.** `StageModelController` decodes the declared model, first paint and export wait on it alongside fonts, captures, and the substrate, and a superseded load is rejected, so a frame never renders a model it did not await.
+
+### The physical screen
+
+4. **`stage.screen: { model }` makes the Surface plane the glass of a model.** The opening fits inside the frame plane (its width or height matches, whichever fits) and the composition covers it: under a horizontal frame a widescreen tube shows nearly the whole composition; under a vertical frame it shows the frame's middle band, the way a landscape monitor would. The model is scaled by that fit and shifted so its screen centre lands on the stage origin, so the housing stands proud of the glass by exactly the pocket depth the part authored, and the glass sits a hair clear of the pocket floor so the two never share a depth. The camera aim, focus, and the GUI's hit-test projector all keep their meaning: they address the glass. Every Surface may be filmed on a screen; the screen is a Stage vocabulary, not a Surface variant.
+5. **Bodies render inside the plane compositor, not beside it.** While a body is present the scene passes render multisampled and resolve back into the single-sample colour target and depth sidecar — colour averaged, depth NEAREST, so a contour never sweeps through the focal plane and reads sharp in the gather. Bodies draw between the opaque planes and the soft skirts, depth-tested both ways, writing the sidecar like any opaque texel. With no body on the stage none of it allocates or runs, and every shipped Preset renders pixel-identical.
+6. **One lit scene, extended.** The Pack key lights a body as a matte object — wrapped Lambert over a hemisphere fill, a roughness-shaped sheen, a dark room reflected at glancing angles — and darkens it through the same plane-to-plane march the planes use plus a shadow map: the bodies rendered from the key's direction, read with a blocker search and a fixed-pattern disc filter so shadows harden at contact and soften with distance. A screen's glass lights its own housing: the opening acts as an area light whose colour is the composition's own average. A soft shoulder keeps that spill from clipping. No bloom, no rim glow.
+7. **A present body may pull focus; a screen never does.** The lens racks from the aimed page point to the nearest body that declares itself a focus subject, by its presence, and back as it leaves — the documentary reflex when a subject enters the shot. A screen's glass is the aimed plane already, so it never pulls. No shipped body pulls focus yet; the rule waits for the Overlay-owned bodies of the next slice.
+8. **Ceilings before GPU work.** Bodies, vertices, indices, mesh bytes, and the resident bytes the multisampled set and shadow map add are explicit ceilings (`STAGE_BODY_CEILINGS`) enforced with a corrective error, beside the plane ceilings of phase 1.
+
+## Considered options
+
+- **The `dimensional-form` card as the proof (the epic as written)** — built and rejected on 2026-09-02: it remakes a CSS-able element and loses the brand's chrome under other Packs. The engine work under it stayed; the card, its roles, and its preset were removed before landing.
+- **VGPU alongside TypeGPU** — evaluated the same day and not adopted: its claimed wins (depth targets, MSAA, multi-pass, instancing) were already in hand through TypeGPU and the phase-1 compositor, its scene module is the generic scene tree ADR-0051 forbids, its targets own their textures so the seam would sit exactly where the Stage owns resources, and no reproducible proof of its equivalence existed in the repo. It remains a cheaper candidate than Three.js at the demand gate.
+- **A general glTF loader at runtime** — rejected, unchanged from ADR-0047. Materials, textures, skins, cameras, and units would each need a policy; a registered compiled part needs none.
+- **The screen as a Surface variant** — rejected: any Surface can be filmed on a screen, and the glass belongs to the plane the Stage owns, beside its camera and backdrop.
+- **Per-orientation screen fits** — rejected for v1: the landscape opening showing a vertical frame's middle band is what a real monitor would do; a portrait model is the answer if a piece needs one.
+
+## Consequences
+
+- `crt-filmed` is the phase-2 acceptance evidence for this slice: the Syntax YouTube page on the FW900 tube, a low-left camera holding the whole monitor and pushing in, rendered at native horizontal and vertical under every Pack.
+- The Stage gains `depth-stage-geometry.ts` (placement, focus, shadow fit, ceilings), `depth-stage-body-pass.ts` (the body material, the shadow-depth pass, the resolve pass), and `depth-stage-shadow.ts` (the shared shadow vocabulary of planes and bodies); `depth-stage.ts` allocates the multisampled set and the shadow map lazily.
+- The stage inspector edits the screen as one field; `appearance.set-stage` carries it; the canvas projector maps page hit-tests through the opening's crop window.
+- A Pack whose chrome is a post-process tube (`crt-terminal`) warps the whole frame, housing included; whether a screen model should suppress frame chrome that duplicates it is an open question for the Pack calibration that follows.
+- Under a vertical frame the monitor holds the frame's middle band and sits small in a tall field; the camera pose has no per-orientation override, which the next slice may want.
+- The next body is dimensional type — extruded, beveled headlines from the Pack's faces — through the same passes, with the focus-pull rule as its first consumer.

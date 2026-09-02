@@ -21,6 +21,8 @@ import {
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
 import { getSurfaceDefinition } from './pipelines/definition-registry';
+import type { StageMeshData } from './stage-mesh-format';
+import { getStageModel } from './stage-models';
 import {
 	requireLoadedOverlayRenderer,
 	requireLoadedSurfaceRenderer
@@ -79,6 +81,8 @@ interface ResolvedStageFrame {
 	/** Overlays riding their own posed plane (ADR-0057), in Layer order. */
 	posedOverlays: readonly Overlay[];
 	overlayZ: number;
+	/** The registered model whose glass the Surface plane is (ADR-0051 phase 2). */
+	screenModel: string | null;
 	light: LightTreatment | null;
 	effects: readonly Effect[];
 }
@@ -139,6 +143,8 @@ export interface CompositionFrameRenderRequest {
 	/** The posed Overlays' own roots while the stage splits them out; absent = none mounted. */
 	posedOverlayRoots?: readonly CompositionPosedOverlayRoot[];
 	substrateTexture: GPUTexture | null;
+	/** The decoded mesh of the stage's screen model, once its bytes are ready (ADR-0051 phase 2). */
+	stageModelMesh?: StageMeshData | null;
 	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 	readableProbeMode?: CompositionReadableProbeMode;
 	domCapture?: CompositionDomCaptureGenerations;
@@ -552,6 +558,7 @@ function resolveStageFrame(
 		sharedOverlayCount: shared.length,
 		posedOverlays: posed,
 		overlayZ: SHARED_OVERLAY_PLANE_Z,
+		screenModel: stage.screen?.model ?? null,
 		light: treatments.light,
 		effects: state.effects
 	};
@@ -685,11 +692,21 @@ function renderStageFrame(
 			});
 		}
 	}
+	// The screen (ADR-0051 phase 2): the registered model whose glass the
+	// Surface plane is, once its mesh is resident. Readiness awaited the mesh
+	// before first paint and export; a frame that arrives without it (a model
+	// just declared in the editor) renders the plane alone until it lands.
+	const screenModel = stage.screenModel ? getStageModel(stage.screenModel) : null;
+	const screen =
+		screenModel && request.stageModelMesh
+			? { model: screenModel, mesh: request.stageModelMesh }
+			: undefined;
 	depthStage.render({
 		surfacePlaneView: stagedSurfaceTexture.createView(),
 		overlayPlaneView,
 		overlayZ: stage.overlayZ,
 		posedOverlayPlanes,
+		screen,
 		focusZ: stage.focusZ,
 		aperture: stage.aperture,
 		focusBand: stage.focusBand,
