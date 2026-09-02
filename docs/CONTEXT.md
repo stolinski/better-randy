@@ -19,8 +19,12 @@ The single recorded classification every current or legacy name carries, fixed i
 _Avoid_: migration status, deprecation level, rename phase (a disposition is a standing classification, not a stage a name moves through).
 
 **Public demo session**:
-The browser-scoped, no-account working context a visitor has on a host running the `public` runtime profile — today a local production-shaped origin, since public deployment is descoped. Its composition state lives only in that browser: never sent to the origin, never written to origin disk, never tied to an identity. There are no accounts, no server-side composition store, and no durable visitor content. Reloading continues the same session; clearing browser storage ends it and leaves nothing behind on our side.
-_Avoid_: account, workspace (the **Workspace** is the engine shell), project, cloud document, saved session; also "the public site", which does not exist.
+The browser-scoped, no-account working context a visitor has on a host running the `public` or `hosted` runtime profile — the local production-shaped origin, or the **Hosted origin**. Its composition state lives only in that browser: never sent to the origin, never written to origin disk, never tied to an identity. There are no accounts, no server-side composition store, and no durable visitor content. Reloading continues the same session; clearing browser storage ends it and leaves nothing behind on our side.
+_Avoid_: account, workspace (the **Workspace** is the engine shell), project, cloud document, saved session.
+
+**Hosted origin**:
+`https://gfx.computer`: one Cloudflare Worker serving the app under the `hosted` runtime profile ([ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) amendment), declared by `PUBLIC_GFX_HOSTED`. It serves the app shell, the Workspace, and the static build, and encodes nothing — the browser renders and encodes every export there (WebM only). It answers 404 for the export transport and every development-only surface, offers no ProRes lane, and keeps no visitor content of any kind. Rendering in an unflagged Chrome rests on the HTML-in-Canvas origin trial, sent as the `Origin-Trial` header. The docs site is a separate Worker at `docs.gfx.computer`.
+_Avoid_: the public origin (that name belongs to the Node/ffmpeg artifact and its `public` profile), the site, the docs (those are `docs.gfx.computer`), Pages (it is a Worker), the cloud (nothing is stored there).
 
 **Export session**:
 The bounded server-side unit of work in [ADR-0052](adr/0052-public-runtime-and-retention-architecture.md) — one private temp directory, one ffmpeg process, one single-shot download. It carries rendered frames, never composition JSON, and is destroyed on completion, failure, cancellation, idle expiry, and once the download drains. Where one render happens, not where a composition lives.

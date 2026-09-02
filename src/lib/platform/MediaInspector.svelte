@@ -10,6 +10,7 @@
 	import { compositionMediaInspection } from './composition-media-inspection.svelte';
 	import { engineState } from './engine-state.svelte';
 	import { writeMediaLibraryAssetDragTransfer } from './media-library-drag-transfer';
+	import { IS_ORIGIN_COMPOSITION_STORE_SERVED } from './user-composition-store';
 	import type { UserVideoAssetDescriptor } from './user-video-asset';
 	import { uploadUserVideo } from './user-video-upload-transport';
 
@@ -97,8 +98,13 @@
 		void processUploadQueue();
 	}
 
+	// A dropped clip lands in the origin's asset store (ADR-0053). A
+	// browser-scoped session has no such store, so the drop is not offered and a
+	// file dragged over the library is not a drop target at all.
 	function isFileDrag(event: DragEvent): boolean {
-		return event.dataTransfer?.types.includes('Files') ?? false;
+		return (
+			IS_ORIGIN_COMPOSITION_STORE_SERVED && (event.dataTransfer?.types.includes('Files') ?? false)
+		);
 	}
 
 	function resetDragState(): void {
@@ -189,10 +195,12 @@
 			{/if}
 		</output>
 	</header>
-	<p class="media-drop-cue" aria-hidden={isUploading}>
-		<strong>{isDragActive ? 'Drop clips' : isUploading ? 'Importing clips' : 'Drop video'}</strong>
-		<span>MP4 · MOV · WEBM</span>
-	</p>
+	{#if IS_ORIGIN_COMPOSITION_STORE_SERVED}
+		<p class="media-drop-cue" aria-hidden={isUploading}>
+			<strong>{isDragActive ? 'Drop clips' : isUploading ? 'Importing clips' : 'Drop video'}</strong>
+			<span>MP4 · MOV · WEBM</span>
+		</p>
+	{/if}
 	{#if uploadFailures.length > 0}
 		<ul class="media-errors" aria-label="Failed imports" role="alert">
 			{#each uploadFailures as failure, index (`${failure.fileName}-${index}`)}

@@ -6,8 +6,13 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:hosted": "PUBLIC_GFX_HOSTED=1 PUBLIC_GFX_COMPOSITION_STORE=browser GFX_RELEASE=gfx@dev-hosted vite dev",
 		"build": "vite build",
+		"build:hosted": "PUBLIC_GFX_HOSTED=1 vite build",
 		"preview": "vite preview --port 4173",
+		"preview:hosted": "wrangler dev --var GFX_RELEASE:gfx@preview-hosted",
+		"deploy:hosted": "scripts/deploy-hosted-origin.sh",
+		"verify:hosted-export": "node --experimental-strip-types scripts/verify-hosted-export.ts",
 		"test": "vitest run",
 		"test:browser": "node scripts/test-browser-render.mjs",
 		"probe:standard-browser": "node scripts/probe-standard-browser-rendering.mjs",
@@ -53,6 +58,7 @@
 		"@eslint/compat": "^2.0.4",
 		"@eslint/js": "^10.0.1",
 		"@foleyjs/core": "2.7.0",
+		"@sveltejs/adapter-cloudflare": "7.2.9",
 		"@sveltejs/adapter-node": "^5.5.7",
 		"@sveltejs/kit": "^2.69.2",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
@@ -73,7 +79,8 @@
 		"typescript": "6.0.3",
 		"typescript-eslint": "^8.63.0",
 		"vite": "^8.1.4",
-		"vitest": "~4.1.0"
+		"vitest": "~4.1.0",
+		"wrangler": "4.128.0"
 	},
 	"dependencies": {
 		"@drop-in/graffiti": "^4.30.0",

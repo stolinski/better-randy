@@ -128,6 +128,15 @@ export const PUBLIC_PERMISSIONS_POLICY: string = [
  * costs nothing, because `PUBLIC_SENTRY_DSN` is not one of the deployment inputs
  * a public host is given (`PUBLIC_RUNTIME_DEPLOYMENT_INPUTS`). Server-side
  * Sentry is unaffected: it reports from the origin, not from the page.
+ *
+ * `worker-src` admits `blob:` because the browser export lane
+ * (`browser-webm-export.ts`, the hosted origin's only lane) encodes alpha in a
+ * worker that Mediabunny builds from a Blob URL — the colour/alpha splitter a
+ * transparent VP9 export needs. Without it the directive falls back to
+ * `script-src`, which names only `'self'`, and a transparent export fails with
+ * "Color/alpha splitter worker error" while an opaque one, which needs no
+ * splitter, succeeds. A blob worker is still this page's own code; nothing
+ * cross-origin is admitted by it.
  */
 export const PUBLIC_CONTENT_SECURITY_POLICY_DIRECTIVES: Readonly<
 	Record<string, readonly string[]>
@@ -138,6 +147,7 @@ export const PUBLIC_CONTENT_SECURITY_POLICY_DIRECTIVES: Readonly<
 	'frame-ancestors': ["'none'"],
 	'form-action': ["'self'"],
 	'script-src': ["'self'"],
+	'worker-src': ["'self'", 'blob:'],
 	'style-src': ["'self'", "'unsafe-inline'"],
 	'img-src': ["'self'", 'blob:', 'data:'],
 	'media-src': ["'self'", 'blob:'],
@@ -207,14 +217,29 @@ export function composePublicContentSecurityPolicy(appShellPolicy: string | null
  */
 export const DEFAULT_PUBLIC_CACHE_CONTROL = 'no-store';
 
+export interface PublicResponseHeaderOptions {
+	/**
+	 * The HTML-in-Canvas origin-trial token registered to this origin, sent as
+	 * `Origin-Trial` on every document so a visitor's unflagged Chrome exposes
+	 * `CanvasDrawElement` for that page (ADR-0052 amendment). Chrome reads the
+	 * header from the document response, which is why it goes on documents only;
+	 * a token is bound to the origin it was issued for and is inert anywhere else.
+	 */
+	originTrialToken?: string | null;
+}
+
 /**
  * Hold one response to the public contract. Mutates the headers in place, which
  * is what a SvelteKit `handle` hook is given a response for.
  *
- * The Content Security Policy is set on HTML documents only — it governs what a
- * document may load, and an image or a font is not a document.
+ * The Content Security Policy and the origin-trial token are set on HTML
+ * documents only — they govern what a document may load and do, and an image or
+ * a font is not a document.
  */
-export function applyPublicResponseHeaders(response: Response): void {
+export function applyPublicResponseHeaders(
+	response: Response,
+	options: PublicResponseHeaderOptions = {}
+): void {
 	for (const [name, value] of Object.entries(PUBLIC_SECURITY_RESPONSE_HEADERS)) {
 		response.headers.set(name, value);
 	}
@@ -229,5 +254,8 @@ export function applyPublicResponseHeaders(response: Response): void {
 			'Content-Security-Policy',
 			composePublicContentSecurityPolicy(response.headers.get('Content-Security-Policy'))
 		);
+		if (options.originTrialToken) {
+			response.headers.set('Origin-Trial', options.originTrialToken);
+		}
 	}
 }

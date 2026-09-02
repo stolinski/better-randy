@@ -11,9 +11,12 @@
  * instead.
  *
  * The `development` profile is the default and adds no requirements, so a bare
- * checkout, the dev server, and `vite preview` behave exactly as before. Only a
- * host that declares `GFX_RUNTIME_PROFILE=public` — which the production image
- * does — is held to the list below.
+ * checkout, the dev server, and `vite preview` behave exactly as before. A host
+ * that declares `GFX_RUNTIME_PROFILE=public` — which the production image does —
+ * is held to the Node-origin list below. A host that sets `PUBLIC_GFX_HOSTED`
+ * is the `hosted` profile, held to the far shorter list a Worker can satisfy:
+ * it encodes nothing and stores nothing, so it needs no ffmpeg, no temp disk,
+ * and no body ceiling — only a release identity and the browser-scoped store.
  *
  * Deliberately free of Node imports, like its `public-runtime-contract` and
  * `public-export-limits` peers, so the container entry, the routes, and the
@@ -23,17 +26,24 @@
 import {
 	PUBLIC_EXPORT_RUNTIME_LIMITS,
 	PublicRuntimeConfigError,
+	isHostedOrigin,
 	parseCompositionSessionStoreConfig,
 	parsePublicRuntimeConfig
 } from '$lib/platform/public-runtime-contract';
 
 /**
  * What this host is being asked to be. `development` is every local checkout;
- * `public` is the gfx.computer origin and the production image that serves it.
+ * `public` is the Node/ffmpeg origin and the production image that serves it;
+ * `hosted` is the gfx.computer Workers origin, where the browser encodes every
+ * export and the origin serves the app and nothing durable (ADR-0052 amendment).
  */
-export type PublicRuntimeProfile = 'development' | 'public';
+export type PublicRuntimeProfile = 'development' | 'public' | 'hosted';
 
-export const PUBLIC_RUNTIME_PROFILES: readonly PublicRuntimeProfile[] = ['development', 'public'];
+export const PUBLIC_RUNTIME_PROFILES: readonly PublicRuntimeProfile[] = [
+	'development',
+	'public',
+	'hosted'
+];
 
 /** One deployment input a public host was given wrong, and what would fit. */
 export interface PublicRuntimeDeploymentFailure {
@@ -47,19 +57,38 @@ function isPublicRuntimeProfile(value: string): value is PublicRuntimeProfile {
 	return PUBLIC_RUNTIME_PROFILES.some((profile) => profile === value);
 }
 
-/** Read which profile this host is running as. Absent, it is a development host. */
+/**
+ * Read which profile this host is running as. Absent, it is a development host.
+ *
+ * `PUBLIC_GFX_HOSTED` is the hosted profile's one knob, because the page has to
+ * read the same answer the origin does. `GFX_RUNTIME_PROFILE` may agree with it
+ * or stay unset; a host that declares itself `public` while also setting the
+ * hosted input is asking to be two origins at once and is refused.
+ */
 export function parsePublicRuntimeProfile(
 	env: Readonly<Record<string, string | undefined>>
 ): PublicRuntimeProfile {
 	const raw = env.GFX_RUNTIME_PROFILE;
-	if (raw === undefined || raw.trim() === '') return 'development';
-	const value = raw.trim();
-	if (!isPublicRuntimeProfile(value)) {
+	const declared = raw === undefined || raw.trim() === '' ? null : raw.trim();
+	if (declared !== null && !isPublicRuntimeProfile(declared)) {
 		throw new PublicRuntimeConfigError(
-			`GFX_RUNTIME_PROFILE must be one of ${PUBLIC_RUNTIME_PROFILES.join(', ')}; received "${value}".`
+			`GFX_RUNTIME_PROFILE must be one of ${PUBLIC_RUNTIME_PROFILES.join(', ')}; received "${declared}".`
 		);
 	}
-	return value;
+	if (isHostedOrigin(env)) {
+		if (declared !== null && declared !== 'hosted') {
+			throw new PublicRuntimeConfigError(
+				`PUBLIC_GFX_HOSTED is set, which makes this the hosted origin, but GFX_RUNTIME_PROFILE says "${declared}". Remove one of them.`
+			);
+		}
+		return 'hosted';
+	}
+	if (declared === 'hosted') {
+		throw new PublicRuntimeConfigError(
+			'GFX_RUNTIME_PROFILE=hosted, but PUBLIC_GFX_HOSTED is unset, so the page would not know it is on the hosted origin. Set PUBLIC_GFX_HOSTED=1 instead.'
+		);
+	}
+	return declared ?? 'development';
 }
 
 /**
@@ -88,7 +117,9 @@ export function parseBodySizeLimitBytes(value: string): number | null {
 export function findPublicRuntimeDeploymentFailures(
 	env: Readonly<Record<string, string | undefined>>
 ): PublicRuntimeDeploymentFailure[] {
-	if (parsePublicRuntimeProfile(env) !== 'public') return [];
+	const profile = parsePublicRuntimeProfile(env);
+	if (profile === 'development') return [];
+	if (profile === 'hosted') return findHostedRuntimeDeploymentFailures(env);
 
 	const failures: PublicRuntimeDeploymentFailure[] = [];
 	const config = parsePublicRuntimeConfig(env);
@@ -163,10 +194,41 @@ export function findPublicRuntimeDeploymentFailures(
 }
 
 /**
+ * What a hosted origin is held to. It runs no encoder and keeps no disk, so
+ * the whole Node-origin envelope is beside the point; what it still owes is a
+ * release identity the app shell and `/api/health` can report, and the
+ * browser-scoped store, because a Worker has nowhere durable to put a visitor's
+ * work and must never pretend otherwise.
+ */
+function findHostedRuntimeDeploymentFailures(
+	env: Readonly<Record<string, string | undefined>>
+): PublicRuntimeDeploymentFailure[] {
+	const failures: PublicRuntimeDeploymentFailure[] = [];
+	if (parsePublicRuntimeConfig(env).release === null) {
+		failures.push({
+			input: 'GFX_RELEASE',
+			problem:
+				'A Worker carries no git checkout to fall back to, so the app shell and /api/health would report no release and a deploy could not be verified against the origin. The deploy script sets it to the deployed commit.',
+			fittingValue: null
+		});
+	}
+	if (parseCompositionSessionStoreConfig(env).kind !== 'browser') {
+		failures.push({
+			input: 'PUBLIC_GFX_COMPOSITION_STORE',
+			problem:
+				'The hosted origin keeps no durable visitor content and answers 404 for the disk-backed composition routes, so it must serve the browser-scoped composition session.',
+			fittingValue: 'browser'
+		});
+	}
+	return failures;
+}
+
+/**
  * Hold this host to its profile, or refuse to serve. Called from the server
  * `init` hook, which the Node adapter awaits before it listens — so a
  * misconfigured public host exits non-zero at startup instead of accepting a
- * request it cannot finish.
+ * request it cannot finish. A Worker has no listen step; there the same throw
+ * fails every request until the deployment is corrected.
  */
 export function assertPublicRuntimeDeployment(
 	env: Readonly<Record<string, string | undefined>>
@@ -178,7 +240,8 @@ export function assertPublicRuntimeDeployment(
 		(failure) =>
 			`  ${failure.input}: ${failure.problem}${failure.fittingValue === null ? '' : ` Set it to ${failure.fittingValue}.`}`
 	);
+	const declaration = profile === 'hosted' ? 'PUBLIC_GFX_HOSTED is set' : `GFX_RUNTIME_PROFILE=${profile}`;
 	throw new PublicRuntimeConfigError(
-		`GFX_RUNTIME_PROFILE=public, but ${failures.length} deployment input${failures.length === 1 ? '' : 's'} cannot serve public traffic:\n${lines.join('\n')}`
+		`${declaration}, but ${failures.length} deployment input${failures.length === 1 ? '' : 's'} cannot serve ${profile} traffic:\n${lines.join('\n')}`
 	);
 }

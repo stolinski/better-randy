@@ -1,0 +1,30 @@
+// The hosted gfx.computer origin: one Cloudflare Worker that serves the app
+// shell, the Workspace, and the static build, and encodes nothing — the browser
+// exports there (ADR-0052 amendment). Nothing durable lives here: no KV, D1,
+// R2, or Durable Objects, because the hosted origin keeps no visitor content.
+//
+// Built by `pnpm build:hosted` (PUBLIC_GFX_HOSTED selects the Cloudflare
+// adapter) and deployed by `scripts/deploy-hosted-origin.sh`, which sets
+// GFX_RELEASE to the deployed commit. Secrets are set once with
+// `wrangler secret put`: GFX_ORIGIN_TRIAL_TOKEN (the HTML-in-Canvas origin-trial
+// token registered to https://gfx.computer) and, optionally, SENTRY_DSN.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "gfx-computer",
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"compatibility_date": "2026-08-01",
+	// Node built-ins the server tree imports (fs, path, crypto, stream) resolve to
+	// the runtime's implementations; the modules that would actually reach for a
+	// process or a disk are never loaded on the hosted profile.
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"routes": [{ "pattern": "gfx.computer", "custom_domain": true }],
+	"vars": {
+		"PUBLIC_GFX_HOSTED": "1",
+		"PUBLIC_GFX_COMPOSITION_STORE": "browser"
+	},
+	"observability": { "enabled": true }
+}

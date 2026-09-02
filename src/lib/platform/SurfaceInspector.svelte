@@ -10,6 +10,7 @@
 		type SurfaceType
 	} from './engine-schema';
 	import { engineState } from './engine-state.svelte';
+	import { IS_HOSTED_ORIGIN } from './hosted-origin';
 	import {
 		getSurfaceDefinition,
 		PIPELINE_DEFINITION_REGISTRY
@@ -267,7 +268,9 @@
 			</Field>
 		{/if}
 
-		{#if controls.websiteCapture}
+		<!-- Site capture drives the origin's headless browser (ADR-0054 §7); the
+		     hosted origin has none, so the fields are absent there. -->
+		{#if controls.websiteCapture && !IS_HOSTED_ORIGIN}
 			<WebsiteCaptureFields />
 		{/if}
 

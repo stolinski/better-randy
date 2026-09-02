@@ -44,7 +44,15 @@ export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentI
 		required: false,
 		defaultValue: 'development',
 		purpose:
-			'What this host is being asked to be: "public" holds every input below to the deployment the gfx.computer demo needs and refuses to start otherwise, "development" adds no requirements. See public-runtime-deployment.ts.'
+			'What this host is being asked to be: "public" holds every input below to the deployment the Node origin needs and refuses to start otherwise, "development" adds no requirements. A hosted origin does not set it — PUBLIC_GFX_HOSTED decides that profile. See public-runtime-deployment.ts.'
+	},
+	{
+		name: 'PUBLIC_GFX_HOSTED',
+		owner: 'gfx',
+		required: false,
+		defaultValue: null,
+		purpose:
+			'Present on the hosted gfx.computer origin (Cloudflare Workers, ADR-0052 amendment). Its presence is the "hosted" profile: the browser encodes every export itself, the ProRes lane is not offered, the Node export transport and every development-only surface answer 404, and the client hides the disk-backed authoring it cannot reach. PUBLIC_ so the page reads the same value the origin does.'
 	},
 	{
 		name: 'FFMPEG_PATH',
@@ -89,6 +97,14 @@ export const PUBLIC_RUNTIME_DEPLOYMENT_INPUTS: readonly PublicRuntimeDeploymentI
 		required: false,
 		defaultValue: null,
 		purpose: 'Server-side Sentry ingestion. Absent, every capture is a no-op.'
+	},
+	{
+		name: 'GFX_ORIGIN_TRIAL_TOKEN',
+		owner: 'gfx',
+		required: false,
+		defaultValue: null,
+		purpose:
+			'Chrome origin-trial token for the HTML-in-Canvas API, registered to this origin. A hosted origin sends it as the Origin-Trial header on every document so a visitor\'s unflagged Chrome exposes CanvasDrawElement; absent, only a flag-launched Chrome passes the capability gate. Local origins never need it — they launch the flagged browser.'
 	},
 	{
 		name: 'PUBLIC_GFX_COMPOSITION_STORE',
@@ -153,6 +169,18 @@ export interface PublicRuntimeConfig {
 	maxConcurrentExportSessions: number;
 	/** `null` means "fall back to the checkout commit". */
 	release: string | null;
+	/** The HTML-in-Canvas origin-trial token a hosted origin sends, or `null` to send none. */
+	originTrialToken: string | null;
+}
+
+/**
+ * Whether this environment is the hosted origin. The input is PUBLIC_ so the
+ * page and the origin read one value: the client picks the browser export lane
+ * and hides disk-backed authoring by it, and `parsePublicRuntimeProfile` turns
+ * it into the `hosted` profile. Presence is the signal — any non-empty value.
+ */
+export function isHostedOrigin(env: Readonly<Record<string, string | undefined>>): boolean {
+	return readNonEmptyString(env, 'PUBLIC_GFX_HOSTED', null) !== null;
 }
 
 /**
@@ -318,7 +346,8 @@ export function parsePublicRuntimeConfig(
 			PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs
 		),
 		maxConcurrentExportSessions,
-		release: readNonEmptyString(env, 'GFX_RELEASE', null)
+		release: readNonEmptyString(env, 'GFX_RELEASE', null),
+		originTrialToken: readNonEmptyString(env, 'GFX_ORIGIN_TRIAL_TOKEN', null)
 	};
 }
 

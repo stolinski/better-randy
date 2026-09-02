@@ -38,13 +38,17 @@ export interface PublicRuntimeReadiness {
 	temporaryDisk: TemporaryDiskReadiness;
 }
 
-/** Public health payload: liveness and release only — never paths, versions, or capacity. */
+/**
+ * Public health payload: liveness and release only — never paths, versions, or
+ * capacity. `not-served` is the hosted origin's answer for both checks: it has
+ * no encoder and no disk because it never needs them (ADR-0052 amendment).
+ */
 export interface PublicRuntimeHealthBody {
 	status: 'ready' | 'unavailable';
 	release: string | null;
 	checks: {
-		ffmpeg: 'ok' | 'unavailable';
-		temporaryDisk: 'ok' | 'unavailable';
+		ffmpeg: 'ok' | 'unavailable' | 'not-served';
+		temporaryDisk: 'ok' | 'unavailable' | 'not-served';
 	};
 }
 
@@ -134,6 +138,25 @@ export async function inspectPublicRuntimeReadiness(
 		release: config.release ?? resolveGitRelease() ?? null,
 		ffmpeg,
 		temporaryDisk
+	};
+}
+
+/**
+ * The hosted origin's health: it is ready whenever it is running, because the
+ * browser performs every export and the origin owes a visitor nothing but the
+ * app. The release is still reported, so a deploy is verified the same way.
+ */
+export function summarizeHostedRuntimeHealth(release: string | null): {
+	httpStatus: number;
+	body: PublicRuntimeHealthBody;
+} {
+	return {
+		httpStatus: 200,
+		body: {
+			status: 'ready',
+			release,
+			checks: { ffmpeg: 'not-served', temporaryDisk: 'not-served' }
+		}
 	};
 }
 

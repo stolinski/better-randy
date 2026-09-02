@@ -229,6 +229,16 @@ function resolveBrowserSessionStorage(): Storage | null {
 const compositionSessionStoreConfig = parseCompositionSessionStoreConfig(env);
 
 /**
+ * Whether this build serves the disk-backed origin stores at all — the User
+ * composition store and, behind the same boundary, the User Pack and asset
+ * stores (ADR-0053, ADR-0055). A browser-scoped session has none of them, so
+ * the GUI hides what would only reach a 404: forking a Pack, dropping a clip.
+ * The WebMCP registration reads the same answer in `webmcp-tool-preconditions`.
+ */
+export const IS_ORIGIN_COMPOSITION_STORE_SERVED: boolean =
+	compositionSessionStoreConfig.kind === 'origin';
+
+/**
  * The store this build serves. One object, shared by the GUI and by every
  * WebMCP operation, so both act on the same session across a reload.
  */

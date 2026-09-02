@@ -24,8 +24,9 @@ interface PublishedDoc {
 }
 
 /**
- * The published set, in reading order. gfx.computer is for someone using GFX —
- * running it, authoring a Preset, picking a Pack. The repo's other docs exist to
+ * The published set, in reading order. docs.gfx.computer is for someone using
+ * GFX — running it, authoring a Preset, picking a Pack; the apex is the app
+ * itself. The repo's other docs exist to
  * build the software: ADRs, Briefs, the roadmap, the rubrics, the Critic
  * protocol, the identity spec, `ideas/`, and the engine blueprint with its file
  * layout and internals are development surfaces and have no URL here — links to

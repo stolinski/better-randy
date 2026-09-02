@@ -8,7 +8,8 @@ import { describe, it } from 'vitest';
 import {
 	PUBLIC_SURFACE_INVENTORY,
 	findPublicSurface,
-	isDevelopmentOnlySurfacePath
+	isDevelopmentOnlySurfacePath,
+	isSurfaceRefusedByProfile
 } from './public-surface-inventory';
 
 const ROUTES_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), '../../routes');
@@ -70,6 +71,24 @@ describe('public surface inventory', () => {
 		]) {
 			assert.equal(isDevelopmentOnlySurfacePath(pathname), true, pathname);
 		}
+	});
+
+	it('refuses nothing on a development host and the development-only rows on every other', () => {
+		assert.equal(isSurfaceRefusedByProfile('/api/user-compositions', 'development'), false);
+		assert.equal(isSurfaceRefusedByProfile('/api/export/sessions', 'development'), false);
+		assert.equal(isSurfaceRefusedByProfile('/api/user-compositions', 'public'), true);
+		assert.equal(isSurfaceRefusedByProfile('/api/user-compositions', 'hosted'), true);
+		for (const pathname of ['/', '/p/lower-third', '/api/health']) {
+			assert.equal(isSurfaceRefusedByProfile(pathname, 'public'), false, pathname);
+			assert.equal(isSurfaceRefusedByProfile(pathname, 'hosted'), false, pathname);
+		}
+	});
+
+	it('serves the export transport from the Node origin alone, because only it has the encoder', () => {
+		assert.equal(findPublicSurface('/api/export/sessions').exposure, 'node-origin');
+		assert.equal(isSurfaceRefusedByProfile('/api/export/sessions', 'public'), false);
+		assert.equal(isSurfaceRefusedByProfile('/api/export/sessions', 'hosted'), true);
+		assert.equal(isSurfaceRefusedByProfile('/api/export/sessions/abc/frames/0', 'hosted'), true);
 	});
 
 	it('classifies every route this repository serves', () => {

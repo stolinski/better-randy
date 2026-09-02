@@ -27,6 +27,10 @@ import {
 	requireCompositionOperationRow
 } from './composition-operation-preflight';
 import { compositionEditHistory } from './composition-edit-history';
+import {
+	availableCompositionExportFormats,
+	unavailableCompositionExportFormatMessage
+} from './composition-export-formats';
 import { refuseUnloadableCompositionRenderers } from './composition-renderer-readiness';
 import { STANDARD_TRANSPORT_RATES } from '../utils/composition-timing';
 import {
@@ -41,9 +45,6 @@ export const COMPOSITION_ORIENTATIONS: readonly Transport['orientation'][] = [
 	'horizontal',
 	'vertical'
 ];
-
-/** The delivery formats the engine encodes. */
-export const COMPOSITION_EXPORT_FORMATS: readonly Transport['format'][] = ['webm', 'prores'];
 
 /** The sentinel that binds the background fill to the active Pack's field. */
 export const PACK_BACKGROUND_FILL = 'pack';
@@ -179,13 +180,18 @@ export async function runSetCompositionFormatOperation(
 	const refusal = refuseUnlessCompositionEditable(row);
 	if (refusal) return refusal;
 
-	if (!COMPOSITION_EXPORT_FORMATS.includes(request.format)) {
+	// The alternatives are what this origin delivers, not what the schema
+	// declares: on the hosted origin that is WebM alone, and the refusal says why.
+	const formats = availableCompositionExportFormats();
+	if (!formats.includes(request.format)) {
 		return refuseCompositionOperation(
 			row,
 			compositionEditHistory.revision,
 			'unsupported_variant',
-			`"${request.format}" is not a delivery format this engine encodes.`,
-			{ rejected: request.format, alternatives: COMPOSITION_EXPORT_FORMATS }
+			request.format === 'webm' || request.format === 'prores'
+				? unavailableCompositionExportFormatMessage(request.format)
+				: `"${request.format}" is not a delivery format this engine encodes.`,
+			{ rejected: request.format, alternatives: formats }
 		);
 	}
 

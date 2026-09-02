@@ -18,7 +18,11 @@
 
 import type { ExportSessionFormat } from '$lib/platform/export-session.server';
 import { framesToSeconds, resolveFrameRate } from '$lib/utils/composition-timing';
-import type { RenderedFrameMeasurement } from '$lib/utils/rendered-frame-pixels';
+import type {
+	RenderedFrameBorderAlpha,
+	RenderedFrameDrift,
+	RenderedFrameMeasurement
+} from '$lib/utils/rendered-frame-pixels';
 
 /** Whether a composition declared a background fill, and so which lane it exports on. */
 export type PublicExportOutputClass = 'transparent' | 'opaque';
@@ -294,6 +298,96 @@ export const PUBLIC_EXPORT_DECODE_TOLERANCES: Readonly<
 	// worst case: 0.002 of colour and 0.040 of alpha.
 	prores: { rgbMeanAbsoluteError: 0.25, alphaMeanAbsoluteError: 0.25 }
 };
+
+/**
+ * How far the browser lane's decode may drift from the frame the browser
+ * presented. The browser lane (`browser-webm-export.ts`, the hosted origin's
+ * only lane) is lossy VP9 over WebCodecs — there is no lossless mode there — so
+ * it drifts further than the Node lane above, and a transparent piece's border
+ * is not exactly clear: the alpha encoder leaves a residue of a few levels
+ * where the source had none. That residue is held to `borderAlphaMax` above
+ * whatever alpha the source border itself carried, so a composition that bleeds
+ * off-frame is not mistaken for encoder noise and encoder noise is not passed
+ * off as the composition. Set just above the worst case measured by
+ * `pnpm verify:hosted-export`.
+ */
+export interface BrowserExportDecodeTolerance extends PublicExportDecodeTolerance {
+	/** Alpha levels (of 255) a decoded border pixel may carry beyond the source border's own maximum. */
+	borderAlphaMax: number;
+}
+
+export const BROWSER_EXPORT_DECODE_TOLERANCES: Readonly<
+	Record<PublicExportOutputClass, BrowserExportDecodeTolerance>
+> = {
+	// Measured worst case on the lower-third deliverable: 1.782 of colour, 0.0065
+	// of alpha, and a border residue of 4 levels on the first frame (1 elsewhere)
+	// over a source border that is exactly clear.
+	transparent: { rgbMeanAbsoluteError: 2.5, alphaMeanAbsoluteError: 0.05, borderAlphaMax: 6 },
+	// A full-frame piece has no alpha to drift and no border to clear. Measured
+	// worst case on the chapter-card deliverable: 2.098 of colour.
+	opaque: { rgbMeanAbsoluteError: 3, alphaMeanAbsoluteError: 0, borderAlphaMax: 0 }
+};
+
+/** One decoded frame beside the frame the browser presented at the same address. */
+export interface BrowserExportFrameComparison {
+	frameIndex: number;
+	source: { measurement: RenderedFrameMeasurement; borderAlpha: RenderedFrameBorderAlpha };
+	decoded: { measurement: RenderedFrameMeasurement; borderAlpha: RenderedFrameBorderAlpha };
+	drift: RenderedFrameDrift;
+}
+
+/**
+ * Whether the browser lane's decoded frames carry the output class and the
+ * image the browser presented. The opaque rule is the Node lane's; the
+ * transparent rule is relative to the source border rather than absolute,
+ * for the reason `BROWSER_EXPORT_DECODE_TOLERANCES` gives, and soft edges are
+ * required only where the source had them.
+ */
+export function findBrowserExportDecodeFaults(
+	frames: readonly BrowserExportFrameComparison[],
+	outputClass: PublicExportOutputClass,
+	tolerance: BrowserExportDecodeTolerance = BROWSER_EXPORT_DECODE_TOLERANCES[outputClass]
+): string[] {
+	const faults: string[] = [];
+	if (frames.length === 0) return ['no decoded frame was compared against the frame the browser presented'];
+	for (const frame of frames) {
+		const { source, decoded, drift, frameIndex } = frame;
+		if (decoded.measurement.isBlank && !source.measurement.isBlank) {
+			faults.push(`decoded frame ${frameIndex} is a uniform field where the browser presented an image`);
+		}
+		if (outputClass === 'opaque') {
+			if (decoded.measurement.edgeClass !== 'opaque' || decoded.measurement.opaqueCoverage < 1) {
+				faults.push(
+					`decoded frame ${frameIndex} is ${decoded.measurement.edgeClass} at the border with ${(decoded.measurement.opaqueCoverage * 100).toFixed(2)}% opaque pixels; a full-frame piece is opaque everywhere`
+				);
+			}
+		} else if (decoded.borderAlpha.maxAlpha > source.borderAlpha.maxAlpha + tolerance.borderAlphaMax) {
+			faults.push(
+				`decoded frame ${frameIndex} carries alpha up to ${decoded.borderAlpha.maxAlpha} on its border where the browser presented up to ${source.borderAlpha.maxAlpha}; the lane tolerance is ${tolerance.borderAlphaMax} above the source`
+			);
+		}
+		if (drift.rgbMeanAbsoluteError > tolerance.rgbMeanAbsoluteError) {
+			faults.push(
+				`decoded frame ${frameIndex} drifts ${drift.rgbMeanAbsoluteError.toFixed(3)} levels of colour from the frame the browser presented; the lane tolerance is ${tolerance.rgbMeanAbsoluteError}`
+			);
+		}
+		if (drift.alphaMeanAbsoluteError > tolerance.alphaMeanAbsoluteError) {
+			faults.push(
+				`decoded frame ${frameIndex} drifts ${drift.alphaMeanAbsoluteError.toFixed(3)} levels of alpha from the frame the browser presented; the lane tolerance is ${tolerance.alphaMeanAbsoluteError}`
+			);
+		}
+	}
+	const sourceHasSoftEdges = frames.some(
+		(frame) => frame.source.measurement.alphaCoverage - frame.source.measurement.opaqueCoverage > 0
+	);
+	const decodedHasSoftEdges = frames.some(
+		(frame) => frame.decoded.measurement.alphaCoverage - frame.decoded.measurement.opaqueCoverage > 0
+	);
+	if (outputClass === 'transparent' && sourceHasSoftEdges && !decodedHasSoftEdges) {
+		faults.push('no decoded frame retained a partially covered pixel, so soft alpha edges were lost');
+	}
+	return faults;
+}
 
 /**
  * One decoded frame measured against every frame that was uploaded.

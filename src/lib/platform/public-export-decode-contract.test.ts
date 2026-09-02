@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import {
+	BROWSER_EXPORT_DECODE_TOLERANCES,
 	EXPORT_TIMESTAMP_TOLERANCE_SECONDS,
 	expectedDecodedExport,
+	findBrowserExportDecodeFaults,
 	findDecodedExportShapeFaults,
 	findDecodedOutputClassFaults,
 	findExportCadenceFaults,
@@ -14,6 +16,7 @@ import {
 	NATIVE_EXPORT_TARGET_SIZES,
 	PUBLIC_EXPORT_DECODE_LANES,
 	PUBLIC_EXPORT_DECODE_TOLERANCES,
+	type BrowserExportFrameComparison,
 	type DecodedExportMeasurement,
 	type DecodedFrameIdentityMeasurement,
 	type PublicExportDecodeLane
@@ -362,5 +365,115 @@ describe('refused export correctiveness', () => {
 			{ status: 400, messageTokens: ['60'], baselineExportDirectories: 1 }
 		);
 		assert.deepEqual(faults, ['frameRate: refusal left 1 work directories behind']);
+	});
+});
+
+describe('browser lane decode', () => {
+	function side(
+		overrides: Partial<RenderedFrameMeasurement> & { borderAlphaMax?: number } = {}
+	): BrowserExportFrameComparison['decoded'] {
+		const { borderAlphaMax = 0, ...measurement } = overrides;
+		return {
+			measurement: renderedFrame(measurement),
+			borderAlpha: { maxAlpha: borderAlphaMax, coveredPixelCount: borderAlphaMax > 0 ? 3 : 0, pixelCount: 100 }
+		};
+	}
+
+	function comparison(
+		overrides: Partial<BrowserExportFrameComparison> = {}
+	): BrowserExportFrameComparison {
+		return {
+			frameIndex: 0,
+			source: side(),
+			decoded: side(),
+			drift: { rgbMeanAbsoluteError: 0.5, alphaMeanAbsoluteError: 0.01 },
+			...overrides
+		};
+	}
+
+	it('passes a transparent decode whose border residue sits inside the tolerance', () => {
+		const tolerance = BROWSER_EXPORT_DECODE_TOLERANCES.transparent;
+		const frames = [
+			comparison({ decoded: side({ borderAlphaMax: tolerance.borderAlphaMax }) }),
+			comparison({ frameIndex: 40 })
+		];
+
+		assert.deepEqual(findBrowserExportDecodeFaults(frames, 'transparent'), []);
+	});
+
+	it('measures border residue above what the source border itself carried', () => {
+		const tolerance = BROWSER_EXPORT_DECODE_TOLERANCES.transparent;
+		const bleedsOffFrame = comparison({
+			source: side({ edgeClass: 'mixed', borderAlphaMax: 255 }),
+			decoded: side({ edgeClass: 'mixed', borderAlphaMax: 255 })
+		});
+		const residue = comparison({
+			frameIndex: 80,
+			decoded: side({ edgeClass: 'mixed', borderAlphaMax: tolerance.borderAlphaMax + 1 })
+		});
+
+		assert.deepEqual(findBrowserExportDecodeFaults([bleedsOffFrame], 'transparent'), []);
+		const faults = findBrowserExportDecodeFaults([residue], 'transparent');
+		assert.equal(faults.length, 1);
+		assert.match(faults[0], /decoded frame 80 carries alpha up to/);
+		assert.match(faults[0], /where the browser presented up to 0/);
+	});
+
+	it('holds a full-frame decode to opaque everywhere, whatever the tolerance', () => {
+		const faults = findBrowserExportDecodeFaults(
+			[
+				comparison({
+					source: side({ edgeClass: 'opaque', alphaCoverage: 1, opaqueCoverage: 1 }),
+					decoded: side({ edgeClass: 'opaque', alphaCoverage: 1, opaqueCoverage: 0.999 }),
+					drift: { rgbMeanAbsoluteError: 0.5, alphaMeanAbsoluteError: 0 }
+				})
+			],
+			'opaque'
+		);
+		assert.match(faults.join(' '), /a full-frame piece is opaque everywhere/);
+	});
+
+	it('fails colour or alpha drift past the lane tolerance', () => {
+		const tolerance = BROWSER_EXPORT_DECODE_TOLERANCES.transparent;
+		const faults = findBrowserExportDecodeFaults(
+			[
+				comparison({
+					drift: {
+						rgbMeanAbsoluteError: tolerance.rgbMeanAbsoluteError + 0.01,
+						alphaMeanAbsoluteError: tolerance.alphaMeanAbsoluteError + 0.01
+					}
+				})
+			],
+			'transparent'
+		);
+		assert.equal(faults.length, 2);
+		assert.match(faults[0], /levels of colour/);
+		assert.match(faults[1], /levels of alpha/);
+	});
+
+	it('requires soft edges only where the browser presented them', () => {
+		const hardKeyed = comparison({
+			decoded: side({ alphaCoverage: 0.5, opaqueCoverage: 0.5 })
+		});
+		const hardSource = comparison({
+			source: side({ alphaCoverage: 0.5, opaqueCoverage: 0.5 }),
+			decoded: side({ alphaCoverage: 0.5, opaqueCoverage: 0.5 })
+		});
+
+		assert.deepEqual(findBrowserExportDecodeFaults([hardKeyed], 'transparent'), [
+			'no decoded frame retained a partially covered pixel, so soft alpha edges were lost'
+		]);
+		assert.deepEqual(findBrowserExportDecodeFaults([hardSource], 'transparent'), []);
+	});
+
+	it('fails a blank decode of a frame the browser drew something on', () => {
+		const faults = findBrowserExportDecodeFaults(
+			[comparison({ decoded: side({ isBlank: true, nonUniformPixelCount: 0 }) })],
+			'transparent'
+		);
+		assert.match(faults[0], /uniform field where the browser presented an image/);
+		assert.deepEqual(findBrowserExportDecodeFaults([], 'transparent'), [
+			'no decoded frame was compared against the frame the browser presented'
+		]);
 	});
 });

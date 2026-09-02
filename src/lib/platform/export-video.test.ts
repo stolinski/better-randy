@@ -62,7 +62,11 @@ describe('downloadVideoExport', () => {
 		});
 
 		const byteLength = await downloadVideoExport(
-			{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+			{
+				transport: 'origin',
+				downloadUrl: '/api/export/sessions/session-id/output',
+				cancelUrl: '/session'
+			},
 			'gfx-bumper.mov'
 		);
 
@@ -84,7 +88,11 @@ describe('downloadVideoExport', () => {
 
 		await assert.rejects(
 			downloadVideoExport(
-				{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+				{
+				transport: 'origin',
+				downloadUrl: '/api/export/sessions/session-id/output',
+				cancelUrl: '/session'
+			},
 				'gfx-bumper.mov'
 			),
 			/Export output is not ready/
@@ -102,7 +110,11 @@ describe('downloadVideoExport', () => {
 
 		await assert.rejects(
 			downloadVideoExport(
-				{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+				{
+				transport: 'origin',
+				downloadUrl: '/api/export/sessions/session-id/output',
+				cancelUrl: '/session'
+			},
 				'gfx-overlay.webm'
 			),
 			/ended at 5 bytes; expected 4096/
@@ -128,7 +140,11 @@ describe('downloadVideoExport', () => {
 		const abortController = new AbortController();
 
 		const pending = downloadVideoExport(
-			{ downloadUrl: '/api/export/sessions/session-id/output', cancelUrl: '/session' },
+			{
+				transport: 'origin',
+				downloadUrl: '/api/export/sessions/session-id/output',
+				cancelUrl: '/session'
+			},
 			'gfx-overlay.webm',
 			abortController.signal
 		);
@@ -138,6 +154,47 @@ describe('downloadVideoExport', () => {
 		await assert.rejects(pending, /abort/i);
 		assert.equal(link.click.mock.calls.length, 0);
 		assert.ok(requests.includes('DELETE /session'));
+	});
+});
+
+describe('downloadVideoExport for a browser-encoded file', () => {
+	it('hands the file over directly and answers with its size, touching no session', async () => {
+		const link = { href: '', download: '', click: vi.fn() };
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:browser-encoded');
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+		vi.stubGlobal('document', { createElement: () => link });
+		const fetchCalls: string[] = [];
+		vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+			fetchCalls.push(String(input));
+			return new Response(null, { status: 204 });
+		});
+
+		const byteLength = await downloadVideoExport(
+			{ transport: 'browser', file: new Blob(['webm-bytes'], { type: 'video/webm' }) },
+			'gfx-overlay.webm'
+		);
+
+		assert.equal(byteLength, 10);
+		assert.equal(link.download, 'gfx-overlay.webm');
+		assert.equal(link.click.mock.calls.length, 1);
+		assert.deepEqual(fetchCalls, []);
+	});
+
+	it('does not hand over a file once the export was cancelled', async () => {
+		const link = { href: '', download: '', click: vi.fn() };
+		vi.stubGlobal('document', { createElement: () => link });
+		const abortController = new AbortController();
+		abortController.abort();
+
+		await assert.rejects(
+			downloadVideoExport(
+				{ transport: 'browser', file: new Blob(['webm-bytes']) },
+				'gfx-overlay.webm',
+				abortController.signal
+			),
+			/abort/i
+		);
+		assert.equal(link.click.mock.calls.length, 0);
 	});
 });
 
@@ -188,7 +245,11 @@ describe('export session client', () => {
 		});
 
 		assert.deepEqual(rendered, [0, 1]);
-		assert.deepEqual(video, { downloadUrl: '/session/output', cancelUrl: '/session' });
+		assert.deepEqual(video, {
+			transport: 'origin',
+			downloadUrl: '/session/output',
+			cancelUrl: '/session'
+		});
 		assert.deepEqual(
 			calls.map((call) => call.url),
 			[

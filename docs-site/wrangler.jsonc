@@ -18,6 +18,11 @@
 		"binding": "ASSETS",
 		"directory": ".svelte-kit/cloudflare"
 	},
+	// The docs live on the subdomain; the apex is the app itself, served by the
+	// root wrangler.jsonc (ADR-0052 amendment, docs/hosted-origin-runbook.md). A
+	// custom domain is owned by its Worker's config, so deploying this Worker
+	// creates the record and nothing is edited in DNS by hand.
+	"routes": [{ "pattern": "docs.gfx.computer", "custom_domain": true }],
 	"workers_dev": true,
 	"preview_urls": true
 }

@@ -27,7 +27,8 @@ describe('public runtime deployment inputs', () => {
 			exportTemporaryDirectory: null,
 			exportSessionIdleTimeoutMs: PUBLIC_EXPORT_RUNTIME_LIMITS.sessionIdleTimeoutMs,
 			maxConcurrentExportSessions: PUBLIC_EXPORT_RUNTIME_LIMITS.maxConcurrentSessions,
-			release: null
+			release: null,
+			originTrialToken: null
 		});
 	});
 
@@ -37,14 +38,16 @@ describe('public runtime deployment inputs', () => {
 			GFX_EXPORT_TEMPORARY_DIRECTORY: '/var/tmp/gfx-export',
 			GFX_EXPORT_SESSION_IDLE_TIMEOUT_MS: '300000',
 			GFX_EXPORT_MAX_CONCURRENT_SESSIONS: '4',
-			GFX_RELEASE: 'gfx@abc123'
+			GFX_RELEASE: 'gfx@abc123',
+			GFX_ORIGIN_TRIAL_TOKEN: 'AtOkEn=='
 		});
 		assert.deepEqual(config, {
 			ffmpegPath: '/usr/bin/ffmpeg',
 			exportTemporaryDirectory: '/var/tmp/gfx-export',
 			exportSessionIdleTimeoutMs: 300_000,
 			maxConcurrentExportSessions: 4,
-			release: 'gfx@abc123'
+			release: 'gfx@abc123',
+			originTrialToken: 'AtOkEn=='
 		});
 	});
 

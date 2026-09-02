@@ -48,6 +48,68 @@ describe('public runtime profile', () => {
 	});
 });
 
+/** Everything the Worker sets, so a test can withdraw one input at a time. */
+const HOSTED_DEPLOYMENT: Readonly<Record<string, string>> = {
+	PUBLIC_GFX_HOSTED: '1',
+	PUBLIC_GFX_COMPOSITION_STORE: 'browser',
+	GFX_RELEASE: 'gfx@0123456789abcdef0123456789abcdef01234567'
+};
+
+describe('hosted runtime profile', () => {
+	it('is declared by the presence of the PUBLIC_ input the page also reads', () => {
+		assert.equal(parsePublicRuntimeProfile({ PUBLIC_GFX_HOSTED: '1' }), 'hosted');
+		assert.equal(parsePublicRuntimeProfile({ PUBLIC_GFX_HOSTED: 'true' }), 'hosted');
+		assert.equal(
+			parsePublicRuntimeProfile({ PUBLIC_GFX_HOSTED: '1', GFX_RUNTIME_PROFILE: 'hosted' }),
+			'hosted'
+		);
+	});
+
+	it('refuses a host that declares itself public and hosted at once', () => {
+		assert.throws(
+			() => parsePublicRuntimeProfile({ PUBLIC_GFX_HOSTED: '1', GFX_RUNTIME_PROFILE: 'public' }),
+			(error: unknown) =>
+				error instanceof PublicRuntimeConfigError && error.message.includes('Remove one of them')
+		);
+	});
+
+	it('refuses a hosted declaration the page could not see', () => {
+		assert.throws(
+			() => parsePublicRuntimeProfile({ GFX_RUNTIME_PROFILE: 'hosted' }),
+			(error: unknown) =>
+				error instanceof PublicRuntimeConfigError &&
+				error.message.includes('Set PUBLIC_GFX_HOSTED=1')
+		);
+	});
+
+	it('admits the deployment the Worker configures, with no encoder inputs at all', () => {
+		assert.deepEqual(findPublicRuntimeDeploymentFailures(HOSTED_DEPLOYMENT), []);
+		assert.equal(assertPublicRuntimeDeployment(HOSTED_DEPLOYMENT), 'hosted');
+	});
+
+	it('still requires a release identity and the browser-scoped store', () => {
+		assert.deepEqual(failedInputs({ ...HOSTED_DEPLOYMENT, GFX_RELEASE: undefined }), [
+			'GFX_RELEASE'
+		]);
+		assert.deepEqual(
+			findPublicRuntimeDeploymentFailures({
+				...HOSTED_DEPLOYMENT,
+				PUBLIC_GFX_COMPOSITION_STORE: 'origin'
+			}).map((failure) => [failure.input, failure.fittingValue]),
+			[['PUBLIC_GFX_COMPOSITION_STORE', 'browser']]
+		);
+	});
+
+	it('names the hosted declaration rather than a profile variable it never read', () => {
+		assert.throws(
+			() => assertPublicRuntimeDeployment({ PUBLIC_GFX_HOSTED: '1' }),
+			(error: unknown) =>
+				error instanceof PublicRuntimeConfigError &&
+				error.message.startsWith('PUBLIC_GFX_HOSTED is set, but 2 deployment inputs')
+		);
+	});
+});
+
 describe('body size limit', () => {
 	it('reads the adapter suffixes so the ceiling is compared in bytes', () => {
 		assert.equal(parseBodySizeLimitBytes('512K'), 524_288);

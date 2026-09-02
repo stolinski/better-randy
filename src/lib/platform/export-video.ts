@@ -44,16 +44,30 @@ export interface SyncExportRequest {
 	filename?: string;
 }
 
-export interface VideoExportDownload {
-	downloadUrl: string;
-	/**
-	 * The session's own cancel URL. Carried out of the encode so a download that
-	 * never lands releases the encoded file now rather than at the session's idle
-	 * timeout — the origin holds no visitor output it is not actively delivering
-	 * ([ADR-0052](../../../docs/adr/0052-public-runtime-and-retention-architecture.md)).
-	 */
-	cancelUrl: string;
-}
+/**
+ * Where an encoded export is, which is decided by which lane encoded it. The
+ * origin lane leaves the file on the Node origin, to be fetched exactly once;
+ * the browser lane (`browser-webm-export.ts`, the hosted origin's only lane)
+ * already holds the file in this page. `downloadVideoExport` delivers either.
+ */
+export type VideoExportDownload =
+	| {
+			transport: 'origin';
+			downloadUrl: string;
+			/**
+			 * The session's own cancel URL. Carried out of the encode so a download
+			 * that never lands releases the encoded file now rather than at the
+			 * session's idle timeout — the origin holds no visitor output it is not
+			 * actively delivering
+			 * ([ADR-0052](../../../docs/adr/0052-public-runtime-and-retention-architecture.md)).
+			 */
+			cancelUrl: string;
+	  }
+	| {
+			transport: 'browser';
+			/** The finished file, in the browser's blob storage rather than the page heap. */
+			file: Blob;
+	  };
 
 interface ExportSessionControl {
 	sessionId: string;
@@ -77,11 +91,11 @@ declare global {
 }
 
 /**
- * Span attributes shared by both export transactions (docs/sentry-dev-flow.md).
- * `export.route` is the `/p/<slug>` path — the per-composition dimension for
- * "which pieces are slow to export" charts.
+ * Span attributes shared by every export transaction, the browser lane's
+ * included (docs/sentry-dev-flow.md). `export.route` is the `/p/<slug>` path —
+ * the per-composition dimension for "which pieces are slow to export" charts.
  */
-function exportSpanAttributes(
+export function exportSpanAttributes(
 	options: Pick<TransparentVideoExportOptions, 'fps' | 'durationSeconds' | 'hasBackground' | 'audio'>
 ): Record<string, string | number | boolean> {
 	return {
@@ -242,7 +256,11 @@ async function exportCanvasVideo(
 		}
 		signal?.throwIfAborted();
 		isComplete = true;
-		return { downloadUrl: value.downloadUrl, cancelUrl: activeSession.cancelUrl };
+		return {
+			transport: 'origin',
+			downloadUrl: value.downloadUrl,
+			cancelUrl: activeSession.cancelUrl
+		};
 	} finally {
 		if (session && !isComplete) await cancelExportSession(session.cancelUrl);
 	}
@@ -350,12 +368,20 @@ export async function exportTransparentProRes({
  * browser's blob storage, which spills to disk, rather than in the page's heap.
  * A full-length public export runs to `PUBLIC_EXPORT_RUNTIME_LIMITS.maxOutputBytes`,
  * far past what an in-page buffer should hold.
+ *
+ * A browser-encoded export is already a Blob in that storage, so it is handed
+ * over directly; there is no session to cancel and no transfer to observe.
  */
 export async function downloadVideoExport(
 	exportedVideo: VideoExportDownload,
 	filename: string,
 	signal?: AbortSignal
 ): Promise<number> {
+	if (exportedVideo.transport === 'browser') {
+		signal?.throwIfAborted();
+		downloadBlob(exportedVideo.file, filename);
+		return exportedVideo.file.size;
+	}
 	let isDelivered = false;
 	try {
 		signal?.throwIfAborted();

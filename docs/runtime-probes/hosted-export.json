@@ -1,0 +1,276 @@
+{
+	"recordedAt": "2026-09-02T22:09:13.277Z",
+	"profile": "hosted",
+	"lane": "browser-webm",
+	"origin": "http://localhost:7293",
+	"tolerances": {
+		"transparent": {
+			"rgbMeanAbsoluteError": 2.5,
+			"alphaMeanAbsoluteError": 0.05,
+			"borderAlphaMax": 6
+		},
+		"opaque": { "rgbMeanAbsoluteError": 3, "alphaMeanAbsoluteError": 0, "borderAlphaMax": 0 }
+	},
+	"refusals": {
+		"exportSessionsStatus": 404,
+		"userCompositionsStatus": 404,
+		"health": {
+			"status": 200,
+			"body": {
+				"status": "ready",
+				"release": "gfx@verify-hosted-export",
+				"checks": { "ffmpeg": "not-served", "temporaryDisk": "not-served" }
+			}
+		}
+	},
+	"cases": [
+		{
+			"slug": "lower-third",
+			"outputClass": "transparent",
+			"outcome": {
+				"status": "delivered",
+				"plan": {
+					"format": "webm",
+					"codec": "vp9-alpha",
+					"output": "transparent",
+					"size": { "width": 3840, "height": 2160 },
+					"durationSeconds": 6.7,
+					"fps": 30,
+					"frameRate": { "fps": 30, "num": 30, "den": 1 },
+					"frameCount": 201,
+					"basename": "gfx-overlay",
+					"videoFilename": "lower-third.webm",
+					"wavFilename": "gfx-overlay.wav"
+				},
+				"videoByteLength": 1288203,
+				"wavFilename": null,
+				"exportTransportRequests": 0
+			},
+			"exportMillis": 12466,
+			"fileBytes": 1288203,
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": null,
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 6.7
+			},
+			"decodedFrameCount": 201,
+			"sampledFrames": [
+				{
+					"index": 0,
+					"source": {
+						"alphaCoverage": 0,
+						"opaqueCoverage": 0,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"decoded": {
+						"alphaCoverage": 0.0023148148148148147,
+						"opaqueCoverage": 0,
+						"edgeClass": "mixed",
+						"borderAlphaMax": 4
+					},
+					"drift": { "rgbMeanAbsoluteError": 0, "alphaMeanAbsoluteError": 0.006481481481481481 }
+				},
+				{
+					"index": 40,
+					"source": {
+						"alphaCoverage": 0.0642405719521605,
+						"opaqueCoverage": 0.06389081790123456,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"decoded": {
+						"alphaCoverage": 0.06427191840277778,
+						"opaqueCoverage": 0.06378882137345679,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"drift": {
+						"rgbMeanAbsoluteError": 1.7619498706762073,
+						"alphaMeanAbsoluteError": 0.0002132764274691358
+					}
+				},
+				{
+					"index": 80,
+					"source": {
+						"alphaCoverage": 0.0642405719521605,
+						"opaqueCoverage": 0.06389081790123456,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"decoded": {
+						"alphaCoverage": 0.06434883777006173,
+						"opaqueCoverage": 0.06376856674382717,
+						"edgeClass": "mixed",
+						"borderAlphaMax": 1
+					},
+					"drift": {
+						"rgbMeanAbsoluteError": 1.7571121795839497,
+						"alphaMeanAbsoluteError": 0.0006598427854938272
+					}
+				},
+				{
+					"index": 120,
+					"source": {
+						"alphaCoverage": 0.0642405719521605,
+						"opaqueCoverage": 0.06389081790123456,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"decoded": {
+						"alphaCoverage": 0.06450472608024692,
+						"opaqueCoverage": 0.06365608121141976,
+						"edgeClass": "mixed",
+						"borderAlphaMax": 1
+					},
+					"drift": {
+						"rgbMeanAbsoluteError": 1.7815031752261907,
+						"alphaMeanAbsoluteError": 0.0009828317901234569
+					}
+				},
+				{
+					"index": 160,
+					"source": {
+						"alphaCoverage": 0.0642405719521605,
+						"opaqueCoverage": 0.06389081790123456,
+						"edgeClass": "transparent",
+						"borderAlphaMax": 0
+					},
+					"decoded": {
+						"alphaCoverage": 0.06456573109567901,
+						"opaqueCoverage": 0.06371901523919753,
+						"edgeClass": "mixed",
+						"borderAlphaMax": 1
+					},
+					"drift": {
+						"rgbMeanAbsoluteError": 1.7623562090516591,
+						"alphaMeanAbsoluteError": 0.0007224151234567902
+					}
+				}
+			],
+			"faults": []
+		},
+		{
+			"slug": "chapter-card-descent",
+			"outputClass": "opaque",
+			"outcome": {
+				"status": "delivered",
+				"plan": {
+					"format": "webm",
+					"codec": "vp9-opaque",
+					"output": "opaque",
+					"size": { "width": 3840, "height": 2160 },
+					"durationSeconds": 7,
+					"fps": 30,
+					"frameRate": { "fps": 30, "num": 30, "den": 1 },
+					"frameCount": 210,
+					"basename": "gfx-bumper",
+					"videoFilename": "chapter-card-descent.webm",
+					"wavFilename": "gfx-bumper.wav"
+				},
+				"videoByteLength": 19572661,
+				"wavFilename": null,
+				"exportTransportRequests": 0
+			},
+			"exportMillis": 8044,
+			"fileBytes": 19572661,
+			"streams": {
+				"videoCodec": "vp9",
+				"pixelFormat": "yuv420p",
+				"audioCodec": "opus",
+				"width": 3840,
+				"height": 2160,
+				"containerDurationSeconds": 7.02
+			},
+			"decodedFrameCount": 210,
+			"sampledFrames": [
+				{
+					"index": 0,
+					"source": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"decoded": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"drift": { "rgbMeanAbsoluteError": 2.097524916409465, "alphaMeanAbsoluteError": 0 }
+				},
+				{
+					"index": 42,
+					"source": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"decoded": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"drift": { "rgbMeanAbsoluteError": 2.0359518872170783, "alphaMeanAbsoluteError": 0 }
+				},
+				{
+					"index": 84,
+					"source": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"decoded": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"drift": { "rgbMeanAbsoluteError": 2.0740978652263373, "alphaMeanAbsoluteError": 0 }
+				},
+				{
+					"index": 126,
+					"source": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"decoded": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"drift": { "rgbMeanAbsoluteError": 1.9288225790895062, "alphaMeanAbsoluteError": 0 }
+				},
+				{
+					"index": 168,
+					"source": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"decoded": {
+						"alphaCoverage": 1,
+						"opaqueCoverage": 1,
+						"edgeClass": "opaque",
+						"borderAlphaMax": 255
+					},
+					"drift": { "rgbMeanAbsoluteError": 1.9860327449845678, "alphaMeanAbsoluteError": 0 }
+				}
+			],
+			"faults": []
+		}
+	],
+	"faults": [],
+	"ok": true
+}

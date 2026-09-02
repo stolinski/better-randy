@@ -1,8 +1,21 @@
+import { fileURLToPath } from 'node:url';
+
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
+// The hosted build (PUBLIC_GFX_HOSTED, see svelte.config.js) bundles the whole
+// server tree into one Worker, including the development-only routes the
+// hosted origin answers 404 for before they load. Playwright is the one import
+// in that tree a Worker can neither bundle nor run, so the hosted build resolves
+// it to a stand-in that names the origin with the capability instead.
+const isHostedBuild = (process.env.PUBLIC_GFX_HOSTED ?? '').trim() !== '';
+const playwrightAbsentOnHostedOrigin = fileURLToPath(
+	new URL('./src/lib/platform/playwright-absent-on-hosted-origin.server.ts', import.meta.url)
+);
+
 export default defineConfig(({ mode }) => ({
 	plugins: [sveltekit()],
+	...(isHostedBuild ? { resolve: { alias: { playwright: playwrightAbsentOnHostedOrigin } } } : {}),
 	...(mode === 'test'
 		? {}
 		: {

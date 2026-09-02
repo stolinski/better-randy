@@ -3,6 +3,7 @@
 
 	import type { Timeline } from './timeline.svelte';
 	import { engineState } from './engine-state.svelte';
+	import { IS_HOSTED_ORIGIN } from './hosted-origin';
 
 	interface BackdropEntry {
 		name: string;
@@ -37,7 +38,8 @@
 	// Reference stills for judging an overlay over real footage (ADR-0034 §7). The
 	// list is re-fetched every open so a still dropped into static/backdrops/
 	// appears without a reload. Renders in the top layer (popover), anchored above
-	// the trigger on open.
+	// the trigger on open. The listing reads the checkout, which the hosted origin
+	// does not have, so the picker is absent there rather than empty.
 
 	let backdrops = $state<BackdropEntry[]>([]);
 	let backdropMenuEl = $state<HTMLDivElement | null>(null);
@@ -317,6 +319,7 @@
 			</svg>
 		</button>
 
+		{#if !IS_HOSTED_ORIGIN}
 		<button
 			class="controls-bar__btn"
 			class:controls-bar__btn--active={backdropUrl !== null}
@@ -343,6 +346,7 @@
 				/>
 			</svg>
 		</button>
+		{/if}
 
 	</div>
 </div>

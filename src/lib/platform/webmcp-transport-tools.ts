@@ -14,8 +14,8 @@
  * `gfx_appearance_set_pack` owns it even though switching one changes how a
  * full-frame piece looks.
  */
+import { availableCompositionExportFormats } from './composition-export-formats';
 import {
-	COMPOSITION_EXPORT_FORMATS,
 	COMPOSITION_ORIENTATIONS,
 	PACK_BACKGROUND_FILL,
 	runSetCompositionBackgroundOperation,
@@ -104,7 +104,7 @@ export function listWebmcpTransportToolDefinitions(): readonly WebmcpToolDefinit
 				runWebmcpToolOperation('transport.set-format', () =>
 					runSetCompositionFormatOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
-						format: readWebmcpLiteralArgument(args, 'format', COMPOSITION_EXPORT_FORMATS)
+						format: readWebmcpLiteralArgument(args, 'format', availableCompositionExportFormats())
 					})
 				)
 		},

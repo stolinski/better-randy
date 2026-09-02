@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	classifyRenderedFrameEdge,
+	measureRenderedFrameBorderAlpha,
+	measureRenderedFrameDrift,
 	measureRenderedFramePixels,
 	type RenderedFramePixels
 } from './rendered-frame-pixels.ts';
@@ -78,5 +80,56 @@ describe('classifyRenderedFrameEdge', () => {
 				frameOf(5, 5, (x, y) => (x === 0 && y === 0 ? [0, 0, 0, 255] : [0, 0, 0, 0]))
 			)
 		).toBe('mixed');
+	});
+});
+
+describe('measureRenderedFrameBorderAlpha', () => {
+	it('reads the highest alpha on the border and how many border pixels carry any', () => {
+		// One corner at 3/255 (an encoder's residue), the centre fully opaque.
+		const border = measureRenderedFrameBorderAlpha(
+			frameOf(5, 5, (x, y) =>
+				x === 0 && y === 0 ? [0, 0, 0, 3] : x === 2 && y === 2 ? [255, 0, 0, 255] : [0, 0, 0, 0]
+			)
+		);
+
+		expect(border.pixelCount).toBe(16);
+		expect(border.coveredPixelCount).toBe(1);
+		expect(border.maxAlpha).toBe(3);
+	});
+
+	it('reports a clear border as carrying nothing', () => {
+		const border = measureRenderedFrameBorderAlpha(frameOf(3, 3, () => [0, 0, 0, 0]));
+
+		expect(border).toEqual({ maxAlpha: 0, coveredPixelCount: 0, pixelCount: 8 });
+	});
+});
+
+describe('measureRenderedFrameDrift', () => {
+	it('compares colour only under the source’s opaque pixels and alpha everywhere', () => {
+		const source = frameOf(2, 2, (x) => (x === 0 ? [100, 100, 100, 255] : [0, 0, 0, 0]));
+		const decoded = frameOf(2, 2, (x) => (x === 0 ? [103, 100, 97, 255] : [50, 50, 50, 2]));
+
+		const drift = measureRenderedFrameDrift(decoded, source);
+
+		// Opaque pixels: (|3| + 0 + |3|) × 2 pixels over 2 pixels × 3 channels = 12 / 6.
+		expect(drift.rgbMeanAbsoluteError).toBeCloseTo(2, 10);
+		// Alpha: two pixels at 0 vs 2, two exact = 4 / 4.
+		expect(drift.alphaMeanAbsoluteError).toBeCloseTo(1, 10);
+	});
+
+	it('reports no colour drift when the source has no opaque pixel to compare', () => {
+		const source = frameOf(2, 2, () => [0, 0, 0, 0]);
+		const decoded = frameOf(2, 2, () => [9, 9, 9, 0]);
+
+		expect(measureRenderedFrameDrift(decoded, source)).toEqual({
+			rgbMeanAbsoluteError: 0,
+			alphaMeanAbsoluteError: 0
+		});
+	});
+
+	it('refuses frames of different sizes rather than comparing misaligned pixels', () => {
+		expect(() =>
+			measureRenderedFrameDrift(frameOf(2, 2, () => [0, 0, 0, 0]), frameOf(3, 2, () => [0, 0, 0, 0]))
+		).toThrow(/2x2 and 3x2/);
 	});
 });

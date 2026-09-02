@@ -73,6 +73,12 @@ describe('composePublicContentSecurityPolicy', () => {
 		}
 	});
 
+	it('admits the blob worker the browser export lane splits alpha in', () => {
+		const directives = parsePolicy(composePublicContentSecurityPolicy(null));
+
+		assert.deepEqual(directives.get('worker-src'), ["'self'", 'blob:']);
+	});
+
 	it('carries through a directive the app shell declared and this contract does not', () => {
 		const directives = parsePolicy(
 			composePublicContentSecurityPolicy("script-src 'self'; style-src-elem 'sha256-xyz='")
@@ -137,5 +143,19 @@ describe('applyPublicResponseHeaders', () => {
 		assert.ok(document.headers.get('content-security-policy')?.includes("'nonce-Q=='"));
 		assert.ok(document.headers.get('content-security-policy')?.includes("frame-ancestors 'none'"));
 		assert.equal(font.headers.get('content-security-policy'), null);
+	});
+
+	it('sends the origin-trial token on a document, and only when the host has one', () => {
+		const document = htmlResponse();
+		const font = new Response('font', { headers: { 'Content-Type': 'font/woff2' } });
+		const untokened = htmlResponse();
+
+		applyPublicResponseHeaders(document, { originTrialToken: 'AtOkEn==' });
+		applyPublicResponseHeaders(font, { originTrialToken: 'AtOkEn==' });
+		applyPublicResponseHeaders(untokened, { originTrialToken: null });
+
+		assert.equal(document.headers.get('origin-trial'), 'AtOkEn==');
+		assert.equal(font.headers.get('origin-trial'), null);
+		assert.equal(untokened.headers.get('origin-trial'), null);
 	});
 });

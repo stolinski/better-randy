@@ -8,31 +8,47 @@ import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
 
 import { describeErrorResponse } from '$lib/platform/public-error-observability';
 import { applyPublicResponseHeaders } from '$lib/platform/public-response-headers';
-import { startPublicRuntime } from '$lib/platform/public-runtime-lifecycle.server';
 import {
+	assertPublicRuntimeDeployment,
+	parsePublicRuntimeProfile
+} from '$lib/platform/public-runtime-deployment';
+import {
+	servedOriginTrialToken,
 	servedPublicRuntimeProfile,
 	servedRelease
 } from '$lib/platform/public-runtime-profile.server';
 import {
 	DEVELOPMENT_ONLY_SURFACE_MESSAGE,
 	DEVELOPMENT_ONLY_SURFACE_STATUS,
-	isDevelopmentOnlySurfacePath
+	isSurfaceRefusedByProfile
 } from '$lib/platform/public-surface-inventory';
+
+// Which Sentry server SDK this bundle carries. The Cloudflare adapter resolves
+// `@sentry/sveltekit` through its `worker` export condition, and that build
+// ships no process-wide `init`: a Worker has no process, so the SDK is set up
+// per request by `initCloudflareSentryHandle` instead. Detected by the absence
+// rather than by profile, so a Node build serving the hosted profile locally
+// keeps its process-wide client.
+const isWorkerSentryBuild = typeof Sentry.init !== 'function';
+
+const sentryEnvironment = dev ? 'development' : 'production';
 
 // Server-side Sentry (errors, request tracing, logs). The DSN comes from
 // SENTRY_DSN in .env — absent, the SDK stays disabled and every capture below
 // is a no-op, so the app never depends on Sentry being configured.
-Sentry.init({
-	dsn: env.SENTRY_DSN,
-	release: servedRelease() ?? undefined,
-	environment: dev ? 'development' : 'production',
-	// Local single-user dev — sample everything; there is no volume to shed.
-	tracesSampleRate: 1,
-	enableLogs: true,
-	// Existing console.warn/error call sites become structured Sentry logs
-	// without touching them.
-	integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })]
-});
+if (!isWorkerSentryBuild) {
+	Sentry.init({
+		dsn: env.SENTRY_DSN,
+		release: servedRelease() ?? undefined,
+		environment: sentryEnvironment,
+		// Local single-user dev — sample everything; there is no volume to shed.
+		tracesSampleRate: 1,
+		enableLogs: true,
+		// Existing console.warn/error call sites become structured Sentry logs
+		// without touching them.
+		integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })]
+	});
+}
 
 // The launchd dev server survives commits. Bind every event to the release this
 // process is serving at capture time rather than the one it started with — the
@@ -46,19 +62,29 @@ Sentry.addEventProcessor((event) => {
 // inputs cannot serve its declared profile exits non-zero here rather than
 // accepting a request it could not finish (ADR-0052). Both dynamic env modules
 // are read because the inputs span private and PUBLIC_-prefixed names.
+//
+// A hosted origin encodes nothing and stores nothing, so none of the Node
+// lifecycle applies to it: no ffmpeg readiness, no temp-disk sweep, no store
+// boot. That module reaches for the process and the filesystem, so it is loaded
+// only on a host that will run it; the hosted origin is held to its own inputs
+// and answers requests from there. A Worker has no listen step, so a failed
+// assertion there fails every request until the deployment is corrected.
 export const init: ServerInit = async () => {
-	await startPublicRuntime({ ...env, ...publicEnv });
+	const runtimeEnv = { ...env, ...publicEnv };
+	if (parsePublicRuntimeProfile(runtimeEnv) === 'hosted') {
+		assertPublicRuntimeDeployment(runtimeEnv);
+		return;
+	}
+	const { startPublicRuntime } = await import('$lib/platform/public-runtime-lifecycle.server');
+	await startPublicRuntime(runtimeEnv);
 };
 
-// A surface a public origin does not have answers 404 before its route module
+// A surface this origin does not have answers 404 before its route module
 // runs, so an excluded route never reads a body, touches disk, or spawns a
 // browser (ADR-0053). Which surfaces those are is one inventory, not a condition
-// scattered across route modules.
-const refuseDevelopmentOnlySurfaces: Handle = async ({ event, resolve }) => {
-	if (
-		servedPublicRuntimeProfile() === 'public' &&
-		isDevelopmentOnlySurfacePath(event.url.pathname)
-	) {
+// scattered across route modules; the profile decides which rows apply.
+const refuseUnservedSurfaces: Handle = async ({ event, resolve }) => {
+	if (isSurfaceRefusedByProfile(event.url.pathname, servedPublicRuntimeProfile())) {
 		return new Response(DEVELOPMENT_ONLY_SURFACE_MESSAGE, {
 			status: DEVELOPMENT_ONLY_SURFACE_STATUS,
 			headers: { 'Content-Type': 'text/plain; charset=utf-8' }
@@ -71,10 +97,14 @@ const refuseDevelopmentOnlySurfaces: Handle = async ({ event, resolve }) => {
 // WebMCP `tools` Permissions Policy, CSP, HSTS, referrer and content-type
 // protections, and no-store by default (ADR-0052, ADR-0054). A development host
 // is held to none of it: the dev server runs Vite HMR, the CDP verification
-// harness, and the development-only routes above.
+// harness, and the development-only routes above. The hosted origin adds the
+// HTML-in-Canvas origin-trial token to every document, which is what lets a
+// visitor's unflagged Chrome pass the capability gate.
 const publicResponseHeaders: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
-	if (servedPublicRuntimeProfile() === 'public') applyPublicResponseHeaders(response);
+	if (servedPublicRuntimeProfile() !== 'development') {
+		applyPublicResponseHeaders(response, { originTrialToken: servedOriginTrialToken() });
+	}
 	return response;
 };
 
@@ -127,12 +157,24 @@ const logErrorResponses: Handle = async ({ event, resolve }) => {
 
 // Outermost first. Logging wraps the exclusion so a refused surface is still
 // observed, and the header layer sits between them so the refusal carries the
-// same headers every other public response does.
+// same headers every other public response does. The worker build initializes
+// Sentry per request ahead of everything else, where the Node build already did
+// so at module scope.
 export const handle = sequence(
+	...(isWorkerSentryBuild
+		? [
+				Sentry.initCloudflareSentryHandle({
+					dsn: env.SENTRY_DSN,
+					release: servedRelease() ?? undefined,
+					environment: sentryEnvironment,
+					tracesSampleRate: 1
+				})
+			]
+		: []),
 	Sentry.sentryHandle(),
 	logErrorResponses,
 	publicResponseHeaders,
-	refuseDevelopmentOnlySurfaces
+	refuseUnservedSurfaces
 );
 
 // Surface real SSR failures during development — SvelteKit's default masks

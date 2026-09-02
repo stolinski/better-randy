@@ -2,8 +2,10 @@
 
 **License:** [FSL-1.1-ALv2](LICENSE.md) — Fair Source now, with Apache 2.0 becoming available for each release after two years.
 
-A motion-graphics engine on a web stack. It runs on your own machine — there is
-no hosted version, and `gfx.computer` is a reserved domain awaiting a docs site.
+A motion-graphics engine on a web stack. It runs on your own machine, where the
+full ProRes export lane lives, and at [gfx.computer](https://gfx.computer),
+where the browser renders and encodes every export itself and the origin keeps
+nothing. The docs are at [docs.gfx.computer](https://docs.gfx.computer).
 
 GFX renders broadcast-quality motion pieces at native 4K: **transparent
 overlays** you composite over footage in an editor, and **full-frame** segments

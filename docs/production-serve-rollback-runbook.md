@@ -5,9 +5,11 @@ works, and roll back to the release before it.
 
 The origin this runbook stands up is **local and production-shaped**: the same
 image, the same deployment inputs, and the same public runtime profile the
-gfx.computer demo was designed for, served on loopback. There is no public
-deployment — that was taken out of scope on 2026-08-31, and the gfx.computer
-zone is reserved for a future docs site. Everything below is what you run on
+Node/ffmpeg demo was designed for, served on loopback. This artifact has no
+public deployment — that was taken out of scope on 2026-08-31. What is public
+is a different origin: since 2026-09-02, `gfx.computer` serves the app as a
+Cloudflare Worker with no encoder at all ([`hosted-origin-runbook.md`](hosted-origin-runbook.md)),
+and the docs live at `docs.gfx.computer`. Everything below is what you run on
 your own machine.
 
 Why the artifact exists at all, and what it promises, is

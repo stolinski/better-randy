@@ -60,6 +60,11 @@
 	import { pipelineRendererController } from './pipelines/runtime-loader';
 
 	import { TransitionSnapshotController } from './transition-snapshot-controller';
+	import {
+		COMPOSITION_EXPORT_FORMAT_LABELS,
+		COMPOSITION_EXPORT_FORMATS,
+		isCompositionExportFormatAvailable
+	} from './composition-export-formats';
 	import type { SyncExportRequest } from './export-video';
 	import { AudioPreview } from './audio-preview';
 	import { resolveFrameRate, secondsToFrames } from '$lib/utils/composition-timing';
@@ -1416,9 +1421,14 @@
 	>
 		<label class="export-menu__row">
 			<span>Format</span>
+			<!-- A format this origin cannot deliver stays visible but cannot be chosen,
+			     so a piece that declares it still shows what it declared. -->
 			<select bind:value={engineState.transport.format}>
-				<option value="webm">WebM VP9</option>
-				<option value="prores">MOV ProRes 4444</option>
+				{#each COMPOSITION_EXPORT_FORMATS as format (format)}
+					<option value={format} disabled={!isCompositionExportFormatAvailable(format)}>
+						{COMPOSITION_EXPORT_FORMAT_LABELS[format]}
+					</option>
+				{/each}
 			</select>
 		</label>
 		<div class="export-menu__row">

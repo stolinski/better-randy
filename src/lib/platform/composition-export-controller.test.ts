@@ -220,6 +220,7 @@ function createHarness(options?: {
 			exportOptions.onProgress?.((frame + 1) / frameCount);
 		}
 		return {
+			transport: 'origin',
 			downloadUrl: '/api/export/sessions/test/output',
 			cancelUrl: '/api/export/sessions/test'
 		};
@@ -607,6 +608,7 @@ describe('composition export outcome', () => {
 					releaseExport = resolve;
 				});
 				return {
+					transport: 'origin',
 					downloadUrl: '/api/export/sessions/test/output',
 					cancelUrl: '/api/export/sessions/test'
 				};

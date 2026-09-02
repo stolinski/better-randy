@@ -16,12 +16,23 @@
  * a surface that should not exist publicly must not be reachable at all: it
  * answers 404 before its module reads a body, touches disk, or spawns anything.
  *
+ * The hosted origin (ADR-0052 amendment) draws one more line inside the public
+ * set: a surface that needs the Node process — ffmpeg, temp disk, a request body
+ * of native frames — is `node-origin`, and a Worker answers 404 for it exactly
+ * as it does for a development-only route, because on that host the browser
+ * performs the export itself and the transport does not exist.
+ *
  * Deliberately free of Node and `$env` imports, like its `public-runtime-contract`
  * peer, so the hook, the tests, and the production-image gate read one inventory.
  */
 
-/** Whether the public origin serves a surface, or only a development host does. */
-export type PublicSurfaceExposure = 'public' | 'development-only';
+import type { PublicRuntimeProfile } from './public-runtime-deployment';
+
+/**
+ * Who serves a surface: every non-development host (`public`), only the
+ * Node/ffmpeg origin (`node-origin`), or only a development host.
+ */
+export type PublicSurfaceExposure = 'public' | 'node-origin' | 'development-only';
 
 export interface PublicSurfaceRow {
 	/**
@@ -72,9 +83,9 @@ export const PUBLIC_SURFACE_INVENTORY: readonly PublicSurfaceRow[] = [
 	},
 	{
 		pathPrefix: '/api/export/',
-		exposure: 'public',
+		exposure: 'node-origin',
 		reason:
-			'The bounded export transport. It performs one operation and destroys its own output: frames stream into ffmpeg, the encoded file is downloadable exactly once, and every terminal path removes the session (ADR-0052).'
+			'The bounded export transport. It performs one operation and destroys its own output: frames stream into ffmpeg, the encoded file is downloadable exactly once, and every terminal path removes the session (ADR-0052). Only the Node origin has the encoder and the disk; the hosted origin encodes in the browser and does not serve it.'
 	},
 	{
 		pathPrefix: '/api/health',
@@ -154,6 +165,19 @@ export function findPublicSurface(pathname: string): PublicSurfaceRow {
 /** Whether a public origin must refuse this path outright. */
 export function isDevelopmentOnlySurfacePath(pathname: string): boolean {
 	return findPublicSurface(pathname).exposure === 'development-only';
+}
+
+/**
+ * Whether a host serving `profile` must refuse this path before its route
+ * module runs. A development host refuses nothing; the Node origin refuses the
+ * development-only surfaces; the hosted origin refuses those and the Node-only
+ * export transport it has no encoder for.
+ */
+export function isSurfaceRefusedByProfile(pathname: string, profile: PublicRuntimeProfile): boolean {
+	if (profile === 'development') return false;
+	const exposure = findPublicSurface(pathname).exposure;
+	if (exposure === 'development-only') return true;
+	return profile === 'hosted' && exposure === 'node-origin';
 }
 
 /**

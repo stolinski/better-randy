@@ -1,8 +1,13 @@
-// The public gfx.computer runtime is a long-lived Node server that spawns
-// ffmpeg and streams native-resolution export output from private temp disk
-// (ADR-0052). Cloudflare supplies DNS and proxy only; nothing here targets
-// Workers.
-import adapter from '@sveltejs/adapter-node';
+// Two adapters, one app. The local production artifact is the Node origin
+// (ADR-0052): a long-lived server that spawns ffmpeg and streams native
+// export output from private temp disk. The hosted gfx.computer origin is a
+// Cloudflare Worker that serves the app and encodes nothing — the browser
+// exports there — selected by the same PUBLIC_GFX_HOSTED input the runtime and
+// the page read, which `pnpm build:hosted` sets (ADR-0052 amendment).
+import adapterCloudflare from '@sveltejs/adapter-cloudflare';
+import adapterNode from '@sveltejs/adapter-node';
+
+const isHostedBuild = (process.env.PUBLIC_GFX_HOSTED ?? '').trim() !== '';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -11,7 +16,7 @@ const config = {
 		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
 	},
 	kit: {
-		adapter: adapter(),
+		adapter: isHostedBuild ? adapterCloudflare() : adapterNode(),
 		// SvelteKit owns the app shell's inline bootstrap script, so it owns the
 		// nonce that script needs. Declaring `script-src` here is what makes it
 		// emit one; the public origin then merges that nonce into the full policy

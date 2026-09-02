@@ -119,3 +119,81 @@ export function measureRenderedFramePixels(frame: RenderedFramePixels): Rendered
 		isBlank: nonUniformPixelCount === 0
 	};
 }
+
+/**
+ * What the frame border carries beyond its class: the highest alpha on it and
+ * how many border pixels carry any. The edge class alone says "mixed" for a
+ * border with one pixel at 1/255 and for one half covered; a lossy encoder's
+ * residue is the first and a composition bleeding off-frame is the second.
+ */
+export interface RenderedFrameBorderAlpha {
+	maxAlpha: number;
+	coveredPixelCount: number;
+	pixelCount: number;
+}
+
+export function measureRenderedFrameBorderAlpha(
+	frame: RenderedFramePixels
+): RenderedFrameBorderAlpha {
+	requireFramePixels(frame);
+	let maxAlpha = 0;
+	let coveredPixelCount = 0;
+	let pixelCount = 0;
+	const inspect = (x: number, y: number): void => {
+		const alpha = frame.data[(y * frame.width + x) * 4 + 3];
+		pixelCount += 1;
+		if (alpha > 0) coveredPixelCount += 1;
+		if (alpha > maxAlpha) maxAlpha = alpha;
+	};
+	for (let x = 0; x < frame.width; x += 1) {
+		inspect(x, 0);
+		if (frame.height > 1) inspect(x, frame.height - 1);
+	}
+	for (let y = 1; y < frame.height - 1; y += 1) {
+		inspect(0, y);
+		if (frame.width > 1) inspect(frame.width - 1, y);
+	}
+	return { maxAlpha, coveredPixelCount, pixelCount };
+}
+
+/**
+ * How far one frame sits from another of the same size. Colour is compared only
+ * where the source declared the pixel fully opaque: under partial or zero alpha
+ * a codec is free to carry whatever colour it likes, because nothing composites
+ * it. Alpha is compared everywhere.
+ */
+export interface RenderedFrameDrift {
+	/** Mean absolute per-channel RGB difference over pixels the source declared opaque. */
+	rgbMeanAbsoluteError: number;
+	/** Mean absolute alpha difference over every pixel. */
+	alphaMeanAbsoluteError: number;
+}
+
+export function measureRenderedFrameDrift(
+	decoded: RenderedFramePixels,
+	source: RenderedFramePixels
+): RenderedFrameDrift {
+	requireFramePixels(decoded);
+	requireFramePixels(source);
+	if (decoded.width !== source.width || decoded.height !== source.height) {
+		throw new TypeError(
+			`Cannot measure drift between ${decoded.width}x${decoded.height} and ${source.width}x${source.height} frames.`
+		);
+	}
+	let rgbSum = 0;
+	let rgbCount = 0;
+	let alphaSum = 0;
+	for (let offset = 0; offset < source.data.length; offset += 4) {
+		alphaSum += Math.abs(decoded.data[offset + 3] - source.data[offset + 3]);
+		if (source.data[offset + 3] !== 255) continue;
+		rgbSum +=
+			Math.abs(decoded.data[offset] - source.data[offset]) +
+			Math.abs(decoded.data[offset + 1] - source.data[offset + 1]) +
+			Math.abs(decoded.data[offset + 2] - source.data[offset + 2]);
+		rgbCount += 3;
+	}
+	return {
+		rgbMeanAbsoluteError: rgbCount === 0 ? 0 : rgbSum / rgbCount,
+		alphaMeanAbsoluteError: alphaSum / (source.data.length / 4)
+	};
+}

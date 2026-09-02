@@ -14,10 +14,12 @@
  * runtime does not have.
  *
  * `GFX_RUNTIME_PROFILE` is a private input, so this module is server-only by
- * name as well as by import.
+ * name as well as by import. The hosted profile is declared by the PUBLIC_
+ * input the page reads too, so the profile is read from both env modules.
  */
 
 import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
 
 import { resolveGitRelease } from './git-version.server';
 import { parsePublicRuntimeConfig } from './public-runtime-contract';
@@ -29,7 +31,16 @@ import { parsePublicRuntimeProfile, type PublicRuntimeProfile } from './public-r
  * on an unreadable value.
  */
 export function servedPublicRuntimeProfile(): PublicRuntimeProfile {
-	return parsePublicRuntimeProfile(env);
+	return parsePublicRuntimeProfile({ ...env, ...publicEnv });
+}
+
+/**
+ * The HTML-in-Canvas origin-trial token this host sends on documents, or null.
+ * Only a hosted origin is given one; a local origin launches the flagged
+ * browser instead (ADR-0052 amendment).
+ */
+export function servedOriginTrialToken(): string | null {
+	return parsePublicRuntimeConfig(env).originTrialToken;
 }
 
 /**
@@ -54,9 +65,9 @@ export function servedRelease(): string | null {
 
 /**
  * Whether this host serves the development-only surfaces at all. False on the
- * public origin, which answers 404 for their routes and omits their content from
- * the routes it does serve.
+ * public and hosted origins, which answer 404 for their routes and omit their
+ * content from the routes they do serve.
  */
 export function areDevelopmentOnlySurfacesServed(): boolean {
-	return servedPublicRuntimeProfile() !== 'public';
+	return servedPublicRuntimeProfile() === 'development';
 }

@@ -15,6 +15,11 @@ import PackSection from './PackSection.svelte';
 import type { UserPackDocument, UserPackMeta } from './user-pack-store';
 import { UserPackValidationError } from './user-pack-store-errors';
 
+// This build serves the origin stores: the fake below stands in for the Pack
+// store, so the section must offer forking and listing. The real module reads
+// `$env/dynamic/public`, which the app shell injects and jsdom does not.
+vi.mock('./user-composition-store', () => ({ IS_ORIGIN_COMPOSITION_STORE_SERVED: true }));
+
 // An in-memory User Pack store: what the origin would hold, without the origin.
 const fakeStore = vi.hoisted(() => {
 	const documents = new Map<string, UserPackDocument>();

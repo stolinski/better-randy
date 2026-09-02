@@ -10,6 +10,7 @@
 		refreshUserPackList,
 		userPackAuthoring
 	} from './user-pack-authoring.svelte';
+	import { IS_ORIGIN_COMPOSITION_STORE_SERVED } from './user-composition-store';
 	import { loadedUserPackDocument } from './user-pack-runtime.svelte';
 	import Field from './Field.svelte';
 	import InspectorSection from './InspectorSection.svelte';
@@ -18,9 +19,10 @@
 	// The Pack control (ADR-0055): bind a catalog Pack or a User Pack, fork the
 	// bound built-in into the store, and — when a User Pack is bound — edit it in
 	// place. The select lists the catalog, then every User Pack: loaded ones by
-	// their live label, stored-but-unloaded ones from the store listing.
+	// their live label, stored-but-unloaded ones from the store listing. A
+	// browser-scoped session has no Pack store, so it neither lists nor forks.
 	onMount(() => {
-		void refreshUserPackList();
+		if (IS_ORIGIN_COMPOSITION_STORE_SERVED) void refreshUserPackList();
 	});
 
 	const catalogOptions = $derived(
@@ -40,7 +42,9 @@
 		return options;
 	});
 	const boundUserPack = $derived(loadedUserPackDocument(packState.slug));
-	const canFork = $derived(Object.hasOwn(PACK_REGISTRY, packState.slug));
+	const canFork = $derived(
+		IS_ORIGIN_COMPOSITION_STORE_SERVED && Object.hasOwn(PACK_REGISTRY, packState.slug)
+	);
 
 	let bindingError = $state<string | null>(null);
 

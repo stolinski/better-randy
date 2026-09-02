@@ -19,6 +19,7 @@ import { hashObject } from '../utils/object';
 import { NTSC_FRACTIONAL_FPS } from '../utils/composition-timing';
 import { TEXT_EFFECT_IDS } from '../text-animations/catalog';
 import { listSoundAssets } from './audio-assets';
+import { availableCompositionExportFormats } from './composition-export-formats';
 import {
 	CAPTION_STYLES,
 	CHART_MOTION_EASES,
@@ -243,7 +244,10 @@ export function readWebmcpDerivedEnums(): Readonly<
 		'motion-ease': Object.keys(ENGINE_EASES),
 		'chart-motion-ease': CHART_MOTION_EASES,
 		'delivery-orientation': PresetSchema.shape.state.shape.transport.shape.orientation.options,
-		'export-format': PresetSchema.shape.state.shape.transport.shape.format.options,
+		// What this origin delivers, not what the schema declares: the hosted
+		// origin offers WebM alone, and a tool must not offer a format it cannot
+		// deliver (ADR-0054 §4).
+		'export-format': availableCompositionExportFormats(),
 		'composition-kind': readCompositionKinds(),
 		'surface-keyframe-channel': SURFACE_KEYFRAME_CHANNELS,
 		'overlay-keyframe-channel': OVERLAY_KEYFRAME_CHANNELS,

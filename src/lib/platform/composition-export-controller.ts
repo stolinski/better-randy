@@ -12,8 +12,14 @@ import { getVideoFrameSize, type VideoFrameSize } from '$lib/utils/video-frame';
 
 import { AnimationManager, type AnimationManifest } from './animation-manager';
 import { renderAudioMix, type AudioMixRenderRequest } from './audio-mix';
+import { exportWebMInBrowser } from './browser-webm-export';
+import {
+	isCompositionExportFormatAvailable,
+	unavailableCompositionExportFormatMessage
+} from './composition-export-formats';
 import type { CompositionFrameRenderResult } from './composition-frame-renderer';
 import type { EngineState, Preset } from './engine-schema';
+import { IS_HOSTED_ORIGIN } from './hosted-origin';
 import {
 	videoTrackExportSentryContext,
 	videoTrackExportSentryTags
@@ -119,11 +125,17 @@ export interface CompositionExportControllerServices {
 	reportFailure(message: string, error: unknown): void;
 }
 
+// The hosted origin has no encoder, so its WebM lane is the browser's and its
+// ProRes lane does not exist; `buildCompositionExportPlan` refuses the format
+// before this seam is reached, and the seam refuses again rather than reaching
+// for a transport the origin answers 404 for.
 const DEFAULT_SERVICES: CompositionExportControllerServices = {
 	createAnimationManager: () => new AnimationManager(),
 	renderAudio: renderAudioMix,
-	exportWebM: exportTransparentWebM,
-	exportProRes: exportTransparentProRes,
+	exportWebM: IS_HOSTED_ORIGIN ? exportWebMInBrowser : exportTransparentWebM,
+	exportProRes: IS_HOSTED_ORIGIN
+		? () => Promise.reject(new Error(unavailableCompositionExportFormatMessage('prores')))
+		: exportTransparentProRes,
 	downloadVideo: downloadVideoExport,
 	downloadBlob,
 	encodeWav: audioBufferToWavBytes,
@@ -157,6 +169,9 @@ export function buildCompositionExportPlan(options: {
 }): CompositionExportPlan {
 	const { state, transition, request } = options;
 	const { durationSeconds, fps, format, orientation } = state.transport;
+	if (!isCompositionExportFormatAvailable(format)) {
+		throw new Error(unavailableCompositionExportFormatMessage(format));
+	}
 	if (request?.startTimecode && format !== 'prores') {
 		throw new Error('A start timecode requires the ProRes format.');
 	}
