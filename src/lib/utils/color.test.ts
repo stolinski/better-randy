@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { relativeLuminance, wcagContrastRatio, wcagRelativeLuminance } from './color.ts';
+import {
+	relativeLuminance,
+	srgbChannelToLinear,
+	wcagContrastRatio,
+	wcagRelativeLuminance
+} from './color.ts';
 
 describe('wcagRelativeLuminance', () => {
 	it('anchors black and white at the WCAG endpoints', () => {
@@ -35,5 +40,14 @@ describe('wcagContrastRatio', () => {
 
 	it('clears AA for the chrome muted text on the recessed well', () => {
 		expect(wcagContrastRatio('#8a8a90', '#0c0c0e')).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
+describe('srgbChannelToLinear', () => {
+	it('follows the IEC 61966-2-1 curve at its ends and its knee', () => {
+		expect(srgbChannelToLinear(0)).toBe(0);
+		expect(srgbChannelToLinear(1)).toBeCloseTo(1, 6);
+		expect(srgbChannelToLinear(0.04045)).toBeCloseTo(0.04045 / 12.92, 6);
+		expect(srgbChannelToLinear(0.5)).toBeCloseTo(0.2140, 3);
 	});
 });

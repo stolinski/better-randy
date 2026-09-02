@@ -1429,6 +1429,15 @@ const StageCameraTravelSchema = z.object({
 	ease: EaseSchema.default('smooth')
 });
 
+// The camera under a VERTICAL frame (ADR-0059): how a filmed piece reflows to
+// the tall frame is designable, so a composition may film the same set from a
+// second rest pose and travel there. Each field that is present replaces its
+// horizontal counterpart whole; an absent one keeps the horizontal camera.
+const StageCameraVerticalSchema = z.object({
+	pose: StageCameraPoseSchema.optional(),
+	travel: StageCameraTravelSchema.optional()
+});
+
 const StageCameraSchema = z.object({
 	// The legacy named move. It composes on top of the pose in the camera's
 	// own frame (push dollies along the line of sight, drift slides along the
@@ -1437,7 +1446,8 @@ const StageCameraSchema = z.object({
 	amount: FractionSchema.default(0.5), // dolly / lateral parallax strength
 	ease: EaseSchema.default('smooth'),
 	pose: StageCameraPoseSchema.optional(),
-	travel: StageCameraTravelSchema.optional()
+	travel: StageCameraTravelSchema.optional(),
+	vertical: StageCameraVerticalSchema.optional()
 });
 
 // Rack-focus pull: focusZ travels from→to over [start, start+duration] (timeline
@@ -1828,6 +1838,7 @@ export type EffectChain = z.infer<typeof EffectChainSchema>;
 export type StageCamera = z.infer<typeof StageCameraSchema>;
 export type StageCameraPose = z.infer<typeof StageCameraPoseSchema>;
 export type StageCameraTravel = z.infer<typeof StageCameraTravelSchema>;
+export type StageCameraVertical = z.infer<typeof StageCameraVerticalSchema>;
 export type StageFocus = z.infer<typeof StageFocusSchema>;
 export type Stage = z.infer<typeof StageSchema>;
 export type SourceVideo = z.infer<typeof SourceVideoSchema>;

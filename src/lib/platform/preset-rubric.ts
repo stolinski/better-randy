@@ -20,7 +20,10 @@ import {
 	getSurfaceDefinition,
 	resolveSurfaceTypographyColors
 } from './pipelines/definition-registry';
-import { stageSurfaceFootprint } from './pipelines/depth-stage-camera.ts';
+import {
+	resolveStageCameraForOrientation,
+	stageSurfaceFootprint
+} from './pipelines/depth-stage-camera.ts';
 import { getLayoutSafeArea } from '../utils/safe-area.ts';
 import {
 	calculateWebsiteShowcaseLayout,
@@ -214,7 +217,10 @@ function checkFilmedPageInShot(preset: Preset, issues: RubricIssue[]): void {
 		['horizontal', FRAME_HORIZONTAL],
 		['vertical', FRAME_VERTICAL]
 	] as const) {
-		const footprint = stageSurfaceFootprint(stage.camera, frame.width / frame.height);
+		const footprint = stageSurfaceFootprint(
+			resolveStageCameraForOrientation(stage.camera, orientation),
+			frame.width / frame.height
+		);
 		if (footprint.overshoot > 0) {
 			issues.push({
 				rule: 'WS7',

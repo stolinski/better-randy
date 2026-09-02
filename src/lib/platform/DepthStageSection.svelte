@@ -130,21 +130,183 @@
 		target.aim = { x: aim.x ?? 0.5, y: aim.y ?? 0.5, [axis]: n };
 	}
 
+	function travelFrom(pose: StageCameraPose): StageCameraTravel {
+		return {
+			to: { ...pose, aim: { ...pose.aim } },
+			start: 0,
+			duration: 0.85,
+			ease: 'smooth'
+		};
+	}
+
 	function toggleTravel(): void {
 		const stage = ensureStage();
 		if (stage.camera.travel) {
 			stage.camera.travel = undefined;
 		} else {
-			const pose = stage.camera.pose ?? restPose();
-			stage.camera.travel = {
-				to: { ...pose, aim: { ...pose.aim } },
-				start: 0,
-				duration: 0.85,
-				ease: 'smooth'
-			};
+			stage.camera.travel = travelFrom(stage.camera.pose ?? restPose());
 		}
 	}
+
+	// The vertical camera (ADR-0059) starts as a copy of the horizontal pose
+	// and travel, so turning it on changes nothing until a field moves.
+	function toggleVertical(): void {
+		const stage = ensureStage();
+		if (stage.camera.vertical) {
+			stage.camera.vertical = undefined;
+			return;
+		}
+		const pose = stage.camera.pose ?? restPose();
+		const travel = stage.camera.travel;
+		stage.camera.vertical = {
+			pose: { ...pose, aim: { ...pose.aim } },
+			travel: travel
+				? { ...travel, to: { ...travel.to, aim: travel.to.aim ? { ...travel.to.aim } : undefined } }
+				: undefined
+		};
+	}
+
+	function toggleVerticalTravel(): void {
+		const vertical = ensureStage().camera.vertical;
+		if (!vertical) return;
+		vertical.travel = vertical.travel ? undefined : travelFrom(vertical.pose ?? restPose());
+	}
 </script>
+
+{#snippet poseFields(pose: StageCameraPose, prefix: string)}
+	{#each POSE_ANGLE_FIELDS as field (field.key)}
+		<Field label={`${prefix}${field.label}`}>
+			<input
+				type="number"
+				min={-field.limit}
+				max={field.limit}
+				step="any"
+				value={pose[field.key]}
+				oninput={(e) =>
+					setPoseAngle(pose, field.key, (e.currentTarget as HTMLInputElement).value, field.limit)}
+			/>
+		</Field>
+	{/each}
+	<Field label={`${prefix}Distance`}>
+		<input
+			type="number"
+			min={STAGE_CAMERA_POSE_LIMITS.minDistance}
+			max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
+			step="any"
+			value={pose.distance}
+			oninput={(e) => setPoseDistance(pose, (e.currentTarget as HTMLInputElement).value)}
+		/>
+	</Field>
+	<Field label={`${prefix}Aim`}>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Aim x`}
+			value={pose.aim.x}
+			oninput={(e) => setPoseAim(pose, 'x', (e.currentTarget as HTMLInputElement).value)}
+		/>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Aim y`}
+			value={pose.aim.y}
+			oninput={(e) => setPoseAim(pose, 'y', (e.currentTarget as HTMLInputElement).value)}
+		/>
+	</Field>
+{/snippet}
+
+{#snippet travelFields(travel: StageCameraTravel, pose: StageCameraPose | undefined, prefix: string)}
+	{#each POSE_ANGLE_FIELDS as field (field.key)}
+		<Field label={`${prefix}To ${field.label}`}>
+			<input
+				type="number"
+				min={-field.limit}
+				max={field.limit}
+				step="any"
+				value={travel.to[field.key] ?? pose?.[field.key] ?? 0}
+				oninput={(e) =>
+					setPoseAngle(
+						travel.to,
+						field.key,
+						(e.currentTarget as HTMLInputElement).value,
+						field.limit
+					)}
+			/>
+		</Field>
+	{/each}
+	<Field label={`${prefix}To distance`}>
+		<input
+			type="number"
+			min={STAGE_CAMERA_POSE_LIMITS.minDistance}
+			max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
+			step="any"
+			value={travel.to.distance ?? pose?.distance ?? 1}
+			oninput={(e) => setPoseDistance(travel.to, (e.currentTarget as HTMLInputElement).value)}
+		/>
+	</Field>
+	<Field label={`${prefix}To aim`}>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Travel aim x`}
+			value={travel.to.aim?.x ?? pose?.aim.x ?? 0.5}
+			oninput={(e) => setPoseAim(travel.to, 'x', (e.currentTarget as HTMLInputElement).value)}
+		/>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Travel aim y`}
+			value={travel.to.aim?.y ?? pose?.aim.y ?? 0.5}
+			oninput={(e) => setPoseAim(travel.to, 'y', (e.currentTarget as HTMLInputElement).value)}
+		/>
+	</Field>
+	<Field label={`${prefix}Travel window`}>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Travel start`}
+			value={travel.start}
+			oninput={(e) => {
+				const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
+				if (n !== null) travel.start = n;
+			}}
+		/>
+		<input
+			type="number"
+			min="0"
+			max="1"
+			step="any"
+			aria-label={`${prefix}Travel duration`}
+			value={travel.duration}
+			oninput={(e) => {
+				const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
+				if (n !== null) travel.duration = n;
+			}}
+		/>
+	</Field>
+	<Field label={`${prefix}Travel ease`}>
+		<select
+			value={travel.ease}
+			onchange={(e) => {
+				travel.ease = (e.currentTarget as HTMLSelectElement).value as Ease;
+			}}
+		>
+			{#each easeOptions as [value, opt] (value)}
+				<option {value}>{opt.label}</option>
+			{/each}
+		</select>
+	</Field>
+{/snippet}
 
 <InspectorSection label="Depth Stage" summary={engineState.stage ? 'On' : 'Off'}>
 	{#snippet action()}
@@ -201,55 +363,7 @@
 			<InspectorToggle checked={!!stage.camera.pose} label="Camera pose" onchange={togglePose} />
 		</Field>
 		{#if stage.camera.pose}
-			{@const pose = stage.camera.pose}
-			{#each POSE_ANGLE_FIELDS as field (field.key)}
-				<Field label={field.label}>
-					<input
-						type="number"
-						min={-field.limit}
-						max={field.limit}
-						step="any"
-						value={pose[field.key]}
-						oninput={(e) =>
-							setPoseAngle(
-								pose,
-								field.key,
-								(e.currentTarget as HTMLInputElement).value,
-								field.limit
-							)}
-					/>
-				</Field>
-			{/each}
-			<Field label="Distance">
-				<input
-					type="number"
-					min={STAGE_CAMERA_POSE_LIMITS.minDistance}
-					max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
-					step="any"
-					value={pose.distance}
-					oninput={(e) => setPoseDistance(pose, (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="Aim">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Aim x"
-					value={pose.aim.x}
-					oninput={(e) => setPoseAim(pose, 'x', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Aim y"
-					value={pose.aim.y}
-					oninput={(e) => setPoseAim(pose, 'y', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
+			{@render poseFields(stage.camera.pose, '')}
 		{/if}
 		<Field label="Travel">
 			<InspectorToggle
@@ -259,93 +373,28 @@
 			/>
 		</Field>
 		{#if stage.camera.travel}
-			{@const travel = stage.camera.travel}
-			{#each POSE_ANGLE_FIELDS as field (field.key)}
-				<Field label={`To ${field.label}`}>
-					<input
-						type="number"
-						min={-field.limit}
-						max={field.limit}
-						step="any"
-						value={travel.to[field.key] ?? stage.camera.pose?.[field.key] ?? 0}
-						oninput={(e) =>
-							setPoseAngle(
-								travel.to,
-								field.key,
-								(e.currentTarget as HTMLInputElement).value,
-								field.limit
-							)}
-					/>
-				</Field>
-			{/each}
-			<Field label="To distance">
-				<input
-					type="number"
-					min={STAGE_CAMERA_POSE_LIMITS.minDistance}
-					max={STAGE_CAMERA_POSE_LIMITS.maxDistance}
-					step="any"
-					value={travel.to.distance ?? stage.camera.pose?.distance ?? 1}
-					oninput={(e) => setPoseDistance(travel.to, (e.currentTarget as HTMLInputElement).value)}
+			{@render travelFields(stage.camera.travel, stage.camera.pose, '')}
+		{/if}
+		<Field label="Vertical">
+			<InspectorToggle
+				checked={!!stage.camera.vertical}
+				label="Vertical camera"
+				onchange={toggleVertical}
+			/>
+		</Field>
+		{#if stage.camera.vertical?.pose}
+			{@const vertical = stage.camera.vertical}
+			{@render poseFields(stage.camera.vertical.pose, 'Vertical ')}
+			<Field label="Vertical travel">
+				<InspectorToggle
+					checked={!!vertical.travel}
+					label="Vertical camera travel"
+					onchange={toggleVerticalTravel}
 				/>
 			</Field>
-			<Field label="To aim">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Travel aim x"
-					value={travel.to.aim?.x ?? stage.camera.pose?.aim.x ?? 0.5}
-					oninput={(e) => setPoseAim(travel.to, 'x', (e.currentTarget as HTMLInputElement).value)}
-				/>
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Travel aim y"
-					value={travel.to.aim?.y ?? stage.camera.pose?.aim.y ?? 0.5}
-					oninput={(e) => setPoseAim(travel.to, 'y', (e.currentTarget as HTMLInputElement).value)}
-				/>
-			</Field>
-			<Field label="Travel window">
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Travel start"
-					value={travel.start}
-					oninput={(e) => {
-						const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
-						if (n !== null) travel.start = n;
-					}}
-				/>
-				<input
-					type="number"
-					min="0"
-					max="1"
-					step="any"
-					aria-label="Travel duration"
-					value={travel.duration}
-					oninput={(e) => {
-						const n = clampedUnitInterval((e.currentTarget as HTMLInputElement).value);
-						if (n !== null) travel.duration = n;
-					}}
-				/>
-			</Field>
-			<Field label="Travel ease">
-				<select
-					value={travel.ease}
-					onchange={(e) => {
-						travel.ease = (e.currentTarget as HTMLSelectElement).value as Ease;
-					}}
-				>
-					{#each easeOptions as [value, opt] (value)}
-						<option {value}>{opt.label}</option>
-					{/each}
-				</select>
-			</Field>
+			{#if vertical.travel}
+				{@render travelFields(vertical.travel, vertical.pose, 'Vertical ')}
+			{/if}
 		{/if}
 		<Field label="Focus Z">
 			<input

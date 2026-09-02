@@ -1,13 +1,18 @@
 import { d } from 'typegpu';
 
+import { srgbToLinearWgsl } from './depth-stage-material';
+
 // The picture lights the room (ADR-0059): a screen's glass is an area light
 // whose colour is the composition's own average, read from the top of the
 // Surface plane's mip chain. Every receiver — the housing, the floor, the
 // backdrop — takes it through this one snippet, so the bezel's inner faces
 // and the desk under the monitor carry the same picture-coloured glow.
 
-/** How much of the glass's average colour a receiver takes at unit glow. */
-const SCREEN_LIGHT_GAIN = 7.0;
+/** How much of the glass's average colour a display-space receiver takes at unit glow. */
+const SCREEN_LIGHT_GAIN_DISPLAY = 7.0;
+/** The same spill for a receiver shaded in linear light (a body): the
+ *  picture linearised, the gain matched so the two agree on the display. */
+const SCREEN_LIGHT_GAIN_LINEAR = 12.0;
 /** A tube's phosphor throws light past its own plane; the emitter's cosine keeps a floor. */
 const EMITTER_WRAP = 0.18;
 
@@ -29,13 +34,20 @@ export const STAGE_SCREEN_LIGHT_LAYOUT_ENTRIES = {
 	screenTexture: { texture: d.texture2d(d.f32) }
 } as const;
 
+/** The space a receiver shades in: captured planes compose in display space, bodies in linear light. */
+export type StageShadingSpace = 'display' | 'linear';
+
 /**
  * WGSL: add the glass's spill to `color` for a receiver with unit normal `N`
- * at `in.world` whose albedo is `${albedo}`. The nearest point of the opening
- * to the fragment, the cosine at both ends, and a solid angle that softens as
- * the fragment approaches the glass; `samp` and `screenTexture` on `layout`.
+ * at `in.world` whose albedo is `${albedo}`, in the receiver's shading space.
+ * The nearest point of the opening to the fragment, the cosine at both ends,
+ * and a solid angle that softens as the fragment approaches the glass;
+ * `samp` and `screenTexture` on `layout`.
  */
-export function screenLightWgsl(uniforms: string, albedo: string): string {
+export function screenLightWgsl(uniforms: string, albedo: string, space: StageShadingSpace): string {
+	const encoded = `textureSampleLevel(layout.$.screenTexture, layout.$.samp, vec2f(0.5), ${uniforms}.screenNormal.w).rgb`;
+	const glassColor = space === 'linear' ? srgbToLinearWgsl('glassEncoded') : 'glassEncoded';
+	const gain = space === 'linear' ? SCREEN_LIGHT_GAIN_LINEAR : SCREEN_LIGHT_GAIN_DISPLAY;
 	return /* wgsl */ `
 	if (${uniforms}.screenOrigin.w > 0.001) {
 		let screenHalfW = max(${uniforms}.screenU.w, 1e-4);
@@ -52,8 +64,9 @@ export function screenLightWgsl(uniforms: string, albedo: string): string {
 		let cosReceiver = max(dot(N, glassDirection), 0.0);
 		let cosEmitter = max(dot(${uniforms}.screenNormal.xyz, -glassDirection), 0.0) * (1.0 - ${EMITTER_WRAP}) + ${EMITTER_WRAP};
 		let glassArea = 4.0 * screenHalfW * screenHalfH;
-		let glassColor = textureSampleLevel(layout.$.screenTexture, layout.$.samp, vec2f(0.5), ${uniforms}.screenNormal.w).rgb;
+		let glassEncoded = ${encoded};
+		let glassColor = ${glassColor};
 		let glassIrradiance = cosReceiver * cosEmitter * glassArea / (glassDistance * glassDistance + glassArea);
-		color = color + ${albedo} * glassColor * glassIrradiance * ${uniforms}.screenOrigin.w * ${SCREEN_LIGHT_GAIN};
+		color = color + ${albedo} * glassColor * glassIrradiance * ${uniforms}.screenOrigin.w * ${gain};
 	}`;
 }

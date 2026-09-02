@@ -33,7 +33,9 @@ import {
 // the tube's own optics — the `crt-tube` Effect's beam raster, phosphor mask,
 // halation, and vignette, fixed to the glass so they magnify with it.
 
-export const STAGE_DEPTH_SIDECAR_FORMAT: GPUTextureFormat = 'r16float';
+/** The depth sidecar: x = depth01 the lens reads, y = whether the texel takes
+ *  ambient obscurance (0 for an emitter such as a screen's glass). */
+export const STAGE_DEPTH_SIDECAR_FORMAT: GPUTextureFormat = 'rg16float';
 export const STAGE_DEPTH_ATTACHMENT_FORMAT: GPUTextureFormat = 'depth24plus';
 /** Presence at or above which a texel owns its pixel (writes depth). Sits low
  *  so px-thin geometry at partial coverage (a 2px rule ≈ 0.3) keeps its own
@@ -358,7 +360,7 @@ function planeFragmentBody(mode: StagePlanePassMode): string {
 	}
 	if (!isGlass) {
 		let planeAlbedo = color;
-		${screenLightWgsl('plane', 'planeAlbedo')}
+		${screenLightWgsl('plane', 'planeAlbedo', 'display')}
 	}
 	if (isGlass && light.w > 0.001) {
 		// The key on the dome: a broad soft highlight that slides as the camera moves.
@@ -369,7 +371,10 @@ function planeFragmentBody(mode: StagePlanePassMode): string {
 		color = color + vec3f(reflection);
 	}
 	let depth01 = clamp((in.dist - plane.misc.x) / (plane.misc.y - plane.misc.x), 0.0, 1.0);
-	return Out(vec4f(color * presence, presence), vec4f(depth01, 0.0, 0.0, 1.0));
+	// The sidecar's second channel marks the texel occludable: a glass is an
+	// emitter and takes no ambient obscurance.
+	let occludable = select(1.0, 0.0, isGlass);
+	return Out(vec4f(color * presence, presence), vec4f(depth01, occludable, 0.0, 1.0));
 }`;
 }
 

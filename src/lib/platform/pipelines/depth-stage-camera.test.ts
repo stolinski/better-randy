@@ -5,6 +5,7 @@ import { vec4 } from 'wgpu-matrix';
 import { StageSchema, type StageCamera } from '$lib/platform/engine-schema';
 import {
 	createStageCameraRig,
+	resolveStageCameraForOrientation,
 	resolveStageCameraPose,
 	STAGE_BACKDROP_COVER_MIN,
 	STAGE_BACKDROP_DEPTH,
@@ -258,5 +259,41 @@ describe('backdrop cover and depth encoding under a pose', () => {
 		assert.ok(encoding.near < rig.aimDistance && rig.aimDistance < encoding.far);
 		assert.ok(encoding.near < STAGE_DEPTH_NEAR, 'a close camera needs a nearer floor');
 		assert.ok(encoding.far > rig.backdropDistance);
+	});
+});
+
+describe('the vertical camera', () => {
+	it('a horizontal frame films through the horizontal pose and drops the vertical set', () => {
+		const authored = camera({
+			pose: { yaw: 14, distance: 1.9 },
+			vertical: { pose: { yaw: 2, distance: 1.1 } }
+		});
+		const resolved = resolveStageCameraForOrientation(authored, 'horizontal');
+		assert.equal(resolved.pose?.yaw, 14);
+		assert.equal(resolved.vertical, undefined);
+	});
+
+	it('a vertical frame replaces each authored field whole and keeps the rest', () => {
+		const authored = camera({
+			move: 'push',
+			pose: { yaw: 14, distance: 1.9 },
+			travel: { to: { distance: 1.1 }, start: 0, duration: 0.5 },
+			vertical: { pose: { yaw: 2, distance: 1.1 } }
+		});
+		const resolved = resolveStageCameraForOrientation(authored, 'vertical');
+		assert.equal(resolved.move, 'push');
+		assert.equal(resolved.pose?.yaw, 2);
+		assert.equal(resolved.pose?.distance, 1.1);
+		// No vertical travel authored: the horizontal travel still plays.
+		assert.equal(resolved.travel?.to.distance, 1.1);
+		assert.equal(resolved.vertical, undefined);
+	});
+
+	it('without a vertical set both frames film through the same camera', () => {
+		const authored = camera({ pose: { yaw: 14 } });
+		assert.deepEqual(
+			resolveStageCameraForOrientation(authored, 'vertical'),
+			resolveStageCameraForOrientation(authored, 'horizontal')
+		);
 	});
 });

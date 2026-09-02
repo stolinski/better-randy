@@ -31,7 +31,11 @@ import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
 import { DepthStage, type DepthStagePosedOverlayPlane } from './pipelines/depth-stage';
 import { partitionStageOverlays } from './pipelines/depth-stage-planes';
-import { STAGE_CAM_Z, createStageCameraRig } from './pipelines/depth-stage-camera';
+import {
+	STAGE_CAM_Z,
+	createStageCameraRig,
+	resolveStageCameraForOrientation
+} from './pipelines/depth-stage-camera';
 import { EffectChain } from './pipelines/effect-chain';
 import { ShaderPassDispatcher, type ShaderPassDispatchList } from './pipelines/shader-pass-runner';
 import type { CompiledTransitionEffect } from './pipelines/transition-pass';
@@ -554,7 +558,7 @@ function resolveStageFrame(
 		backdropColor: background ? [background[0], background[1], background[2]] : [0.1, 0.09, 0.08],
 		backdropAsset: stage.backdrop?.image?.asset ?? null,
 		backdropContrast: clampNumber(stage.backdrop?.contrast ?? 0, 0, 1),
-		camera: stage.camera,
+		camera: resolveStageCameraForOrientation(stage.camera, state.transport.orientation),
 		sharedOverlayCount: shared.length,
 		posedOverlays: posed,
 		overlayZ: SHARED_OVERLAY_PLANE_Z,

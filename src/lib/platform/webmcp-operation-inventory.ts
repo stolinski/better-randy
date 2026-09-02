@@ -1421,7 +1421,7 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		family: 'appearance',
 		toolName: 'gfx_appearance_set_stage',
 		summary:
-			'Set or remove the dimensional stage: its type, camera move, camera pose and travel, focus plane and aperture, backdrop treatment, and the physical screen model whose glass the Surface plane is.',
+			'Set or remove the dimensional stage: its type, camera move, camera pose and travel (with a vertical pose and travel for the tall frame), focus plane and aperture, backdrop treatment, and the physical screen model whose glass the Surface plane is.',
 		effect: 'write',
 		writes: ['/state/stage'],
 		precondition: 'composition-editable',

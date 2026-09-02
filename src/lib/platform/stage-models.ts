@@ -10,14 +10,18 @@
 
 export type StageModelVector = [number, number, number];
 
-/** One material region of a model: an intrinsic object material, not a Pack Role. */
+/** One material region of a model: an intrinsic object material, not a Pack
+ *  Role, in the vocabulary of the Stage's material model
+ *  (`depth-stage-material.ts`). */
 export interface StageModelMaterial {
 	name: string;
-	/** rgb 0..1 in the stage's display space (the space every capture and
-	 *  plane composes in — the stage never linearises). */
+	/** Albedo rgb 0..1 as displayed (the registry speaks sRGB, like a Pack
+	 *  colour); the body pass linearises it to light it. */
 	color: StageModelVector;
 	/** 0 mirror .. 1 fully matte. */
 	roughness: number;
+	/** 0 dielectric (plastic, paint, paper) .. 1 conductor (a metal takes its albedo as its reflection). */
+	metallic: number;
 }
 
 /**
@@ -81,7 +85,7 @@ export interface StageModelDefinition {
 	floor?: StageModelFloor;
 }
 
-/** A #rrggbb colour as the rgb triple the stage lights, in its display space. */
+/** A #rrggbb colour as the displayed rgb triple a material declares. */
 export function stageModelColor(hex: string): StageModelVector {
 	const value = Number.parseInt(hex.slice(1), 16);
 	return [((value >> 16) & 0xff) / 255, ((value >> 8) & 0xff) / 255, (value & 0xff) / 255];
@@ -112,10 +116,10 @@ const STAGE_MODELS: Record<string, StageModelDefinition> = {
 		// slightly lighter stand, and near-black vent recesses that cannot catch
 		// a highlight (their boolean rims would read as torn dashes).
 		materials: [
-			{ name: 'shell', color: stageModelColor('#2b2d32'), roughness: 0.62 },
-			{ name: 'face', color: stageModelColor('#1e2025'), roughness: 0.52 },
-			{ name: 'stand', color: stageModelColor('#33363c'), roughness: 0.46 },
-			{ name: 'vents', color: stageModelColor('#131417'), roughness: 0.94 }
+			{ name: 'shell', color: stageModelColor('#2b2d32'), roughness: 0.62, metallic: 0 },
+			{ name: 'face', color: stageModelColor('#1e2025'), roughness: 0.52, metallic: 0 },
+			{ name: 'stand', color: stageModelColor('#33363c'), roughness: 0.46, metallic: 0 },
+			{ name: 'vents', color: stageModelColor('#131417'), roughness: 0.94, metallic: 0 }
 		],
 		regionOf([x, y, z]) {
 			const ventField = Math.abs(x) > 262 && y > 2 && y < 96 && z > -220 && z < -122;

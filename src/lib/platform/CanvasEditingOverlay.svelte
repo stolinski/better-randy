@@ -56,6 +56,7 @@
 		type DiagramLabelTextBoxSnapshot
 	} from './canvas-text-box-resize';
 	import { engineState } from './engine-state.svelte';
+	import { resolveStageCameraForOrientation } from './pipelines/depth-stage-camera';
 	import { resolveStageScreenGlass } from './pipelines/depth-stage-geometry';
 	import {
 		createStageProjector,
@@ -256,7 +257,7 @@
 		const screenGlass = screenModel ? resolveStageScreenGlass(aspect, screenModel.screen) : undefined;
 		return createStageProjector({
 			aspect,
-			camera: stage.camera,
+			camera: resolveStageCameraForOrientation(stage.camera, engineState.transport.orientation),
 			overlayZ: 0.7,
 			screenGlass,
 			posedOverlayPlanes: engineState.overlays.filter(isPosedStageOverlay).map((overlay) => ({
@@ -1754,9 +1755,14 @@
 
 	let panGesture: PanGesture | null = null;
 
+	// The pose the current frame is filmed through: under a vertical frame
+	// with its own camera, reframing edits the vertical pose.
 	function stageCameraPose(): { aim: { x: number; y: number } } | null {
 		const stage = engineState.stage;
-		return stage?.type === 'depth' && stage.camera.pose ? stage.camera.pose : null;
+		if (stage?.type !== 'depth') return null;
+		const vertical =
+			engineState.transport.orientation === 'vertical' ? stage.camera.vertical?.pose : undefined;
+		return vertical ?? stage.camera.pose ?? null;
 	}
 
 	function onBackdropDown(event: PointerEvent): void {

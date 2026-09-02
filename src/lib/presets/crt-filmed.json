@@ -61,6 +61,31 @@
 					"start": 0,
 					"duration": 1,
 					"ease": "smooth"
+				},
+				"vertical": {
+					"pose": {
+						"yaw": 10,
+						"pitch": 3,
+						"distance": 1.12,
+						"aim": {
+							"x": 0.5,
+							"y": 0.58
+						}
+					},
+					"travel": {
+						"to": {
+							"distance": 0.72,
+							"yaw": 6,
+							"pitch": 1,
+							"aim": {
+								"x": 0.5,
+								"y": 0.5
+							}
+						},
+						"start": 0,
+						"duration": 1,
+						"ease": "smooth"
+					}
 				}
 			},
 			"focus": {

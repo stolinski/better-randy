@@ -104,6 +104,28 @@ export function hasAuthoredStageCameraPose(camera: StageCamera): boolean {
 	return camera.pose !== undefined || camera.travel !== undefined;
 }
 
+export type StageFrameOrientation = 'horizontal' | 'vertical';
+
+/**
+ * The camera a frame of `orientation` is filmed through: under a vertical
+ * frame the authored vertical pose and travel replace their horizontal
+ * counterparts whole (ADR-0059). The result carries no `vertical` of its own,
+ * so every consumer downstream — the renderer, the projector, the rubric —
+ * resolves it exactly once, here.
+ */
+export function resolveStageCameraForOrientation(
+	camera: StageCamera,
+	orientation: StageFrameOrientation
+): StageCamera {
+	const { vertical, ...horizontal } = camera;
+	if (orientation !== 'vertical' || !vertical) return horizontal;
+	return {
+		...horizontal,
+		pose: vertical.pose ?? horizontal.pose,
+		travel: vertical.travel ?? horizontal.travel
+	};
+}
+
 const mix = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 /** The camera pose at clip progress `time`: the rest pose eased toward the

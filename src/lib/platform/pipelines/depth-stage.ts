@@ -11,11 +11,26 @@ import type { LightDirection } from '$lib/platform/packs/resolve';
 import type { StageMeshData } from '../stage-mesh-format';
 import { STAGE_MESH_VERTEX_BYTES } from '../stage-mesh-format';
 import type { StageModelDefinition, StageScreenOptics } from '../stage-models';
+import { srgbChannelToLinear } from '$lib/utils/color';
+import {
+	BYTES_PER_OCCLUSION_TEXEL,
+	STAGE_OCCLUSION_FORMAT,
+	STAGE_OCCLUSION_INTENSITY,
+	STAGE_OCCLUSION_RADIUS,
+	StageOcclusionUniforms,
+	stageOcclusionApplyFragmentFn,
+	stageOcclusionApplyLayout,
+	stageOcclusionBlurFragmentFn,
+	stageOcclusionBlurLayout,
+	stageOcclusionFragmentFn,
+	stageOcclusionLayout
+} from './depth-stage-ambient-occlusion';
 import {
 	STAGE_BACKDROP_DEPTH,
 	STAGE_CAM_Z,
 	STAGE_DEPTH_FAR,
 	STAGE_DEPTH_NEAR,
+	STAGE_FOV,
 	createStageCameraRig,
 	hasAuthoredStageCameraPose,
 	stageBackdropCover,
@@ -89,8 +104,8 @@ import {
 // Scene assembly is a two-pass depth-tested compositor over general plane
 // bases (see depth-stage-plane-pass.ts): opaque texels write depth and blend
 // premultiplied, soft skirts blend over what is really behind them. Per-pixel
-// depth lives in an r16float SIDECAR target the DOF reads; the scene colour
-// target carries colour only. Under an authored camera pose the receding planes
+// depth lives in an rg16float SIDECAR target the DOF reads (with an occludable
+// mark in its second channel); the scene colour target carries colour only. Under an authored camera pose the receding planes
 // sample mip chains through an anisotropic sampler; the frontal camera keeps
 // the single-level sources, so the shipped Presets render as before.
 //
@@ -102,9 +117,11 @@ import {
 // present the scene passes render multisampled and resolve back into the
 // single-sample targets (colour averaged, depth nearest), the bodies are
 // rendered from the key's direction into a shadow map every receiver reads,
-// and the body pass draws them depth-tested between the opaque planes and the
-// skirts. With no body on the stage none of that machinery allocates or runs,
-// and every shipped Preset renders pixel-identical.
+// the body pass draws them depth-tested between the opaque planes and the
+// skirts, and an ambient-obscurance pass over the resolved sidecar grounds
+// them in their creases and at contact (depth-stage-ambient-occlusion.ts).
+// With no body on the stage none of that machinery allocates or runs, and
+// every shipped Preset renders pixel-identical.
 //
 // The grain fix that made the POC ship: the DOF gather never samples the sharp
 // scene buffer — it reads a prefiltered mip whose footprint spans the gap between
@@ -122,7 +139,7 @@ const MAX_LOD = 14; // textureSampleLevel clamps to the texture's real top mip
 const REF_COC = 42; // max circle-of-confusion (px) per 1080px of frame short side
 const SHADOW_STRENGTH = 0.75; // max shadow darkening per unit light intensity
 const BYTES_PER_RGBA16F_TEXEL = 8;
-const BYTES_PER_R16F_TEXEL = 2;
+const BYTES_PER_RG16F_TEXEL = 4;
 const BYTES_PER_DEPTH24_TEXEL = 4;
 /** Receiver bias for the body shadow map, in world units along the light. */
 const SHADOW_MAP_BIAS_WORLD = 0.012;
@@ -534,7 +551,9 @@ interface StageMipCopy {
 	views: GPUTextureView[];
 }
 
-/** The multisampled scene set allocated the first time a body is on the stage. */
+/** The multisampled scene set allocated the first time a body is on the
+ *  stage, with the resolved colour and the obscurance pair the grounding
+ *  pass works through. */
 interface StageMultisampleTargets {
 	color: GPUTexture;
 	colorView: GPUTextureView;
@@ -542,6 +561,10 @@ interface StageMultisampleTargets {
 	sidecarView: GPUTextureView;
 	depth: GPUTexture;
 	depthView: GPUTextureView;
+	resolved: GPUTexture;
+	resolvedView: GPUTextureView;
+	obscurance: [GPUTexture, GPUTexture];
+	obscuranceViews: [GPUTextureView, GPUTextureView];
 	bytes: number;
 }
 
@@ -724,6 +747,8 @@ export class DepthStage {
 			materialColor: Array.from({ length: STAGE_BODY_MAX_REGIONS }, () =>
 				d.vec4f(0.5, 0.5, 0.5, 0.6)
 			),
+			materialParams: Array.from({ length: STAGE_BODY_MAX_REGIONS }, () => d.vec4f(0, 0, 0, 0)),
+			environment: d.vec4f(0.02, 0.02, 0.02, 0),
 			light: d.vec4f(0, 0, -1, 0),
 			camera: d.vec4f(0, 0, STAGE_CAM_Z, 0),
 			misc: d.vec4f(STAGE_DEPTH_NEAR, STAGE_DEPTH_FAR, 0, 0),
@@ -742,6 +767,16 @@ export class DepthStage {
 		);
 		// One body today: the screen.
 		const bodyBuffers = [root.createBuffer(StageBodyUniforms, bodyRest()).$usage('uniform')];
+		// The obscurance passes: one buffer per blur direction, the rest shared.
+		const occlusionRest = (direction: [number, number]) => ({
+			projection: d.vec4f(1, 1, STAGE_DEPTH_NEAR, STAGE_DEPTH_FAR),
+			params: d.vec4f(STAGE_OCCLUSION_RADIUS, STAGE_OCCLUSION_INTENSITY, width, height),
+			direction: d.vec4f(direction[0], direction[1], 0, 0)
+		});
+		const occlusionBuffers = {
+			horizontal: root.createBuffer(StageOcclusionUniforms, occlusionRest([1, 0])).$usage('uniform'),
+			vertical: root.createBuffer(StageOcclusionUniforms, occlusionRest([0, 1])).$usage('uniform')
+		};
 		const dofUniform = root
 			.createBuffer(DofUniforms, {
 				params: d.vec4f(0, 0, maxCoc, 0),
@@ -837,6 +872,18 @@ export class DepthStage {
 				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
 			})
 			.createPipeline();
+		const occlusionPipeline = unstable
+			.withVertex(fullVertexFn, {})
+			.withFragment(stageOcclusionFragmentFn, { format: STAGE_OCCLUSION_FORMAT })
+			.createPipeline();
+		const occlusionBlurPipeline = unstable
+			.withVertex(fullVertexFn, {})
+			.withFragment(stageOcclusionBlurFragmentFn, { format: STAGE_OCCLUSION_FORMAT })
+			.createPipeline();
+		const occlusionApplyPipeline = unstable
+			.withVertex(fullVertexFn, {})
+			.withFragment(stageOcclusionApplyFragmentFn, { format: INTERMEDIATE_FORMAT })
+			.createPipeline();
 		const blitPipeline = unstable
 			.withVertex(fullVertexFn, {})
 			.withFragment(blitFragmentFn, { format: INTERMEDIATE_FORMAT })
@@ -928,13 +975,15 @@ export class DepthStage {
 			frameBytes(BYTES_PER_RGBA16F_TEXEL, true) + // scene pyramid
 			frameBytes(BYTES_PER_RGBA16F_TEXEL, false) + // output
 			frameBytes(BYTES_PER_RGBA16F_TEXEL, false) / 4 + // half-res gather
-			frameBytes(BYTES_PER_R16F_TEXEL, false) + // depth sidecar
+			frameBytes(BYTES_PER_RG16F_TEXEL, false) + // depth sidecar
 			frameBytes(BYTES_PER_DEPTH24_TEXEL, false); // depth attachment
 		const multisampleBytes =
 			(frameBytes(BYTES_PER_RGBA16F_TEXEL, false) +
-				frameBytes(BYTES_PER_R16F_TEXEL, false) +
+				frameBytes(BYTES_PER_RG16F_TEXEL, false) +
 				frameBytes(BYTES_PER_DEPTH24_TEXEL, false)) *
-			STAGE_SCENE_SAMPLE_COUNT;
+				STAGE_SCENE_SAMPLE_COUNT +
+			frameBytes(BYTES_PER_RGBA16F_TEXEL, false) + // resolved colour
+			frameBytes(BYTES_PER_OCCLUSION_TEXEL, false) * 2; // obscurance pair
 
 		// The multisampled scene set, allocated the first time a body is on the
 		// stage and kept for the stage's life (a composition that has a body has it
@@ -959,6 +1008,23 @@ export class DepthStage {
 				sampleCount: STAGE_SCENE_SAMPLE_COUNT,
 				usage: TEXTURE_USAGE_RENDER_ATTACHMENT
 			});
+			const resolved = device.createTexture({
+				size: [width, height, 1],
+				format: INTERMEDIATE_FORMAT,
+				usage: SCENE_TEXTURE_USAGE
+			});
+			const obscurance: [GPUTexture, GPUTexture] = [
+				device.createTexture({
+					size: [width, height, 1],
+					format: STAGE_OCCLUSION_FORMAT,
+					usage: SCENE_TEXTURE_USAGE
+				}),
+				device.createTexture({
+					size: [width, height, 1],
+					format: STAGE_OCCLUSION_FORMAT,
+					usage: SCENE_TEXTURE_USAGE
+				})
+			];
 			this.#multisample = {
 				color,
 				colorView: color.createView(),
@@ -966,6 +1032,10 @@ export class DepthStage {
 				sidecarView: sidecar.createView(),
 				depth,
 				depthView: depth.createView(),
+				resolved,
+				resolvedView: resolved.createView(),
+				obscurance,
+				obscuranceViews: [obscurance[0].createView(), obscurance[1].createView()],
 				bytes: multisampleBytes
 			};
 			return this.#multisample;
@@ -1423,15 +1493,26 @@ export class DepthStage {
 							? (mat4.multiply(shadowProjection.viewProjection, draw.model) as Float32Array)
 							: draw.model
 					),
+					// The registry speaks displayed colour; the body is lit in linear light.
 					materialColor: Array.from({ length: STAGE_BODY_MAX_REGIONS }, (_, region) => {
 						const material = draw.materials[region] ?? draw.materials[0];
 						return d.vec4f(
-							material.color[0],
-							material.color[1],
-							material.color[2],
+							srgbChannelToLinear(material.color[0]),
+							srgbChannelToLinear(material.color[1]),
+							srgbChannelToLinear(material.color[2]),
 							material.roughness
 						);
 					}),
+					materialParams: Array.from({ length: STAGE_BODY_MAX_REGIONS }, (_, region) => {
+						const material = draw.materials[region] ?? draw.materials[0];
+						return d.vec4f(material.metallic, 0, 0, 0);
+					}),
+					environment: d.vec4f(
+						srgbChannelToLinear(input.backdropColor[0]),
+						srgbChannelToLinear(input.backdropColor[1]),
+						srgbChannelToLinear(input.backdropColor[2]),
+						0
+					),
 					light: lightVec,
 					camera: cameraEye,
 					misc: d.vec4f(encoding.near, encoding.far, draw.presence, 0),
@@ -1611,6 +1692,9 @@ export class DepthStage {
 			}
 			// Resolve the multisampled scene into the single-sample targets the
 			// pyramid, gather, and compose read: colour averaged, depth nearest.
+			// Then ground the scene: the obscurance estimated from the resolved
+			// sidecar, blurred once each way, darkens the resolved colour into the
+			// scene's level 0 wherever the sidecar marks a texel occludable.
 			if (multisample) {
 				resolvePipeline
 					.with(
@@ -1620,9 +1704,64 @@ export class DepthStage {
 						})
 					)
 					.withColorAttachment({
-						color: { view: mipViews[0], loadOp: 'clear', storeOp: 'store' },
+						color: { view: multisample.resolvedView, loadOp: 'clear', storeOp: 'store' },
 						depth: { view: depthSidecarView, loadOp: 'clear', storeOp: 'store' }
 					})
+					.draw(3);
+				const tanHalfFov = Math.tan(STAGE_FOV / 2);
+				const occlusionProjection = d.vec4f(
+					tanHalfFov * aspect,
+					tanHalfFov,
+					encoding.near,
+					encoding.far
+				);
+				for (const [direction, buffer] of [
+					[[1, 0], occlusionBuffers.horizontal],
+					[[0, 1], occlusionBuffers.vertical]
+				] as const) {
+					buffer.write({
+						projection: occlusionProjection,
+						params: d.vec4f(STAGE_OCCLUSION_RADIUS, STAGE_OCCLUSION_INTENSITY, width, height),
+						direction: d.vec4f(direction[0], direction[1], 0, 0)
+					});
+				}
+				occlusionPipeline
+					.with(
+						root.createBindGroup(stageOcclusionLayout, {
+							depth: depthSidecarView,
+							occlusion: occlusionBuffers.horizontal
+						})
+					)
+					.withColorAttachment({
+						view: multisample.obscuranceViews[0],
+						loadOp: 'clear',
+						storeOp: 'store'
+					})
+					.draw(3);
+				occlusionBlurPipeline
+					.with(
+						root.createBindGroup(stageOcclusionBlurLayout, {
+							obscurance: multisample.obscuranceViews[0],
+							depth: depthSidecarView,
+							occlusion: occlusionBuffers.horizontal
+						})
+					)
+					.withColorAttachment({
+						view: multisample.obscuranceViews[1],
+						loadOp: 'clear',
+						storeOp: 'store'
+					})
+					.draw(3);
+				occlusionApplyPipeline
+					.with(
+						root.createBindGroup(stageOcclusionApplyLayout, {
+							scene: multisample.resolvedView,
+							obscurance: multisample.obscuranceViews[1],
+							depth: depthSidecarView,
+							occlusion: occlusionBuffers.vertical
+						})
+					)
+					.withColorAttachment({ view: mipViews[0], loadOp: 'clear', storeOp: 'store' })
 					.draw(3);
 			}
 			evictStaleMeshes();
@@ -1700,6 +1839,9 @@ export class DepthStage {
 			this.#multisample.color.destroy();
 			this.#multisample.sidecar.destroy();
 			this.#multisample.depth.destroy();
+			this.#multisample.resolved.destroy();
+			this.#multisample.obscurance[0].destroy();
+			this.#multisample.obscurance[1].destroy();
 			this.#multisample = null;
 		}
 		if (this.#shadowMap) {

@@ -83,11 +83,16 @@ export function relativeLuminance(hex: string): number {
  */
 export function wcagRelativeLuminance(hex: string): number {
 	const { red, green, blue } = getRgbColorChannels(hex);
-	const linearize = (channel: number): number => {
-		const value = channel / 255;
-		return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-	};
-	return 0.2126 * linearize(red) + 0.7152 * linearize(green) + 0.0722 * linearize(blue);
+	return (
+		0.2126 * srgbChannelToLinear(red / 255) +
+		0.7152 * srgbChannelToLinear(green / 255) +
+		0.0722 * srgbChannelToLinear(blue / 255)
+	);
+}
+
+/** One sRGB-encoded channel (0..1) as linear light, the IEC 61966-2-1 curve. */
+export function srgbChannelToLinear(value: number): number {
+	return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
 /** WCAG 2.2 contrast ratio between two hex colours, 1 (identical) … 21 (black on white). */
