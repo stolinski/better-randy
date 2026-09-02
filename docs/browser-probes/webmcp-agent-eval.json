@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"generatedAt": "2026-09-02T18:42:10.298Z",
+	"generatedAt": "2026-09-02T18:47:24.916Z",
 	"probe": "webmcp-agent-eval",
 	"origin": "http://127.0.0.1:7364",
-	"release": "gfx@c7500952b8eb8bc1a7823d41811f328a178cc77c",
+	"release": "gfx@7c746c0174ffc6b960c0cea908d1c97096601a7f",
 	"harness": {
 		"browser": "Chrome/153.0.8010.12",
 		"protocolVersion": "1.3",
