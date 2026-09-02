@@ -38,19 +38,20 @@ export interface StagePlaneBasis {
 	normal: StagePlaneVector;
 }
 
-export type StagePlaneRole = 'backdrop' | 'surface' | 'overlay';
+export type StagePlaneRole = 'backdrop' | 'surface' | 'overlay' | 'floor';
 
 /**
  * Explicit ceilings on what one staged frame may allocate or draw, enforced
  * before GPU work so an over-budget composition fails correctively instead of
  * exhausting the device. Planes: backdrop + Surface + the shared Overlay plane
- * + the four posed Overlay planes the Brief allows, with one spare. Casters:
+ * + a screen model's floor + the four posed Overlay planes the Brief allows,
+ * with one spare. Casters:
  * the shadow march samples at most this many occluders per receiving plane.
  * Mipped planes: only receding planes need a mip chain (the Surface page and a
  * textured backdrop); at native 4K one rgba16float chain is ~88 MB.
  */
 export const STAGE_PLANE_CEILINGS = {
-	maxPlanes: 8,
+	maxPlanes: 9,
 	maxPosedOverlayPlanes: STAGE_POSED_OVERLAY_LIMIT,
 	maxCasters: 4,
 	maxMippedPlanes: 4,

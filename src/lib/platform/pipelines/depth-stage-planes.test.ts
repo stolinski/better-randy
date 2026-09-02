@@ -142,7 +142,7 @@ describe('stage plane ceilings', () => {
 		assert.throws(
 			() =>
 				assertStagePlaneCeilings({
-					planeCount: 9,
+					planeCount: STAGE_PLANE_CEILINGS.maxPlanes + 1,
 					posedOverlayPlaneCount: 0,
 					mippedPlaneCount: 0,
 					textureBytes: 0,

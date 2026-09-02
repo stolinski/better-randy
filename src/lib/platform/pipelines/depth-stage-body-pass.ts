@@ -2,6 +2,11 @@ import tgpu, { d } from 'typegpu';
 
 import { STAGE_BODY_MAX_REGIONS } from './depth-stage-geometry';
 import {
+	screenLightWgsl,
+	STAGE_SCREEN_LIGHT_LAYOUT_ENTRIES,
+	STAGE_SCREEN_LIGHT_UNIFORM_FIELDS
+} from './depth-stage-screen-light';
+import {
 	allCasterShadowsWgsl,
 	shadowMapOcclusionWgsl,
 	STAGE_CASTER_LAYOUT_ENTRIES,
@@ -28,19 +33,17 @@ const KEY_MAX = 1.3;
 /** Wrapped Lambert: light reaches a little past the terminator, the way a
  *  matte body in a lit room does. */
 const LAMBERT_WRAP = 0.3;
-/** Hemisphere fill: brighter facing up, darker facing the floor. */
-const FILL_LOW = 0.3;
-const FILL_HIGH = 0.46;
-const KEY_DIFFUSE = 0.75;
-/** A broad, faint sheen that tightens as a region gets smoother — matte, never glossy. */
-const SHEEN_POWER_ROUGH = 8.0;
-const SHEEN_POWER_SMOOTH = 64.0;
-const SHEEN = 0.22;
-/** The room the object reflects at a glancing angle: a dark warm ceiling over a black floor. */
-const ENVIRONMENT_FLOOR = 0.015;
-const ENVIRONMENT_CEILING = 0.07;
-/** How much of the glass's average colour spills onto the body at unit glow. */
-const SCREEN_LIGHT_GAIN = 2.4;
+/** Hemisphere fill: a lit ceiling over a dark floor, so undersides fall away. */
+const FILL_LOW = 0.16;
+const FILL_HIGH = 0.5;
+const KEY_DIFFUSE = 0.9;
+/** A broad sheen that tightens as a region gets smoother — moulded plastic, never gloss. */
+const SHEEN_POWER_ROUGH = 6.0;
+const SHEEN_POWER_SMOOTH = 90.0;
+const SHEEN = 0.6;
+/** The room the object reflects at a glancing angle: a dim warm ceiling over a black floor. */
+const ENVIRONMENT_FLOOR = 0.02;
+const ENVIRONMENT_CEILING = 0.22;
 /** Soft shoulder above which body colour compresses instead of clipping. */
 const TONE_SHOULDER = 0.85;
 
@@ -56,14 +59,12 @@ export const stageBodyVertexLayout = tgpu.vertexLayout((count) =>
 );
 
 /**
- * One body's uniforms. `materialColor[k]` = (linear rgb, roughness) per
- * region; `light` = the key's unit travel + intensity; `camera` = the eye;
- * `screenOrigin` = (glass centre, glow); `screenU` / `screenV` = the glass
- * half-vectors with their half-lengths in w; `screenNormal` = (unit normal,
- * mip level whose single texel is the glass's average colour); `misc` =
- * (depthNear, depthFar, presence, 0); `shadow` / `shadowViewProjection` and
- * the caster slots as in `depth-stage-shadow.ts`; `shadowMvp` = the light's
- * clip transform of the body for the shadow-depth pass.
+ * One body's uniforms. `materialColor[k]` = (rgb, roughness) per region;
+ * `light` = the key's unit travel + intensity; `camera` = the eye; `misc` =
+ * (depthNear, depthFar, presence, 0); the screen-light, shadow-map, and
+ * caster fields as in `depth-stage-screen-light.ts` and
+ * `depth-stage-shadow.ts`; `shadowMvp` = the light's clip transform of the
+ * body for the shadow-depth pass.
  */
 export const StageBodyUniforms = d.struct({
 	mvp: d.mat4x4f,
@@ -73,20 +74,16 @@ export const StageBodyUniforms = d.struct({
 	materialColor: d.arrayOf(d.vec4f, STAGE_BODY_MAX_REGIONS),
 	light: d.vec4f,
 	camera: d.vec4f,
-	screenOrigin: d.vec4f,
-	screenU: d.vec4f,
-	screenV: d.vec4f,
-	screenNormal: d.vec4f,
 	misc: d.vec4f,
+	...STAGE_SCREEN_LIGHT_UNIFORM_FIELDS,
 	...STAGE_SHADOW_MAP_UNIFORM_FIELDS,
 	...STAGE_CASTER_UNIFORM_FIELDS
 });
 
 export const stageBodyLayout = tgpu.bindGroupLayout({
 	body: { uniform: StageBodyUniforms },
-	/** The Surface plane's mip chain: its top levels are the glass's average colour. */
-	screenTexture: { texture: d.texture2d(d.f32) },
 	samp: { sampler: 'filtering' },
+	...STAGE_SCREEN_LIGHT_LAYOUT_ENTRIES,
 	...STAGE_SHADOW_MAP_LAYOUT_ENTRIES,
 	...STAGE_CASTER_LAYOUT_ENTRIES
 });
@@ -115,11 +112,11 @@ const bodyFragmentIn = { world: d.vec3f, normal: d.vec3f, dist: d.f32, region: d
 const bodyFragmentOut = { color: d.location(0, d.vec4f), depth: d.location(1, d.vec4f) };
 
 /**
- * The body's matte material. Albedo and roughness come from the region's
- * material; the Pack key lights it as a wrapped Lambert over a hemisphere fill
- * with a roughness-shaped sheen; a dark room reflects at glancing angles; the
- * glass, when the body is a screen, spills its average colour onto whatever
- * faces it; both shadow mechanisms darken the key. Output is premultiplied by
+ * The body's material. Albedo and roughness come from the region's material;
+ * the Pack key lights it as a wrapped Lambert over a hemisphere fill with a
+ * roughness-shaped sheen; a dim room reflects at glancing angles; the glass,
+ * when the body is a screen, spills its average colour onto whatever faces
+ * it; both shadow mechanisms darken the key. Output is premultiplied by
  * presence with the depth01 sidecar alongside, exactly as a captured plane.
  */
 export const stageBodyFragmentFn = tgpu['~unstable'].fragmentFn({
@@ -151,28 +148,7 @@ export const stageBodyFragmentFn = tgpu['~unstable'].fragmentFn({
 	${shadowMapOcclusionWgsl('body')}
 	let lit = 1.0 - min(shade, 1.0);
 	var color = albedo * (fill + wrapped * key * ${KEY_DIFFUSE} * lit) + vec3f((sheen * lit) + environment);
-	// The glass as an area light: the nearest point of the opening to this
-	// fragment, the cosine at both ends, and a solid angle that softens as the
-	// fragment approaches the glass — the bezel's inner chamfer takes the most.
-	if (body.screenOrigin.w > 0.001) {
-		let halfW = max(body.screenU.w, 1e-4);
-		let halfH = max(body.screenV.w, 1e-4);
-		let uHat = body.screenU.xyz / halfW;
-		let vHat = body.screenV.xyz / halfH;
-		let rel = in.world - body.screenOrigin.xyz;
-		let nearest = body.screenOrigin.xyz
-			+ uHat * clamp(dot(rel, uHat), -halfW, halfW)
-			+ vHat * clamp(dot(rel, vHat), -halfH, halfH);
-		let toGlass = nearest - in.world;
-		let distance = max(length(toGlass), 1e-4);
-		let direction = toGlass / distance;
-		let cosReceiver = max(dot(N, direction), 0.0);
-		let cosEmitter = max(dot(body.screenNormal.xyz, -direction), 0.0);
-		let area = 4.0 * halfW * halfH;
-		let glassColor = textureSampleLevel(layout.$.screenTexture, layout.$.samp, vec2f(0.5), body.screenNormal.w).rgb;
-		let irradiance = cosReceiver * cosEmitter * area / (distance * distance + area);
-		color = color + albedo * glassColor * irradiance * body.screenOrigin.w * ${SCREEN_LIGHT_GAIN};
-	}
+	${screenLightWgsl('body', 'albedo')}
 	// A soft shoulder so the glass's spill never clips to a flat white.
 	let over = max(color - vec3f(${TONE_SHOULDER}), vec3f(0.0));
 	color = min(color, vec3f(${TONE_SHOULDER})) + over / (vec3f(1.0) + over);

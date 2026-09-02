@@ -10,7 +10,7 @@ import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import type { StageMeshData } from '../stage-mesh-format';
 import { STAGE_MESH_VERTEX_BYTES } from '../stage-mesh-format';
-import type { StageModelDefinition } from '../stage-models';
+import type { StageModelDefinition, StageScreenOptics } from '../stage-models';
 import {
 	STAGE_BACKDROP_DEPTH,
 	STAGE_CAM_Z,
@@ -36,6 +36,7 @@ import {
 	assertStageBodyCeilings,
 	createStageShadowProjection,
 	resolveStageBodyFocusPull,
+	resolveStageFloorBasis,
 	resolveStageScreenBodyPlacement,
 	STAGE_BODY_MAX_REGIONS,
 	type StageScreenGlass,
@@ -44,8 +45,10 @@ import {
 import {
 	STAGE_DEPTH_ATTACHMENT_FORMAT,
 	STAGE_DEPTH_SIDECAR_FORMAT,
+	STAGE_GLASS_VERTEX_COUNT,
 	STAGE_PLANE_BLEND,
 	StagePlaneUniforms,
+	stageGlassVertexFn,
 	stagePlaneLayout,
 	stagePlaneOpaqueFragmentFn,
 	stagePlaneSkirtFragmentFn,
@@ -92,15 +95,16 @@ import {
 // the single-level sources, so the shipped Presets render as before.
 //
 // A BODY (depth-stage-body-pass.ts) joins the same scene. The first body is a
-// SCREEN: a registered model whose glass is the Surface plane, so the
-// composition renders on the tube and the housing stands around it, lit by the
-// key and by its own glass. While a body is present the scene passes render
-// multisampled and resolve back into the single-sample targets (colour
-// averaged, depth nearest), the bodies are rendered from the key's direction
-// into a shadow map every receiver reads, and the body pass draws them
-// depth-tested between the opaque planes and the skirts. With no body on the
-// stage none of that machinery allocates or runs, and every shipped Preset
-// renders pixel-identical.
+// SCREEN (ADR-0059): a registered model whose glass is the Surface plane, so
+// the composition renders on the tube — domed, with the tube's own raster,
+// mask, halation, and vignette — and the housing stands around it on a floor
+// the model declares, lit by the key and by its own picture. While a body is
+// present the scene passes render multisampled and resolve back into the
+// single-sample targets (colour averaged, depth nearest), the bodies are
+// rendered from the key's direction into a shadow map every receiver reads,
+// and the body pass draws them depth-tested between the opaque planes and the
+// skirts. With no body on the stage none of that machinery allocates or runs,
+// and every shipped Preset renders pixel-identical.
 //
 // The grain fix that made the POC ship: the DOF gather never samples the sharp
 // scene buffer — it reads a prefiltered mip whose footprint spans the gap between
@@ -131,6 +135,10 @@ const RESIDENT_MESH_LIMIT = 8;
  *  level is one texel, the level below it four — enough to average without
  *  the single texel's rounding. */
 const SCREEN_AVERAGE_LOD_BELOW_TOP = 1;
+/** The floor a model stands on, lifted off the Pack field so the shadow and
+ *  the picture's glow have a surface to read on: a set element, not the field. */
+const FLOOR_LIFT = { gain: 1.4, add: 0.04 } as const;
+const MASK_MODE: Record<StageScreenOptics['mask'], number> = { slot: 0, shadow: 1, grille: 2 };
 
 // The Pack's named key directions realized as scene geometry: unit vectors the
 // light TRAVELS along (mostly frontal, into the scene — an oblique key throws
@@ -426,9 +434,10 @@ export interface DepthStagePosedOverlayPlane {
 }
 
 /**
- * The composition's physical screen (ADR-0051 phase 2): a registered model
- * whose glass is the Surface plane. The stage scales it so its opening covers
- * the frame plane, crops the composition to that opening, and lights the
+ * The composition's physical screen (ADR-0059): a registered model whose
+ * glass is the Surface plane. The stage scales it so its opening fits the
+ * frame plane, crops the composition to that opening, draws the glass with
+ * the tube's own optics, lays the floor the model declares, and lights the
  * housing with the key and with the glass itself.
  */
 export interface DepthStageScreen {
@@ -460,7 +469,7 @@ export interface DepthStageInput {
 	 *  its signed z and turned by its pose about its rendered centre. The shared
 	 *  `overlayPlaneView` carries the rest. */
 	posedOverlayPlanes?: readonly DepthStagePosedOverlayPlane[];
-	/** The physical screen the Surface plane is the glass of (ADR-0051 phase 2). */
+	/** The physical screen the Surface plane is the glass of (ADR-0059). */
 	screen?: DepthStageScreen;
 	/** Backdrop plane colour (rgb 0..1) — used when no backdrop image is given. */
 	backdropColor: [number, number, number];
@@ -489,6 +498,15 @@ export interface DepthStageInput {
 	time: number;
 }
 
+/** A screen's glass as the plane pass draws it: domed, with the tube optics. */
+interface StagePlaneGlass {
+	/** Dome height at the centre, world units. */
+	dome: number;
+	/** The glass's size in capture pixels (the crop window's extent). */
+	pixels: [number, number];
+	optics: StageScreenOptics;
+}
+
 /** One plane as the scene passes see it this frame. */
 interface StagePlaneDraw {
 	role: StagePlaneRole;
@@ -504,6 +522,9 @@ interface StagePlaneDraw {
 	castStrength: number;
 	/** The capture rect the quad shows (the whole capture for every plane but a glass). */
 	uvWindow: [number, number, number, number];
+	glass: StagePlaneGlass | null;
+	/** An untextured plane's colour; absent = the backdrop colour. */
+	baseColor?: [number, number, number];
 	/** Which uniform buffer of the fixed pool this plane writes. */
 	bufferIndex: number;
 }
@@ -547,12 +568,17 @@ interface StageBodyDraw {
 	center: [number, number, number];
 	radius: number;
 	presence: number;
-	/** The glass this body is built around, when it is a screen. */
-	glass: StageScreenGlass | null;
-	glow: number;
 	/** Whether the lens racks to this body (a screen's glass is the aimed plane already). */
 	pullsFocus: boolean;
 	bufferIndex: number;
+}
+
+/** The glass as an area light, written to every receiver this frame. */
+interface StageScreenLightUniforms {
+	screenOrigin: ReturnType<typeof d.vec4f>;
+	screenU: ReturnType<typeof d.vec4f>;
+	screenV: ReturnType<typeof d.vec4f>;
+	screenNormal: ReturnType<typeof d.vec4f>;
 }
 
 export class DepthStage {
@@ -664,8 +690,15 @@ export class DepthStage {
 			casterV: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 1, 0, 1)),
 			casterNormal: Array.from({ length: STAGE_MAX_CASTERS }, () => d.vec4f(0, 0, 1, 0))
 		});
+		const screenLightRest = (): StageScreenLightUniforms => ({
+			screenOrigin: d.vec4f(0, 0, 0, 0),
+			screenU: d.vec4f(1, 0, 0, 1),
+			screenV: d.vec4f(0, 1, 0, 1),
+			screenNormal: d.vec4f(0, 0, 1, 0)
+		});
 		const planeRest = () => ({
 			mvp: d.mat4x4f(),
+			viewProjection: d.mat4x4f(),
 			origin: d.vec4f(0, 0, 0, 0),
 			axisU: d.vec4f(1, 0, 0, 0),
 			axisV: d.vec4f(0, 1, 0, 1),
@@ -674,6 +707,11 @@ export class DepthStage {
 			baseColor: d.vec4f(0.16, 0.14, 0.13, 1),
 			light: d.vec4f(0, 0, -1, 0),
 			uvWindow: d.vec4f(0, 0, 1, 1),
+			glass: d.vec4f(0, 0, 1, 1),
+			optics: d.vec4f(0, 0, 0, 0),
+			optics2: d.vec4f(0, 0, 0, 0),
+			camera: d.vec4f(0, 0, STAGE_CAM_Z, 0),
+			...screenLightRest(),
 			shadowViewProjection: d.mat4x4f(),
 			shadow: d.vec4f(0, 1, 1, 0),
 			...casterRest()
@@ -688,18 +726,16 @@ export class DepthStage {
 			),
 			light: d.vec4f(0, 0, -1, 0),
 			camera: d.vec4f(0, 0, STAGE_CAM_Z, 0),
-			screenOrigin: d.vec4f(0, 0, 0, 0),
-			screenU: d.vec4f(1, 0, 0, 1),
-			screenV: d.vec4f(0, 1, 0, 1),
-			screenNormal: d.vec4f(0, 0, 1, 0),
 			misc: d.vec4f(STAGE_DEPTH_NEAR, STAGE_DEPTH_FAR, 0, 0),
+			...screenLightRest(),
 			shadowViewProjection: d.mat4x4f(),
 			shadow: d.vec4f(0, 1, 1, 0),
 			...casterRest()
 		});
-		// A fixed pool: backdrop, Surface, the shared Overlay plane, then one per
-		// posed Overlay up to the limit.
-		const POSED_BUFFER_OFFSET = 3;
+		// A fixed pool: backdrop, Surface, the shared Overlay plane, a screen's
+		// floor, then one per posed Overlay up to the limit.
+		const FLOOR_BUFFER_INDEX = 3;
+		const POSED_BUFFER_OFFSET = 4;
 		const planeBuffers = Array.from(
 			{ length: POSED_BUFFER_OFFSET + STAGE_POSED_OVERLAY_LIMIT },
 			() => root.createBuffer(StagePlaneUniforms, planeRest()).$usage('uniform')
@@ -714,17 +750,19 @@ export class DepthStage {
 			})
 			.$usage('uniform');
 
+		const opaqueTargets = {
+			color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
+			depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
+		} as const;
+		const opaqueDepth = {
+			format: STAGE_DEPTH_ATTACHMENT_FORMAT,
+			depthWriteEnabled: true,
+			depthCompare: 'less-equal'
+		} as const;
 		const opaquePipeline = unstable
 			.withVertex(stagePlaneVertexFn, {})
-			.withFragment(stagePlaneOpaqueFragmentFn, {
-				color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
-				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
-			})
-			.withDepthStencil({
-				format: STAGE_DEPTH_ATTACHMENT_FORMAT,
-				depthWriteEnabled: true,
-				depthCompare: 'less-equal'
-			})
+			.withFragment(stagePlaneOpaqueFragmentFn, opaqueTargets)
+			.withDepthStencil(opaqueDepth)
 			.createPipeline();
 		const skirtPipeline = unstable
 			.withVertex(stagePlaneVertexFn, {})
@@ -738,18 +776,12 @@ export class DepthStage {
 				depthCompare: 'less-equal'
 			})
 			.createPipeline();
-		// The same two passes over the multisampled scene set the bodies switch on.
+		// The same passes over the multisampled scene set the bodies switch on,
+		// plus the domed glass grid in both.
 		const opaquePipelineMultisampled = unstable
 			.withVertex(stagePlaneVertexFn, {})
-			.withFragment(stagePlaneOpaqueFragmentFn, {
-				color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
-				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
-			})
-			.withDepthStencil({
-				format: STAGE_DEPTH_ATTACHMENT_FORMAT,
-				depthWriteEnabled: true,
-				depthCompare: 'less-equal'
-			})
+			.withFragment(stagePlaneOpaqueFragmentFn, opaqueTargets)
+			.withDepthStencil(opaqueDepth)
 			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
 			.createPipeline();
 		const skirtPipelineMultisampled = unstable
@@ -765,22 +797,26 @@ export class DepthStage {
 			})
 			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
 			.createPipeline();
+		const glassPipeline = unstable
+			.withVertex(stageGlassVertexFn, {})
+			.withFragment(stagePlaneOpaqueFragmentFn, opaqueTargets)
+			.withDepthStencil(opaqueDepth)
+			.createPipeline();
+		const glassPipelineMultisampled = unstable
+			.withVertex(stageGlassVertexFn, {})
+			.withFragment(stagePlaneOpaqueFragmentFn, opaqueTargets)
+			.withDepthStencil(opaqueDepth)
+			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
+			.createPipeline();
 		const bodyPipeline = unstable
 			.withVertex(stageBodyVertexFn, {
 				position: stageBodyVertexLayout.attrib.position,
 				normal: stageBodyVertexLayout.attrib.normal,
 				region: stageBodyVertexLayout.attrib.region
 			})
-			.withFragment(stageBodyFragmentFn, {
-				color: { format: INTERMEDIATE_FORMAT, blend: STAGE_PLANE_BLEND },
-				depth: { format: STAGE_DEPTH_SIDECAR_FORMAT }
-			})
+			.withFragment(stageBodyFragmentFn, opaqueTargets)
 			.withPrimitive({ topology: 'triangle-list', cullMode: 'back', frontFace: 'ccw' })
-			.withDepthStencil({
-				format: STAGE_DEPTH_ATTACHMENT_FORMAT,
-				depthWriteEnabled: true,
-				depthCompare: 'less-equal'
-			})
+			.withDepthStencil(opaqueDepth)
 			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
 			.createPipeline();
 		const shadowDepthPipeline = unstable
@@ -1007,6 +1043,8 @@ export class DepthStage {
 			const encodingScale = (encoding.far - encoding.near) / (STAGE_DEPTH_FAR - STAGE_DEPTH_NEAR);
 			const focusDepth01 = (dist: number): number =>
 				(dist - encoding.near) / (encoding.far - encoding.near);
+			const viewProjection = toMat4(rig.viewProjection);
+			const cameraEye = d.vec4f(rig.eye[0], rig.eye[1], rig.eye[2], 0);
 
 			// The scene key light (Pack light-treatment Role): a unit travel vector +
 			// intensity, shared by every plane. No light ⇒ intensity 0, and the plane
@@ -1027,13 +1065,44 @@ export class DepthStage {
 			const fade = Math.min(1, Math.max(0, input.surfaceFadeAlpha ?? 1));
 			const backdropTextured = input.backdropTextureView !== undefined;
 
-			// The screen (ADR-0051 phase 2): the model placed so its glass is the
-			// Surface plane, which then shows the composition through its opening.
+			// The screen (ADR-0059): the model placed so its glass is the Surface
+			// plane, which then shows the composition through its opening.
 			const screen = input.screen ?? null;
 			const screenPlacement = screen
 				? resolveStageScreenBodyPlacement(aspect, screen.model, screen.mesh)
 				: null;
 			const hasBodies = screenPlacement !== null;
+			const glass: StageScreenGlass | null = screenPlacement?.glass ?? null;
+			const glassHalf = glass ? stagePlaneHalfLengths(glass.basis) : null;
+			// The glass as an area light on every receiver (glow 0 without a screen).
+			const screenLight: StageScreenLightUniforms =
+				glass && glassHalf && screen
+					? {
+							screenOrigin: d.vec4f(
+								glass.basis.origin[0],
+								glass.basis.origin[1],
+								glass.basis.origin[2],
+								screen.model.screen.glow
+							),
+							screenU: d.vec4f(glass.basis.u[0], glass.basis.u[1], glass.basis.u[2], glassHalf.halfW),
+							screenV: d.vec4f(glass.basis.v[0], glass.basis.v[1], glass.basis.v[2], glassHalf.halfH),
+							screenNormal: d.vec4f(
+								glass.basis.normal[0],
+								glass.basis.normal[1],
+								glass.basis.normal[2],
+								Math.max(0, mipLevels - 1 - SCREEN_AVERAGE_LOD_BELOW_TOP)
+							)
+						}
+					: screenLightRest();
+			const glassOptics = screen?.model.screen.optics ?? null;
+			const planeGlass: StagePlaneGlass | null =
+				glass && glassHalf && glassOptics
+					? {
+							dome: glassOptics.dome * 2 * glassHalf.halfH,
+							pixels: [glass.uvWindow[2] * width, glass.uvWindow[3] * height],
+							optics: glassOptics
+						}
+					: null;
 
 			// Under a pose the receding planes sample stage-owned mip chains; the
 			// frontal camera keeps the single-level sources (pixel-identical). A
@@ -1057,8 +1126,8 @@ export class DepthStage {
 			};
 
 			// Plane list in Layer order (backdrop, Surface, shared Overlay plane,
-			// posed Overlays); the passes re-sort back to front, keeping this order
-			// at equal depth.
+			// the screen's floor, posed Overlays); the passes re-sort back to
+			// front, keeping this order at equal depth.
 			const backdropView = input.backdropTextureView ?? input.surfacePlaneView;
 			const wholeCapture: [number, number, number, number] = [0, 0, 1, 1];
 			const surfaceView = planeSourceView('surface', input.surfacePlaneView, hasBodies);
@@ -1074,22 +1143,24 @@ export class DepthStage {
 					fade: 1,
 					darken: backdropTextured ? (input.backdropContrast ?? 0) : 0,
 					castStrength: 0,
-					uvWindow: wholeCapture
+					uvWindow: wholeCapture,
+					glass: null
 				},
 				{
 					bufferIndex: 1,
 					role: 'surface',
-					basis: screenPlacement
-						? screenPlacement.glass.basis
-						: createFrontalStagePlaneBasis(aspect, 0),
+					basis: glass ? glass.basis : createFrontalStagePlaneBasis(aspect, 0),
 					planeView: surfaceView,
 					casterView: input.surfacePlaneView,
 					textured: true,
-					discardTransparent: true,
+					// A glass is opaque dark where the picture has no coverage, and the
+					// housing carries its shadow.
+					discardTransparent: !glass,
 					fade,
 					darken: 0,
-					castStrength: shadowStrength * fade,
-					uvWindow: screenPlacement ? screenPlacement.glass.uvWindow : wholeCapture
+					castStrength: glass ? 0 : shadowStrength * fade,
+					uvWindow: glass ? glass.uvWindow : wholeCapture,
+					glass: planeGlass
 				}
 			];
 			if (input.overlayPlaneView) {
@@ -1105,7 +1176,29 @@ export class DepthStage {
 					fade: 1,
 					darken: 0,
 					castStrength: shadowStrength,
-					uvWindow: wholeCapture
+					uvWindow: wholeCapture,
+					glass: null
+				});
+			}
+			if (screenPlacement && screenPlacement.floorY !== null) {
+				planes.push({
+					bufferIndex: FLOOR_BUFFER_INDEX,
+					role: 'floor',
+					basis: resolveStageFloorBasis(aspect, screenPlacement.floorY, backdropCover),
+					planeView: backdropView,
+					casterView: backdropView,
+					textured: false,
+					discardTransparent: false,
+					fade: 1,
+					darken: 0,
+					castStrength: 0,
+					uvWindow: wholeCapture,
+					glass: null,
+					baseColor: [
+						Math.min(1, input.backdropColor[0] * FLOOR_LIFT.gain + FLOOR_LIFT.add),
+						Math.min(1, input.backdropColor[1] * FLOOR_LIFT.gain + FLOOR_LIFT.add),
+						Math.min(1, input.backdropColor[2] * FLOOR_LIFT.gain + FLOOR_LIFT.add)
+					]
 				});
 			}
 			const posedOverlayPlanes = input.posedOverlayPlanes ?? [];
@@ -1128,7 +1221,8 @@ export class DepthStage {
 					fade: 1,
 					darken: 0,
 					castStrength: shadowStrength,
-					uvWindow: wholeCapture
+					uvWindow: wholeCapture,
+					glass: null
 				});
 			});
 			const sceneMipPasses = input.aperture > 0.001 ? mipLevels - 1 : 0;
@@ -1159,8 +1253,6 @@ export class DepthStage {
 					center: screenPlacement.center,
 					radius: screenPlacement.radius,
 					presence: 1,
-					glass: screenPlacement.glass,
-					glow: screen.model.screen.glow,
 					pullsFocus: false,
 					bufferIndex: 0
 				});
@@ -1233,10 +1325,12 @@ export class DepthStage {
 				const { halfW, halfH } = stagePlaneHalfLengths(plane.basis);
 				const casters = casterSlotsFor(plane.basis);
 				const buffer = planeBuffers[plane.bufferIndex];
+				const optics = plane.glass?.optics ?? null;
 				buffer.write({
 					mvp: toMat4(
 						mat4.multiply(rig.viewProjection, stagePlaneModelMatrix(plane.basis)) as Float32Array
 					),
+					viewProjection,
 					origin: d.vec4f(
 						plane.basis.origin[0],
 						plane.basis.origin[1],
@@ -1258,9 +1352,9 @@ export class DepthStage {
 					),
 					misc: d.vec4f(encoding.near, encoding.far, halfW, halfH),
 					baseColor: d.vec4f(
-						input.backdropColor[0],
-						input.backdropColor[1],
-						input.backdropColor[2],
+						plane.baseColor?.[0] ?? input.backdropColor[0],
+						plane.baseColor?.[1] ?? input.backdropColor[1],
+						plane.baseColor?.[2] ?? input.backdropColor[2],
 						1
 					),
 					light: lightVec,
@@ -1270,6 +1364,17 @@ export class DepthStage {
 						plane.uvWindow[2],
 						plane.uvWindow[3]
 					),
+					glass: plane.glass
+						? d.vec4f(1, plane.glass.dome, plane.glass.pixels[0], plane.glass.pixels[1])
+						: d.vec4f(0, 0, 1, 1),
+					optics: optics
+						? d.vec4f(optics.curvature, optics.vignette, optics.maskPitchPx, optics.maskStrength)
+						: d.vec4f(0, 0, 0, 0),
+					optics2: optics
+						? d.vec4f(optics.lines, optics.focus, optics.halation, MASK_MODE[optics.mask])
+						: d.vec4f(0, 0, 0, 0),
+					camera: cameraEye,
+					...screenLight,
 					shadowViewProjection: shadowMatrix,
 					shadow: shadowParams,
 					casterOrigin: casters.casterOrigin,
@@ -1283,6 +1388,7 @@ export class DepthStage {
 						planeTexture: plane.planeView,
 						samp: planeSampler,
 						plane: buffer,
+						screenTexture: surfaceView,
 						shadowMap: shadowView,
 						shadowSampler,
 						casterTexture0: casters.views[0] ?? plane.casterView,
@@ -1308,8 +1414,6 @@ export class DepthStage {
 				const buffer = bodyBuffers[draw.bufferIndex];
 				// A uniform scale keeps the normal matrix the model's rotation.
 				const normalMatrix = mat4.identity() as Float32Array;
-				const glass = draw.glass;
-				const glassHalf = glass ? stagePlaneHalfLengths(glass.basis) : { halfW: 1, halfH: 1 };
 				buffer.write({
 					mvp: toMat4(mat4.multiply(rig.viewProjection, draw.model) as Float32Array),
 					model: toMat4(draw.model),
@@ -1329,25 +1433,9 @@ export class DepthStage {
 						);
 					}),
 					light: lightVec,
-					camera: d.vec4f(rig.eye[0], rig.eye[1], rig.eye[2], 0),
-					screenOrigin: glass
-						? d.vec4f(glass.basis.origin[0], glass.basis.origin[1], glass.basis.origin[2], draw.glow)
-						: d.vec4f(0, 0, 0, 0),
-					screenU: glass
-						? d.vec4f(glass.basis.u[0], glass.basis.u[1], glass.basis.u[2], glassHalf.halfW)
-						: d.vec4f(1, 0, 0, 1),
-					screenV: glass
-						? d.vec4f(glass.basis.v[0], glass.basis.v[1], glass.basis.v[2], glassHalf.halfH)
-						: d.vec4f(0, 1, 0, 1),
-					screenNormal: glass
-						? d.vec4f(
-								glass.basis.normal[0],
-								glass.basis.normal[1],
-								glass.basis.normal[2],
-								Math.max(0, mipLevels - 1 - SCREEN_AVERAGE_LOD_BELOW_TOP)
-							)
-						: d.vec4f(0, 0, 1, 0),
+					camera: cameraEye,
 					misc: d.vec4f(encoding.near, encoding.far, draw.presence, 0),
+					...screenLight,
 					shadowViewProjection: shadowMatrix,
 					shadow: shadowParams,
 					casterOrigin: casters.casterOrigin,
@@ -1359,8 +1447,8 @@ export class DepthStage {
 					draw,
 					root.createBindGroup(stageBodyLayout, {
 						body: buffer,
-						screenTexture: surfaceView,
 						samp: planeSampler,
+						screenTexture: surfaceView,
 						shadowMap: shadowView,
 						shadowSampler,
 						casterTexture0: casters.views[0] ?? input.surfacePlaneView,
@@ -1447,14 +1535,17 @@ export class DepthStage {
 			const sceneDepthView = multisample ? multisample.depthView : depthAttachmentView;
 			const planeOpaque = multisample ? opaquePipelineMultisampled : opaquePipeline;
 			const planeSkirt = multisample ? skirtPipelineMultisampled : skirtPipeline;
+			const glassOpaque = multisample ? glassPipelineMultisampled : glassPipeline;
 
 			// Pass 1 — opaque texels, back to front, depth-tested and depth-written.
 			// The colour target clears to the backdrop colour (the oversized
-			// backdrop covers it anyway), the sidecar to the far depth.
+			// backdrop covers it anyway), the sidecar to the far depth. A glass
+			// draws its domed grid; every other plane its quad.
 			const [r, g, b] = input.backdropColor;
 			sorted.forEach((plane, index) => {
 				const first = index === 0;
-				planeOpaque
+				const pipeline = plane.glass ? glassOpaque : planeOpaque;
+				pipeline
 					.with(bindGroups.get(plane)!)
 					.withColorAttachment({
 						color: first
@@ -1479,7 +1570,7 @@ export class DepthStage {
 								}
 							: { view: sceneDepthView, depthLoadOp: 'load', depthStoreOp: 'store' }
 					)
-					.draw(6);
+					.draw(plane.glass ? STAGE_GLASS_VERTEX_COUNT : 6);
 			});
 			// Pass 1b — the bodies, depth-tested against the opaque planes both
 			// ways (the housing occludes the glass's edges from an oblique camera;

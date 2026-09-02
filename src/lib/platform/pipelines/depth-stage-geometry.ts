@@ -3,7 +3,7 @@ import { mat4 } from 'wgpu-matrix';
 import { clampNumber } from '$lib/utils/math';
 import type { StageMeshData, StageMeshVector } from '../stage-mesh-format';
 import type { StageModelDefinition, StageModelScreen } from '../stage-models';
-import { STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import { STAGE_BACKDROP_DEPTH, STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
 import type { StagePlaneBasis, StagePlaneVector } from './depth-stage-planes';
 
 // Pipeline-defined geometry for the depth stage (ADR-0051 phase 2, viewed
@@ -119,6 +119,8 @@ export interface StageScreenBodyPlacement {
 	/** World-space bounding sphere of the placed body. */
 	center: StagePlaneVector;
 	radius: number;
+	/** The model's underside in world units, when it declares a floor. */
+	floorY: number | null;
 }
 
 /**
@@ -155,7 +157,33 @@ export function resolveStageScreenBodyPlacement(
 		(Math.hypot(mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1], mesh.max[2] - mesh.min[2]) /
 			2) *
 		s;
-	return { glass, model: modelMatrix, center, radius };
+	const floorY = model.floor ? model.floor.y * s + shift[1] : null;
+	return { glass, model: modelMatrix, center, radius, floorY };
+}
+
+/** How far the floor runs toward the camera and back to the backdrop, in world units. */
+export const STAGE_FLOOR_REACH = { front: 2, back: STAGE_BACKDROP_DEPTH } as const;
+
+/**
+ * The plane a screen model stands on: a horizontal quad at the model's
+ * underside (in world units after the screen fit), wide enough to hold the
+ * backdrop's cover, running from in front of the model back to the backdrop.
+ * Its local +y points away from the camera. It carries the Pack field colour
+ * and takes the key, the shadow map, and the glass's spill like any plane.
+ */
+export function resolveStageFloorBasis(
+	aspect: number,
+	floorY: number,
+	backdropCover: number
+): StagePlaneBasis {
+	const { halfW } = stagePlaneHalfExtents(STAGE_CAM_Z + STAGE_BACKDROP_DEPTH, aspect);
+	const depth = STAGE_FLOOR_REACH.front + STAGE_FLOOR_REACH.back;
+	return {
+		origin: [0, floorY, (STAGE_FLOOR_REACH.front - STAGE_FLOOR_REACH.back) / 2],
+		u: [halfW * backdropCover, 0, 0],
+		v: [0, 0, -depth / 2],
+		normal: [0, 1, 0]
+	};
 }
 
 /** Half extents of a mesh in its own units. */

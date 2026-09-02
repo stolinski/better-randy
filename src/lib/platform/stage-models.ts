@@ -20,6 +20,27 @@ export interface StageModelMaterial {
 	roughness: number;
 }
 
+/**
+ * The tube's own optics, intrinsic to the object like its plastics: the
+ * `crt-tube` Effect's physics fixed to the glass. A flat panel declares none.
+ */
+export interface StageScreenOptics {
+	/** How far the glass domes toward the camera at its centre, as a fraction of the opening height. */
+	dome: number;
+	/** Barrel bulge of the picture across the dome, 0..1. */
+	curvature: number;
+	/** Scanlines of the drawn raster across the opening height. */
+	lines: number;
+	/** Beam spot size: 0 tight late-era beam, 1 fat early beam. */
+	focus: number;
+	mask: 'slot' | 'shadow' | 'grille';
+	/** Triad pitch in 4K-reference glass pixels. */
+	maskPitchPx: number;
+	maskStrength: number;
+	halation: number;
+	vignette: number;
+}
+
 /** The rectangle of a model that displays the Surface: its glass. */
 export interface StageModelScreen {
 	/** Centre of the opening in model units. */
@@ -27,8 +48,15 @@ export interface StageModelScreen {
 	/** Opening width and height in model units. */
 	width: number;
 	height: number;
-	/** How much the screen's own light spills onto the model (0 = off). */
+	/** How much the screen's own light spills onto the model and the planes (0 = off). */
 	glow: number;
+	optics?: StageScreenOptics;
+}
+
+/** The plane a model stands on: the stage lays a receiving floor at this height. */
+export interface StageModelFloor {
+	/** The model's underside in model units. */
+	y: number;
 }
 
 export interface StageModelDefinition {
@@ -50,6 +78,7 @@ export interface StageModelDefinition {
 	/** Assign a triangle to a region from its centroid in model units. */
 	regionOf(centroid: StageModelVector): number;
 	screen: StageModelScreen;
+	floor?: StageModelFloor;
 }
 
 /** A #rrggbb colour as the rgb triple the stage lights, in its display space. */
@@ -102,8 +131,22 @@ const STAGE_MODELS: Record<string, StageModelDefinition> = {
 			center: [0, -17, -10],
 			width: 523,
 			height: 295,
-			glow: 1
-		}
+			glow: 1,
+			// A Trinitron: aperture grille, a gentle barrel, a fine late-era raster.
+			optics: {
+				dome: 0.045,
+				curvature: 0.16,
+				lines: 900,
+				focus: 0.5,
+				mask: 'grille',
+				maskPitchPx: 6,
+				maskStrength: 0.2,
+				halation: 0.12,
+				vignette: 0.34
+			}
+		},
+		// The stand's underside: the desk-contact contract of the part.
+		floor: { y: -288 }
 	}
 };
 

@@ -40,21 +40,22 @@
 			"camera": {
 				"move": "static",
 				"pose": {
-					"yaw": -16,
-					"pitch": -4,
-					"distance": 2,
+					"yaw": 14,
+					"pitch": 4,
+					"distance": 1.9,
 					"aim": {
 						"x": 0.5,
-						"y": 0.62
+						"y": 0.64
 					}
 				},
 				"travel": {
 					"to": {
-						"distance": 1.25,
-						"yaw": -10,
+						"distance": 1.1,
+						"yaw": 8,
+						"pitch": 1,
 						"aim": {
 							"x": 0.5,
-							"y": 0.52
+							"y": 0.5
 						}
 					},
 					"start": 0,

@@ -155,7 +155,7 @@ An authored part — a nurb / build123d solid, never a downloaded asset — comp
 _Avoid_: GLB import, asset library, mesh loader, 3D asset (the part is authored and compiled, not imported).
 
 **Physical screen**:
-The Surface plane as the glass of a **Stage model** (`stage.screen`): the model's opening fits inside the frame plane, the composition covers it, and the housing stands around the glass lit by the Pack key and by the picture itself. The camera aim, focus, and canvas hit-tests keep addressing the glass. The first body of the 3D Canvas Upgrade, proven by `crt-filmed` on the FW900 CRT.
+The Surface plane as the glass of a **Stage model** (`stage.screen`): the model's opening fits inside the frame plane, the composition covers it, the glass carries the model's own optics (a CRT's dome, raster, grille, halation, vignette), and the housing stands on the model's floor around the glass, lit by the Pack key and by the picture itself. The camera aim, focus, and canvas hit-tests keep addressing the glass. The first body of the 3D Canvas Upgrade, proven by `crt-filmed` on the FW900 CRT.
 _Avoid_: monitor Surface, CRT variant (the screen is Stage vocabulary any Surface can be filmed on), screen Effect (the `crt-tube` Effect is a post-process; a screen is geometry).
 
 **Cascade**:

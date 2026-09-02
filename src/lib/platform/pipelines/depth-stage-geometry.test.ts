@@ -8,9 +8,11 @@ import {
 	assertStageBodyCeilings,
 	createStageShadowProjection,
 	resolveStageBodyFocusPull,
+	resolveStageFloorBasis,
 	resolveStageScreenBodyPlacement,
 	resolveStageScreenGlass,
 	STAGE_BODY_CEILINGS,
+	STAGE_FLOOR_REACH,
 	StageBodyCeilingError
 } from './depth-stage-geometry';
 
@@ -66,6 +68,23 @@ describe('resolveStageScreenBodyPlacement', () => {
 		// Uniform scale, no rotation.
 		assert.ok(Math.abs(placement.model[0] - s) < 1e-6 && Math.abs(placement.model[5] - s) < 1e-6);
 		assert.equal(placement.model[1], 0);
+	});
+});
+
+describe('resolveStageFloorBasis', () => {
+	it('lays a horizontal floor at the model underside, running from the camera side to the backdrop', () => {
+		assert.ok(crt);
+		const placement = resolveStageScreenBodyPlacement(16 / 9, crt, {
+			min: [-304.5, -288, -522],
+			max: [304.5, 173.5, 0]
+		});
+		assert.ok(placement.floorY !== null && placement.floorY < 0, 'the underside sits below the glass centre');
+		const floor = resolveStageFloorBasis(16 / 9, placement.floorY, 1.2);
+		assert.deepEqual(floor.normal, [0, 1, 0]);
+		assert.equal(floor.origin[1], placement.floorY);
+		assert.ok(floor.origin[2] - floor.v[2] >= STAGE_FLOOR_REACH.front - 1e-9, 'reaches in front of the model');
+		assert.ok(Math.abs(floor.origin[2] + floor.v[2] + STAGE_FLOOR_REACH.back) < 1e-9, 'meets the backdrop');
+		assert.ok(floor.u[0] > 0 && floor.v[2] < 0);
 	});
 });
 
