@@ -69,7 +69,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0056](0056-newspaper-photographed-page.md)                        | Canon (built 2026-09-01)                                                                     | The newspaper is a full-bleed photographed page, fully Pack-immune, with a camera instead of a card     |
 | [0057](0057-filmed-canvas-camera-pose-and-posed-planes.md)         | Canon (phase 1 built 2026-09-02); phase 2 is 0051, building                                  | The filmed canvas: a stage camera pose and posed planes precede Pipeline geometry                       |
 | [0058](0058-stale-build-recovery-for-on-demand-imports.md)         | Canon (built 2026-09-02)                                                                     | A tab that outlives a rebuild reloads onto the current build instead of failing an on-demand import     |
-| [0059](0059-compiled-stage-models-and-the-physical-screen.md)      | Canon (built 2026-09-02, awaiting the aesthetic gate on `crt-filmed`)                        | Authored parts compile into registered stage models; the physical screen is the first body              |
+| [0059](0059-compiled-stage-models-and-the-physical-screen.md)      | Canon (built and approved 2026-09-02; landed on `main`)                                      | Authored parts compile into registered stage models; the physical screen is the first body              |
 
 ## Supersession And Refinement
 

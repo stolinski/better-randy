@@ -39,7 +39,7 @@ Still to build for dimensional type: glyph outlines from the Pack faces triangul
 
 - Dimensional type: which faces (Space Grotesk 700 first), the extrusion depth and bevel radius as fractions of cap height, and whether the field or the page receives its shadow.
 - Whether a screen model should suppress a Pack's post-process tube chrome (`crt-terminal`) that duplicates it.
-- Whether the camera pose wants a per-orientation override so a landscape screen can sit larger in a vertical frame.
+- Answered 2026-09-02: the camera reflows per orientation through `stage.camera.vertical` ([ADR-0059](../adr/0059-compiled-stage-models-and-the-physical-screen.md)) — a second rest pose and travel under the tall frame, so a landscape screen sits closer and pushes in until its picture fills the width.
 
 ## What 'done' looks like
 
