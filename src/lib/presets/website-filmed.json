@@ -41,7 +41,7 @@
 				"pose": {
 					"yaw": -16,
 					"pitch": -8,
-					"distance": 0.5,
+					"distance": 0.62,
 					"aim": {
 						"x": 0.5,
 						"y": 0.52
@@ -49,7 +49,7 @@
 				},
 				"travel": {
 					"to": {
-						"distance": 0.44
+						"distance": 0.42
 					},
 					"start": 0,
 					"duration": 1,
