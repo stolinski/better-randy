@@ -10,7 +10,7 @@ import { INTERMEDIATE_FORMAT, type GpuHost } from '$lib/platform/gpu-host';
 import type { LightDirection } from '$lib/platform/packs/resolve';
 import type { StageMeshData } from '../stage-mesh-format';
 import { STAGE_MESH_VERTEX_BYTES } from '../stage-mesh-format';
-import type { StageModelDefinition, StageScreenOptics } from '../stage-models';
+import type { StageBodyMaterial, StageModelDefinition, StageScreenOptics } from '../stage-models';
 import { srgbChannelToLinear } from '$lib/utils/color';
 import {
 	BYTES_PER_OCCLUSION_TEXEL,
@@ -45,7 +45,8 @@ import {
 	stageResolveFragmentFn,
 	stageResolveLayout,
 	stageShadowDepthLayout,
-	stageShadowDepthVertexFn
+	stageShadowDepthVertexFn,
+	STAGE_BODY_PRESENCE_FLOOR
 } from './depth-stage-body-pass';
 import {
 	assertStageBodyCeilings,
@@ -53,6 +54,8 @@ import {
 	resolveStageBodyFocusPull,
 	resolveStageFloorBasis,
 	resolveStageScreenBodyPlacement,
+	stageBodyBoundingSphere,
+	STAGE_BODY_CEILINGS,
 	STAGE_BODY_MAX_REGIONS,
 	type StageScreenGlass,
 	type StageShadowProjection
@@ -463,6 +466,24 @@ export interface DepthStageScreen {
 	mesh: StageMeshData;
 }
 
+/**
+ * A body a Pipeline contributes this frame (ADR-0051, ADR-0062): its mesh in
+ * its own units, the matrix that places it in stage world, its materials by
+ * region, and its presence. `key` names the mesh in the resident pool, so it
+ * must change whenever the mesh does and hold still while it does not.
+ */
+export interface DepthStageBody {
+	key: string;
+	mesh: StageMeshData;
+	/** Column-major, body units → stage world. */
+	model: Float32Array;
+	materials: readonly StageBodyMaterial[];
+	/** 0..1 — the Overlay's visibility; below the floor the body is not drawn. */
+	presence: number;
+	/** Whether the lens racks to this body while it is present (ADR-0059 §8). */
+	pullsFocus: boolean;
+}
+
 export interface DepthStageInput {
 	/** The Surface pipeline's premultiplied composition output (surface-only while
 	 *  the Composition plane-split is on). Placed on the near plane. */
@@ -488,6 +509,8 @@ export interface DepthStageInput {
 	posedOverlayPlanes?: readonly DepthStagePosedOverlayPlane[];
 	/** The physical screen the Surface plane is the glass of (ADR-0059). */
 	screen?: DepthStageScreen;
+	/** The bodies the composition's Pipelines contribute this frame (ADR-0062), after the screen. */
+	bodies?: readonly DepthStageBody[];
 	/** Backdrop plane colour (rgb 0..1) — used when no backdrop image is given. */
 	backdropColor: [number, number, number];
 	/** Optional image substrate (dex p20) for the backdrop plane: a resident GPU
@@ -587,7 +610,7 @@ interface StageResidentMesh {
 interface StageBodyDraw {
 	mesh: StageResidentMesh;
 	model: Float32Array;
-	materials: StageModelDefinition['materials'];
+	materials: readonly StageBodyMaterial[];
 	center: [number, number, number];
 	radius: number;
 	presence: number;
@@ -765,8 +788,10 @@ export class DepthStage {
 			{ length: POSED_BUFFER_OFFSET + STAGE_POSED_OVERLAY_LIMIT },
 			() => root.createBuffer(StagePlaneUniforms, planeRest()).$usage('uniform')
 		);
-		// One body today: the screen.
-		const bodyBuffers = [root.createBuffer(StageBodyUniforms, bodyRest()).$usage('uniform')];
+		// A fixed pool of body uniforms, one per body the ceilings allow.
+		const bodyBuffers = Array.from({ length: STAGE_BODY_CEILINGS.maxBodies }, () =>
+			root.createBuffer(StageBodyUniforms, bodyRest()).$usage('uniform')
+		);
 		// The obscurance passes: one buffer per blur direction, the rest shared.
 		const occlusionRest = (direction: [number, number]) => ({
 			projection: d.vec4f(1, 1, STAGE_DEPTH_NEAR, STAGE_DEPTH_FAR),
@@ -1305,17 +1330,31 @@ export class DepthStage {
 				mipPasses: mipPasses + sceneMipPasses
 			});
 
-			// The bodies: resident meshes under the geometry ceilings before any
-			// upload. One today — the screen.
-			const bodyDraws: StageBodyDraw[] = [];
-			if (screen && screenPlacement) {
+			// The bodies: the screen first, then every body a Pipeline contributes
+			// (ADR-0062), each a resident mesh under the geometry ceilings — summed
+			// over the frame — before any upload. A body below the presence floor is
+			// not on the stage this frame.
+			const presentBodies = (input.bodies ?? []).filter(
+				(body) => body.presence >= STAGE_BODY_PRESENCE_FLOOR
+			);
+			const bodyMeshes = [
+				...(screen && screenPlacement ? [screen.mesh] : []),
+				...presentBodies.map((body) => body.mesh)
+			];
+			if (bodyMeshes.length > 0) {
 				assertStageBodyCeilings({
-					bodyCount: 1,
-					vertexCount: screen.mesh.vertexCount,
-					indexCount: screen.mesh.indexCount,
-					meshBytes: screen.mesh.vertexCount * STAGE_MESH_VERTEX_BYTES + screen.mesh.indexCount * 4,
+					bodyCount: bodyMeshes.length,
+					vertexCount: bodyMeshes.reduce((total, mesh) => total + mesh.vertexCount, 0),
+					indexCount: bodyMeshes.reduce((total, mesh) => total + mesh.indexCount, 0),
+					meshBytes: bodyMeshes.reduce(
+						(total, mesh) => total + mesh.vertexCount * STAGE_MESH_VERTEX_BYTES + mesh.indexCount * 4,
+						0
+					),
 					residentBytes: multisampleBytes + STAGE_SHADOW_MAP_BYTES
 				});
+			}
+			const bodyDraws: StageBodyDraw[] = [];
+			if (screen && screenPlacement) {
 				bodyDraws.push({
 					mesh: residentMesh(`model:${screen.model.slug}`, screen.mesh),
 					model: screenPlacement.model,
@@ -1324,7 +1363,20 @@ export class DepthStage {
 					radius: screenPlacement.radius,
 					presence: 1,
 					pullsFocus: false,
-					bufferIndex: 0
+					bufferIndex: bodyDraws.length
+				});
+			}
+			for (const body of presentBodies) {
+				const sphere = stageBodyBoundingSphere(body.model, body.mesh);
+				bodyDraws.push({
+					mesh: residentMesh(`body:${body.key}`, body.mesh),
+					model: body.model,
+					materials: body.materials,
+					center: sphere.center,
+					radius: sphere.radius,
+					presence: Math.min(1, body.presence),
+					pullsFocus: body.pullsFocus,
+					bufferIndex: bodyDraws.length
 				});
 			}
 
@@ -1482,8 +1534,8 @@ export class DepthStage {
 				};
 				const casters = casterSlotsFor(receiver);
 				const buffer = bodyBuffers[draw.bufferIndex];
-				// A uniform scale keeps the normal matrix the model's rotation.
-				const normalMatrix = mat4.identity() as Float32Array;
+				// The inverse transpose carries a rotated, leaning body's normals with it.
+				const normalMatrix = mat4.transpose(mat4.inverse(draw.model)) as Float32Array;
 				buffer.write({
 					mvp: toMat4(mat4.multiply(rig.viewProjection, draw.model) as Float32Array),
 					model: toMat4(draw.model),

@@ -10,11 +10,10 @@
 
 export type StageModelVector = [number, number, number];
 
-/** One material region of a model: an intrinsic object material, not a Pack
- *  Role, in the vocabulary of the Stage's material model
- *  (`depth-stage-material.ts`). */
-export interface StageModelMaterial {
-	name: string;
+/** What one material region of any body is made of, in the vocabulary of the
+ *  Stage's material model (`depth-stage-material.ts`): a model's regions carry
+ *  these intrinsically; dimensional type takes its albedo from the Pack. */
+export interface StageBodyMaterial {
 	/** Albedo rgb 0..1 as displayed (the registry speaks sRGB, like a Pack
 	 *  colour); the body pass linearises it to light it. */
 	color: StageModelVector;
@@ -22,6 +21,11 @@ export interface StageModelMaterial {
 	roughness: number;
 	/** 0 dielectric (plastic, paint, paper) .. 1 conductor (a metal takes its albedo as its reflection). */
 	metallic: number;
+}
+
+/** One material region of a model: an intrinsic object material, not a Pack Role. */
+export interface StageModelMaterial extends StageBodyMaterial {
+	name: string;
 }
 
 /**

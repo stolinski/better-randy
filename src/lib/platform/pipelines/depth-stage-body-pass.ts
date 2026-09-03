@@ -31,8 +31,8 @@ import {
 // multisampled scene back into the single-sample colour target and depth
 // sidecar the DOF reads.
 
-/** Presence below which a body fragment is dropped rather than blended. */
-const BODY_PRESENCE_FLOOR = 0.003;
+/** Presence below which a body is not on the stage: its fragments drop, and the stage skips its draw. */
+export const STAGE_BODY_PRESENCE_FLOOR = 0.003;
 
 /** Vertex stream of every body mesh: position, normal, material region (tightly packed). */
 export const StageBodyVertex = d.unstruct({
@@ -113,7 +113,7 @@ export const stageBodyFragmentFn = tgpu['~unstable'].fragmentFn({
 }) /* wgsl */ `{
 	let body = layout.$.body;
 	let presence = body.misc.z;
-	if (presence < ${BODY_PRESENCE_FLOOR}) { discard; }
+	if (presence < ${STAGE_BODY_PRESENCE_FLOOR}) { discard; }
 	let N = normalize(in.normal);
 	let regionIndex = clamp(i32(round(in.region)), 0, ${STAGE_BODY_MAX_REGIONS - 1});
 	let material = body.materialColor[regionIndex];

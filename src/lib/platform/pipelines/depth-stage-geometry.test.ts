@@ -4,7 +4,7 @@ import { vec4 } from 'wgpu-matrix';
 
 import { StageSchema } from '$lib/platform/engine-schema';
 import { getStageModel } from '../stage-models';
-import { STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import { createStageCameraRig, STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
 import {
 	assertStageBodyCeilings,
 	createStageShadowProjection,
@@ -15,7 +15,9 @@ import {
 	STAGE_BODY_CEILINGS,
 	STAGE_FLOOR_REACH,
 	StageBodyCeilingError,
-	projectStageBodyFrameBounds
+	projectStageBodyFrameBounds,
+	resolveStageFramedBodyModel,
+	stageBodyBoundingSphere
 } from './depth-stage-geometry';
 
 const crt = getStageModel('crt-fw900');
@@ -219,5 +221,45 @@ describe('projectStageBodyFrameBounds', () => {
 		const camera = StageSchema.parse({ type: 'depth' }).camera;
 		const behind = cornerMesh([-10, -10, 5000], [10, 10, 5100]);
 		assert.equal(projectStageBodyFrameBounds({ aspect: 16 / 9, camera, time: 0, model: crt, mesh: behind }), null);
+	});
+});
+
+describe('framed bodies (ADR-0062)', () => {
+	const camera = StageSchema.parse({ type: 'depth' }).camera;
+	const rig = createStageCameraRig({ aspect: 16 / 9, camera, time: 0 });
+	const placement = {
+		pivot: { x: 0.5, y: 0.5 },
+		z: 0,
+		unitFraction: 0.1,
+		baselineOffset: -0.5,
+		lift: 0,
+		lean: 0
+	};
+
+	it('scales one body unit to the declared fraction of the frame height at the plane', () => {
+		const model = resolveStageFramedBodyModel({ rig, aspect: 16 / 9, placement });
+		const halfH = stagePlaneHalfExtents(STAGE_CAM_Z, 16 / 9).halfH;
+		const unit = Math.hypot(model[4], model[5], model[6]);
+		assert.ok(Math.abs(unit - halfH * 2 * 0.1) < 1e-6, 'v column is one unit');
+		assert.ok(Math.abs(Math.hypot(model[0], model[1], model[2]) - unit) < 1e-6, 'uniform');
+		// The origin sits half a unit below the pivot (the baseline offset) on the Surface plane.
+		assert.ok(Math.abs(model[12]) < 1e-6 && Math.abs(model[13] + unit * 0.5) < 1e-6 && Math.abs(model[14]) < 1e-6);
+	});
+
+	it('lifts along the normal and leans about the horizontal axis', () => {
+		const lifted = resolveStageFramedBodyModel({ rig, aspect: 16 / 9, placement: { ...placement, lift: 2 } });
+		const unit = Math.hypot(lifted[4], lifted[5], lifted[6]);
+		assert.ok(Math.abs(lifted[14] - 2 * unit) < 1e-6, 'lifted toward the eye by two units');
+		const leaning = resolveStageFramedBodyModel({ rig, aspect: 16 / 9, placement: { ...placement, lean: 30 } });
+		assert.ok(leaning[6] < 0, 'the v axis tips away from the eye');
+		assert.ok(Math.abs(Math.hypot(leaning[4], leaning[5], leaning[6]) - unit) < 1e-6);
+	});
+
+	it('bounds a placed mesh by its transformed corners', () => {
+		const model = resolveStageFramedBodyModel({ rig, aspect: 16 / 9, placement });
+		const sphere = stageBodyBoundingSphere(model, { min: [-2, 0, 0], max: [2, 1, 0.3] });
+		const unit = Math.hypot(model[4], model[5], model[6]);
+		assert.ok(Math.abs(sphere.center[1] - (model[13] + 0.5 * unit)) < 1e-6, 'centred on the box');
+		assert.ok(Math.abs(sphere.radius - Math.hypot(2, 0.5, 0.15) * unit) < 1e-6);
 	});
 });

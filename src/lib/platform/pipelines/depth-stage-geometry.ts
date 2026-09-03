@@ -1,16 +1,21 @@
 import { mat4 } from 'wgpu-matrix';
 
 import { clampNumber } from '$lib/utils/math';
-import type { StageCamera } from '$lib/platform/engine-schema';
+import type { OverlayPose, StageCamera } from '$lib/platform/engine-schema';
 import { STAGE_MESH_VERTEX_FLOATS, type StageMeshData, type StageMeshVector } from '../stage-mesh-format';
 import type { StageModelDefinition, StageModelScreen } from '../stage-models';
 import {
 	STAGE_BACKDROP_DEPTH,
 	STAGE_CAM_Z,
 	createStageCameraRig,
-	stagePlaneHalfExtents
+	stagePlaneHalfExtents,
+	type StageCameraRig
 } from './depth-stage-camera';
-import type { StagePlaneBasis, StagePlaneVector } from './depth-stage-planes';
+import {
+	createPosedOverlayPlaneBasis,
+	type StagePlaneBasis,
+	type StagePlaneVector
+} from './depth-stage-planes';
 
 // Pipeline-defined geometry for the depth stage (ADR-0051 phase 2, viewed
 // through the ADR-0057 camera). A BODY is a registered mesh the stage renders
@@ -201,6 +206,139 @@ export function stageMeshHalfExtents(mesh: Pick<StageMeshData, 'min' | 'max'>): 
 	];
 }
 
+// ---------------- Framed bodies (ADR-0062) ----------------
+
+/**
+ * Where an Overlay-owned body stands: placed by the same law as a posed
+ * Overlay plane (ADR-0057) — the camera ray through the Overlay's rendered
+ * centre meets the page-parallel plane at its signed depth, sized so the
+ * frame subtends that plane, turned by its pose about that centre — with the
+ * body's own units (cap heights, for type) scaled by a fraction of the frame
+ * height. `lift` raises the body off its plane along the plane normal and
+ * `lean` pitches it back about its horizontal axis, both in the body's units
+ * and degrees: the settled-place entrance the Brief names.
+ */
+export interface StageFramedBodyPlacement {
+	/** The rendered centre in frame fractions (u right, v down). */
+	pivot: { x: number; y: number };
+	/** Signed Overlay depth (ADR-0057). */
+	z: number;
+	pose?: OverlayPose;
+	/** One body unit as a fraction of the frame height (a cap height, for type). */
+	unitFraction: number;
+	/** Where the body's origin sits relative to the pivot, in body units along the plane's v axis. */
+	baselineOffset: number;
+	/** Body units along the plane normal, toward the eye. */
+	lift: number;
+	/** Degrees the body tips back about its horizontal axis at the pivot. */
+	lean: number;
+}
+
+function normalize3(v: StagePlaneVector): StagePlaneVector {
+	const length = Math.hypot(v[0], v[1], v[2]) || 1;
+	return [v[0] / length, v[1] / length, v[2] / length];
+}
+
+function rotateAboutAxis(v: StagePlaneVector, axis: StagePlaneVector, degrees: number): StagePlaneVector {
+	const radians = (degrees * Math.PI) / 180;
+	const c = Math.cos(radians);
+	const s = Math.sin(radians);
+	const dot = axis[0] * v[0] + axis[1] * v[1] + axis[2] * v[2];
+	const cross: StagePlaneVector = [
+		axis[1] * v[2] - axis[2] * v[1],
+		axis[2] * v[0] - axis[0] * v[2],
+		axis[0] * v[1] - axis[1] * v[0]
+	];
+	return [
+		v[0] * c + cross[0] * s + axis[0] * dot * (1 - c),
+		v[1] * c + cross[1] * s + axis[1] * dot * (1 - c),
+		v[2] * c + cross[2] * s + axis[2] * dot * (1 - c)
+	];
+}
+
+/**
+ * The model matrix (column-major, body units → stage world) of a framed body,
+ * from the posed plane basis its placement resolves to. The plane's half
+ * vectors carry the frame's size at that depth, so `unitFraction` of the frame
+ * height is exact whatever the depth or pose.
+ */
+export function resolveStageFramedBodyModel(input: {
+	rig: StageCameraRig;
+	aspect: number;
+	placement: StageFramedBodyPlacement;
+}): Float32Array {
+	const { placement } = input;
+	const basis = createPosedOverlayPlaneBasis({
+		rig: input.rig,
+		aspect: input.aspect,
+		overlayZ: placement.z,
+		pose: placement.pose,
+		pivot: placement.pivot
+	});
+	const halfH = Math.hypot(basis.v[0], basis.v[1], basis.v[2]);
+	const unit = Math.max(halfH * 2 * placement.unitFraction, 1e-6);
+	const uHat = normalize3(basis.u);
+	let vHat = normalize3(basis.v);
+	let nHat = normalize3(basis.normal);
+	if (placement.lean !== 0) {
+		vHat = rotateAboutAxis(vHat, uHat, -placement.lean);
+		nHat = rotateAboutAxis(nHat, uHat, -placement.lean);
+	}
+	// The quad's origin is its centre; the pivot sits at its frame fraction.
+	const px = 2 * placement.pivot.x - 1;
+	const py = 1 - 2 * placement.pivot.y;
+	const pivotWorld: StagePlaneVector = [
+		basis.origin[0] + basis.u[0] * px + basis.v[0] * py,
+		basis.origin[1] + basis.u[1] * px + basis.v[1] * py,
+		basis.origin[2] + basis.u[2] * px + basis.v[2] * py
+	];
+	const origin: StagePlaneVector = [
+		pivotWorld[0] + vHat[0] * unit * placement.baselineOffset + nHat[0] * unit * placement.lift,
+		pivotWorld[1] + vHat[1] * unit * placement.baselineOffset + nHat[1] * unit * placement.lift,
+		pivotWorld[2] + vHat[2] * unit * placement.baselineOffset + nHat[2] * unit * placement.lift
+	];
+	// prettier-ignore
+	return new Float32Array([
+		uHat[0] * unit, uHat[1] * unit, uHat[2] * unit, 0,
+		vHat[0] * unit, vHat[1] * unit, vHat[2] * unit, 0,
+		nHat[0] * unit, nHat[1] * unit, nHat[2] * unit, 0,
+		origin[0], origin[1], origin[2], 1
+	]);
+}
+
+/** A body's world-space bounding sphere from its mesh bounds under its model matrix. */
+export function stageBodyBoundingSphere(
+	model: Float32Array,
+	mesh: Pick<StageMeshData, 'min' | 'max'>
+): { center: StagePlaneVector; radius: number } {
+	const corners: StagePlaneVector[] = [];
+	for (const x of [mesh.min[0], mesh.max[0]]) {
+		for (const y of [mesh.min[1], mesh.max[1]]) {
+			for (const z of [mesh.min[2], mesh.max[2]]) {
+				corners.push([
+					model[0] * x + model[4] * y + model[8] * z + model[12],
+					model[1] * x + model[5] * y + model[9] * z + model[13],
+					model[2] * x + model[6] * y + model[10] * z + model[14]
+				]);
+			}
+		}
+	}
+	const center: StagePlaneVector = [0, 0, 0];
+	for (const corner of corners) {
+		center[0] += corner[0] / corners.length;
+		center[1] += corner[1] / corners.length;
+		center[2] += corner[2] / corners.length;
+	}
+	let radius = 0;
+	for (const corner of corners) {
+		radius = Math.max(
+			radius,
+			Math.hypot(corner[0] - center[0], corner[1] - center[1], corner[2] - center[2])
+		);
+	}
+	return { center, radius };
+}
+
 /** A rectangle in frame fractions (u right, v down), the space the canvas overlay draws in. */
 export interface StageBodyFrameBounds {
 	left: number;
@@ -247,9 +385,25 @@ export function projectStageBodyFrameBounds(
 	input: StageBodyFrameBoundsInput
 ): StageBodyFrameBounds | null {
 	const placement = resolveStageScreenBodyPlacement(input.aspect, input.model, input.mesh);
-	const rig = createStageCameraRig({ aspect: input.aspect, camera: input.camera, time: input.time });
+	return projectStageMeshFrameBounds({
+		viewProjection: createStageCameraRig({
+			aspect: input.aspect,
+			camera: input.camera,
+			time: input.time
+		}).viewProjection,
+		model: placement.model,
+		mesh: input.mesh
+	});
+}
+
+/** Any body's silhouette as the frame sees it: its vertices under its model matrix through the camera. */
+export function projectStageMeshFrameBounds(input: {
+	viewProjection: Float32Array;
+	model: Float32Array;
+	mesh: Pick<StageMeshData, 'vertices' | 'vertexCount'>;
+}): StageBodyFrameBounds | null {
 	// One matrix from model units to clip space, so each vertex costs one transform.
-	const modelToClip = mat4.multiply(rig.viewProjection, placement.model) as Float32Array;
+	const modelToClip = mat4.multiply(input.viewProjection, input.model) as Float32Array;
 	let left = Number.POSITIVE_INFINITY;
 	let top = Number.POSITIVE_INFINITY;
 	let right = Number.NEGATIVE_INFINITY;
