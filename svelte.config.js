@@ -22,7 +22,10 @@ const config = {
 		// emit one; the public origin then merges that nonce into the full policy
 		// at request time, because the rest of the policy depends on the runtime
 		// profile rather than the build (see public-response-headers.ts).
-		csp: { mode: 'auto', directives: { 'script-src': ['self'] } },
+		csp: {
+			mode: 'auto',
+			directives: { 'script-src': ['self', 'https://analytics.tolin.ski'] }
+		},
 		// Every integration rebuilds gfx.robo.online and drops the previous build's
 		// hashed chunks. An open tab polls for the new build so its next navigation
 		// is a full page load (root layout) rather than an import the origin can no

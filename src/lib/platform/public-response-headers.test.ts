@@ -43,7 +43,11 @@ describe('composePublicContentSecurityPolicy', () => {
 			composePublicContentSecurityPolicy("script-src 'self' 'nonce-Ab3=='")
 		);
 
-		assert.deepEqual(directives.get('script-src'), ["'self'", "'nonce-Ab3=='"]);
+		assert.deepEqual(directives.get('script-src'), [
+			"'self'",
+			'https://analytics.tolin.ski',
+			"'nonce-Ab3=='"
+		]);
 	});
 
 	it('keeps a prerendered page script hash', () => {
@@ -79,6 +83,17 @@ describe('composePublicContentSecurityPolicy', () => {
 		assert.deepEqual(directives.get('worker-src'), ["'self'", 'blob:']);
 	});
 
+	it('admits only the analytics origin for an external script and connection', () => {
+		const directives = parsePolicy(composePublicContentSecurityPolicy(null));
+
+		assert.deepEqual(directives.get('script-src'), ["'self'", 'https://analytics.tolin.ski']);
+		assert.deepEqual(directives.get('connect-src'), [
+			"'self'",
+			'blob:',
+			'https://analytics.tolin.ski'
+		]);
+	});
+
 	it('carries through a directive the app shell declared and this contract does not', () => {
 		const directives = parsePolicy(
 			composePublicContentSecurityPolicy("script-src 'self'; style-src-elem 'sha256-xyz='")
@@ -90,7 +105,7 @@ describe('composePublicContentSecurityPolicy', () => {
 	it('emits no duplicate token when the app shell repeats one', () => {
 		const directives = parsePolicy(composePublicContentSecurityPolicy("script-src 'self'"));
 
-		assert.deepEqual(directives.get('script-src'), ["'self'"]);
+		assert.deepEqual(directives.get('script-src'), ["'self'", 'https://analytics.tolin.ski']);
 	});
 });
 

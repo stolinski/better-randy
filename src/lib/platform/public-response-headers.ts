@@ -108,10 +108,10 @@ export const PUBLIC_PERMISSIONS_POLICY: string = [
 /**
  * The Content Security Policy a public HTML document carries.
  *
- * `script-src` is `'self'` here and gains SvelteKit's per-response nonce in
- * `composePublicContentSecurityPolicy` — SvelteKit owns that nonce because it
- * owns the inline bootstrap script it belongs to (`kit.csp` in
- * `svelte.config.js`).
+ * `script-src` admits this origin plus the analytics script origin and gains
+ * SvelteKit's per-response nonce in `composePublicContentSecurityPolicy` —
+ * SvelteKit owns that nonce because it owns the inline bootstrap script it
+ * belongs to (`kit.csp` in `svelte.config.js`).
  *
  * `'unsafe-inline'` on `style-src` is load-bearing rather than lazy: the engine
  * positions and animates every composition element through inline `style`
@@ -122,21 +122,20 @@ export const PUBLIC_PERMISSIONS_POLICY: string = [
  * visitor's own media never reaches the origin — it is read from a granted file
  * handle into an object URL and fetched back from there.
  *
- * `connect-src` names no external address, which is the point: the browser talks
- * to this origin and to its own object URLs, and to nothing else. Browser-side
- * Sentry would be a cross-origin connect and is therefore not allowed — which
- * costs nothing, because `PUBLIC_SENTRY_DSN` is not one of the deployment inputs
- * a public host is given (`PUBLIC_RUNTIME_DEPLOYMENT_INPUTS`). Server-side
- * Sentry is unaffected: it reports from the origin, not from the page.
+ * `connect-src` admits one external address: the analytics origin that receives
+ * page-view events from its own script. Browser-side Sentry remains disallowed —
+ * `PUBLIC_SENTRY_DSN` is not one of the deployment inputs a public host is given
+ * (`PUBLIC_RUNTIME_DEPLOYMENT_INPUTS`). Server-side Sentry is unaffected: it
+ * reports from the origin, not from the page.
  *
  * `worker-src` admits `blob:` because the browser export lane
  * (`browser-webm-export.ts`, the hosted origin's only lane) encodes alpha in a
  * worker that Mediabunny builds from a Blob URL — the colour/alpha splitter a
  * transparent VP9 export needs. Without it the directive falls back to
- * `script-src`, which names only `'self'`, and a transparent export fails with
+ * `script-src`, which does not admit `blob:`, and a transparent export fails with
  * "Color/alpha splitter worker error" while an opaque one, which needs no
- * splitter, succeeds. A blob worker is still this page's own code; nothing
- * cross-origin is admitted by it.
+ * splitter, succeeds. A blob worker is still this page's own code; no
+ * cross-origin worker is admitted.
  */
 export const PUBLIC_CONTENT_SECURITY_POLICY_DIRECTIVES: Readonly<
 	Record<string, readonly string[]>
@@ -146,13 +145,13 @@ export const PUBLIC_CONTENT_SECURITY_POLICY_DIRECTIVES: Readonly<
 	'object-src': ["'none'"],
 	'frame-ancestors': ["'none'"],
 	'form-action': ["'self'"],
-	'script-src': ["'self'"],
+	'script-src': ["'self'", 'https://analytics.tolin.ski'],
 	'worker-src': ["'self'", 'blob:'],
 	'style-src': ["'self'", "'unsafe-inline'"],
 	'img-src': ["'self'", 'blob:', 'data:'],
 	'media-src': ["'self'", 'blob:'],
 	'font-src': ["'self'"],
-	'connect-src': ["'self'", 'blob:'],
+	'connect-src': ["'self'", 'blob:', 'https://analytics.tolin.ski'],
 	'upgrade-insecure-requests': []
 };
 
