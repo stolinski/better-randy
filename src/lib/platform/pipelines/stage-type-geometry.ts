@@ -38,8 +38,9 @@ export const STAGE_TYPE_REGION_COUNT = 4;
 const BEVEL_MITER_LIMIT = 2.5;
 /** A bevel never eats more than this share of a ring's smallest half-width, so thin strokes keep a face. */
 const BEVEL_STROKE_SHARE = 0.6;
-/** An inset ring that crosses itself is retried at half the bevel this many times before the glyph goes unbevelled. */
-const BEVEL_RETRIES = 6;
+/** An inset that crosses its stroke is retried at this share of the bevel, this many times, before the contour goes unbevelled. */
+const BEVEL_RETRY_SHARE = 0.8;
+const BEVEL_RETRIES = 10;
 /** The largest area mismatch a cap's triangulation may show before the ring is treated as crossed. */
 const CAP_DEVIATION_LIMIT = 1e-3;
 
@@ -130,11 +131,14 @@ function outlineBounds(glyph: StageGlyphOutline): { minX: number; maxX: number }
 }
 
 /**
- * Inset a ring along its per-vertex edge normals by `amount`, miter-limited.
- * Null when the inset crossed the stroke — an edge turned back on itself or
- * the ring's area went the wrong way — so the caller can try a smaller bevel.
+ * Move a ring into the stroke by `amount` along its per-vertex edge normals,
+ * miter-limited. An outer ring (counter-clockwise) and a counter (clockwise)
+ * both move the same way — the normal convention already points away from
+ * the stroke on either — so an outer shrinks and a counter grows. Null when
+ * the inset crossed the stroke — an edge turned back on itself or the area
+ * went the wrong way — so the caller can try a smaller bevel.
  */
-function insetRing(ring: StageGlyphRing, amount: number, inward: 1 | -1): StageGlyphRing | null {
+function insetRing(ring: StageGlyphRing, amount: number, isCounter: boolean): StageGlyphRing | null {
 	const count = ring.length / 2;
 	const out: StageGlyphRing = new Array(ring.length);
 	for (let i = 0; i < count; i += 1) {
@@ -174,8 +178,8 @@ function insetRing(ring: StageGlyphRing, amount: number, inward: 1 | -1): StageG
 		// The miter length grows as the corner sharpens; cap it so a spike never crosses the stroke.
 		const cosHalf = Math.max(mx * n1x + my * n1y, 1 / BEVEL_MITER_LIMIT);
 		const distance = amount / cosHalf;
-		out[i * 2] = x - inward * mx * distance;
-		out[i * 2 + 1] = y - inward * my * distance;
+		out[i * 2] = x - mx * distance;
+		out[i * 2 + 1] = y - my * distance;
 	}
 	for (let i = 0; i < count; i += 1) {
 		const j = (i + 1) % count;
@@ -189,17 +193,17 @@ function insetRing(ring: StageGlyphRing, amount: number, inward: 1 | -1): StageG
 	const after = signedRingArea(out);
 	if (Math.sign(after) !== Math.sign(before)) return null;
 	const shrank = Math.abs(after) < Math.abs(before);
-	if (shrank !== (inward === 1)) return null;
+	if (shrank === isCounter) return null;
 	return out;
 }
 
 /** The inset front cap, or null when no bevel down to a hairline keeps the ring simple. */
 function insetContour(contour: StageGlyphContour, bevel: number): StageGlyphContour | null {
-	const outer = insetRing(contour.outer, bevel, 1);
+	const outer = insetRing(contour.outer, bevel, false);
 	if (!outer) return null;
 	const holes: StageGlyphRing[] = [];
 	for (const hole of contour.holes) {
-		const inset = insetRing(hole, bevel, -1);
+		const inset = insetRing(hole, bevel, true);
 		if (!inset) return null;
 		holes.push(inset);
 	}
@@ -303,44 +307,70 @@ function safeBevel(contour: StageGlyphContour, bevel: number): number {
 	return Math.min(bevel, smallest * BEVEL_STROKE_SHARE);
 }
 
-/**
- * Build one glyph's body: back cap on z = 0, sides to z = depth − bevel, the
- * chamfer to z = depth over an inset ring, and the front cap on the inset.
- */
-function appendGlyphBody(builder: MeshBuilder, contours: StageGlyphContour[], form: StageTypeForm, offsetX: number): void {
-	for (const contour of contours) {
-		const shifted: StageGlyphContour = {
-			outer: shiftRing(contour.outer, offsetX),
-			holes: contour.holes.map((hole) => shiftRing(hole, offsetX))
-		};
-		// The bevel this contour can carry: halved while its inset crosses the
-		// stroke, down to none — a hairline glyph extrudes straight rather than
-		// growing a spike.
-		let bevel = safeBevel(shifted, form.bevel);
-		let front: StageGlyphContour | null = null;
-		for (let attempt = 0; attempt < BEVEL_RETRIES && bevel > 1e-4; attempt += 1) {
-			front = insetContour(shifted, bevel);
-			if (front) break;
-			bevel /= 2;
-		}
-		if (!front) {
-			bevel = 0;
-			front = shifted;
-		}
-		const sideTop = Math.max(form.depth - bevel, 0);
-		appendCap(builder, shifted, 0, -1, STAGE_TYPE_REGION.back);
-		if (sideTop > 0) {
-			appendBand(builder, shifted.outer, sideTop, shifted.outer, 0, STAGE_TYPE_REGION.side, 1);
-			for (const hole of shifted.holes) appendBand(builder, hole, sideTop, hole, 0, STAGE_TYPE_REGION.side, 1);
-		}
-		if (bevel > 0) {
-			appendBand(builder, front.outer, form.depth, shifted.outer, sideTop, STAGE_TYPE_REGION.bevel, 1);
-			shifted.holes.forEach((hole, index) => {
-				appendBand(builder, front.holes[index], form.depth, hole, sideTop, STAGE_TYPE_REGION.bevel, 1);
-			});
-		}
-		appendCap(builder, front, form.depth, 1, STAGE_TYPE_REGION.face);
+/** The largest bevel one contour carries: its stroke's share, halved while the inset crosses the stroke, down to none. */
+function contourBevel(contour: StageGlyphContour, requested: number): number {
+	let bevel = safeBevel(contour, requested);
+	for (let attempt = 0; attempt < BEVEL_RETRIES && bevel > 1e-4; attempt += 1) {
+		if (insetContour(contour, bevel)) return bevel;
+		bevel *= BEVEL_RETRY_SHARE;
 	}
+	return 0;
+}
+
+/** Each contour's bevel and inset front cap. */
+interface StageTypeContourForm {
+	bevel: number;
+	front: StageGlyphContour;
+}
+
+/**
+ * One bevel for the whole line — a headline is machined as one piece, so
+ * every glyph carries the same chamfer: the largest every contour on the
+ * line can carry. A contour that can carry none at all (a hairline that
+ * would spike at any inset) extrudes straight on its own, and never costs
+ * the line its bevel.
+ */
+export function resolveLineBevel(
+	contours: readonly StageGlyphContour[],
+	requested: number
+): StageTypeContourForm[] {
+	const own = contours.map((contour) => contourBevel(contour, requested));
+	const carried = own.filter((bevel) => bevel > 0);
+	const line = carried.length > 0 ? Math.min(...carried) : 0;
+	return contours.map((contour, index) => {
+		if (own[index] === 0) return { bevel: 0, front: contour };
+		const front = insetContour(contour, line);
+		if (front) return { bevel: line, front };
+		// A smaller inset than one it accepted; fall back to its own rather than lose it.
+		const ownFront = insetContour(contour, own[index]);
+		return ownFront ? { bevel: own[index], front: ownFront } : { bevel: 0, front: contour };
+	});
+}
+
+/**
+ * Build one contour's body: back cap on z = 0, sides to z = depth − bevel,
+ * the chamfer to z = depth over the inset ring, and the front cap on it.
+ */
+function appendContourBody(
+	builder: MeshBuilder,
+	contour: StageGlyphContour,
+	front: StageGlyphContour,
+	bevel: number,
+	depth: number
+): void {
+	const sideTop = Math.max(depth - bevel, 0);
+	appendCap(builder, contour, 0, -1, STAGE_TYPE_REGION.back);
+	if (sideTop > 0) {
+		appendBand(builder, contour.outer, sideTop, contour.outer, 0, STAGE_TYPE_REGION.side, 1);
+		for (const hole of contour.holes) appendBand(builder, hole, sideTop, hole, 0, STAGE_TYPE_REGION.side, 1);
+	}
+	if (bevel > 0) {
+		appendBand(builder, front.outer, depth, contour.outer, sideTop, STAGE_TYPE_REGION.bevel, 1);
+		contour.holes.forEach((hole, index) => {
+			appendBand(builder, front.holes[index], depth, hole, sideTop, STAGE_TYPE_REGION.bevel, 1);
+		});
+	}
+	appendCap(builder, front, depth, 1, STAGE_TYPE_REGION.face);
 }
 
 function shiftRing(ring: StageGlyphRing, offsetX: number): StageGlyphRing {
@@ -376,12 +406,22 @@ export function buildStageTypeMesh(input: StageTypeMeshInput): StageTypeMesh {
 		depth: Math.max(input.form.depth, 0),
 		bevel: Math.max(Math.min(input.form.bevel, input.form.depth), 0)
 	};
+	const contours: StageGlyphContour[] = [];
 	for (const placement of line.glyphs) {
 		const glyph = input.typeface.glyphs.get(placement.codePoint);
 		if (!glyph || glyph.commands.length === 0) continue;
-		const contours = groupStageGlyphContours(flattenStageGlyph(glyph, input.typeface.capHeight));
-		appendGlyphBody(builder, contours, form, placement.x - centre);
+		const offsetX = placement.x - centre;
+		for (const contour of groupStageGlyphContours(flattenStageGlyph(glyph, input.typeface.capHeight))) {
+			contours.push({
+				outer: shiftRing(contour.outer, offsetX),
+				holes: contour.holes.map((hole) => shiftRing(hole, offsetX))
+			});
+		}
 	}
+	const forms = resolveLineBevel(contours, form.bevel);
+	contours.forEach((contour, index) => {
+		appendContourBody(builder, contour, forms[index].front, forms[index].bevel, form.depth);
+	});
 	const vertexCount = builder.positions.length / 3;
 	const vertices = new Float32Array(vertexCount * STAGE_MESH_VERTEX_FLOATS);
 	const min: [number, number, number] = [Infinity, Infinity, Infinity];

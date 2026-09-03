@@ -92,6 +92,26 @@ describe('buildStageTypeMesh', () => {
 		assert.ok(bevel > 0.02 && bevel <= form.bevel + 1e-6, `bevel ${bevel}`);
 	});
 
+	it('machines one bevel across the line: every glyph shares the chamfer the thinnest stroke allows', () => {
+		const thin = buildStageTypeMesh({ typeface, text: 'I', form });
+		const line = buildStageTypeMesh({ typeface, text: 'HOME I', form });
+		const sideTops = (mesh: typeof line.mesh): number[] => {
+			const tops = new Set<number>();
+			for (let i = 0; i < mesh.vertexCount; i += 1) {
+				const offset = i * STAGE_MESH_VERTEX_FLOATS;
+				if (mesh.vertices[offset + 6] === STAGE_TYPE_REGION.side && mesh.vertices[offset + 2] > 0) {
+					tops.add(Math.round(mesh.vertices[offset + 2] * 1e6) / 1e6);
+				}
+			}
+			return [...tops];
+		};
+		// Every bevelled contour on the line stops its sides at the same height,
+		// and no higher than the thin stem alone allows.
+		const bevelled = sideTops(line.mesh).filter((z) => z < form.depth - 1e-6);
+		assert.equal(bevelled.length, 1, `one bevel on the whole line: ${sideTops(line.mesh)}`);
+		assert.ok(bevelled[0] <= sideTops(thin.mesh)[0] + 1e-6, 'no deeper than the thinnest stroke allows');
+	});
+
 	it('is deterministic', () => {
 		const first = buildStageTypeMesh({ typeface, text: 'Stage', form });
 		const second = buildStageTypeMesh({ typeface, text: 'Stage', form });
