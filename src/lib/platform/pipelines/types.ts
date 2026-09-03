@@ -19,6 +19,9 @@ import type {
 } from '$lib/platform/engine-schema';
 import type { GpuHost } from '$lib/platform/gpu-host';
 import type { PackManifest } from '$lib/platform/packs/types';
+import type { StageTypefaceData } from '$lib/platform/stage-glyph-format';
+import type { StageMeshData } from '$lib/platform/stage-mesh-format';
+import type { StageBodyMaterial } from '$lib/platform/stage-models';
 import type {
 	EdgeTreatment,
 	ResolvedChartMarkFill,
@@ -508,6 +511,47 @@ export interface OverlayRenderer<TContent = unknown> {
 	 * offset shadow chrome on collage-card overlays that can't be expressed in DOM.
 	 */
 	shaderPass?: ShaderPass<TContent>;
+	/**
+	 * The Overlay's body on the depth Stage (ADR-0062): declared renderer-free
+	 * by the definition's `stageBody`, computed here. The platform loads the
+	 * typeface the renderer names for the Pack, then asks for the body each
+	 * frame; the mesh is cached by the key the renderer returns.
+	 */
+	stageBody?: OverlayStageBodyRenderer<TContent>;
+	/** Declared on the definition; carried through so the renderer agrees. */
+	stageBodyDeclared?: true;
+}
+
+/** What a body Overlay hands the Stage each frame (ADR-0062). */
+export interface OverlayStageBodyContribution {
+	/** Names the mesh in the resident pool: changes whenever the mesh does, holds still while it does not. */
+	key: string;
+	mesh: StageMeshData;
+	materials: readonly StageBodyMaterial[];
+	/** One body unit (a cap height, for type) as a fraction of the frame height. */
+	/** One body unit (a cap height, for type) as a fraction of the frame's SHORT side, so a headline reflows into the tall frame. */
+	unitFraction: number;
+	/** Where the body's origin sits relative to its pivot, in body units along the plane's v axis. */
+	baselineOffset: number;
+	/** Body units along the plane normal, toward the eye, this frame. */
+	lift: number;
+	/** Degrees the body tips back about its horizontal axis this frame. */
+	lean: number;
+	/** 0..1 this frame. */
+	presence: number;
+	pullsFocus: boolean;
+}
+
+export interface OverlayStageBodyInput<TContent> {
+	content: TContent;
+	pack: PackManifest;
+	typeface: StageTypefaceData;
+	/** The Overlay's enter/exit progress this frame: 0 absent, 1 landed. */
+	progress: number;
+}
+
+export interface OverlayStageBodyRenderer<TContent> {
+	contribute(input: OverlayStageBodyInput<TContent>): OverlayStageBodyContribution;
 }
 
 // ---------------- Effects ----------------

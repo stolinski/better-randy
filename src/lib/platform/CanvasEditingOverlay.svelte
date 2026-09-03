@@ -59,12 +59,19 @@
 		type CanvasTextBoxResizeSide,
 		type DiagramLabelTextBoxSnapshot
 	} from './canvas-text-box-resize';
-	import { engineState } from './engine-state.svelte';
-	import { resolveStageCameraForOrientation } from './pipelines/depth-stage-camera';
+	import { engineState, packState } from './engine-state.svelte';
+	import { getPack } from './packs/registry';
+	import {
+		createStageCameraRig,
+		resolveStageCameraForOrientation
+	} from './pipelines/depth-stage-camera';
 	import {
 		projectStageBodyFrameBounds,
+		projectStageMeshFrameBounds,
 		resolveStageScreenGlass
 	} from './pipelines/depth-stage-geometry';
+	import { resolveOverlayStageBodies } from './stage-body-overlays';
+	import type { StageTypefaceData } from './stage-glyph-format';
 	import type { StageMeshData } from './stage-mesh-format';
 	import {
 		createStageProjector,
@@ -116,6 +123,8 @@
 		posedOverlayRootElements?: Record<string, HTMLElement | null>;
 		/** The resident screen body's mesh (ADR-0060 §3); null until the model lands or when there is none. */
 		stageBodyMesh?: StageMeshData | null;
+		/** The decoded typefaces the stage's body Overlays set in (ADR-0062), null until ready. */
+		stageTypeface?: (slug: string) => StageTypefaceData | null;
 		canvas: HTMLCanvasElement | null;
 		compositionSize: { width: number; height: number };
 		/** Display zoom; pan is only active when zoomed in (> 1). */
@@ -132,6 +141,7 @@
 		overlayRootElement = null,
 		posedOverlayRootElements = {},
 		stageBodyMesh = null,
+		stageTypeface = () => null,
 		canvas,
 		compositionSize,
 		zoom = 1,
@@ -384,16 +394,23 @@
 			mesh: stageBodyMesh
 		});
 		if (!frameBounds) return null;
-		const region = canvasHitRegion({
-			left: canvasRect.left - editorRect.left + frameBounds.left * canvasRect.width,
-			top: canvasRect.top - editorRect.top + frameBounds.top * canvasRect.height,
-			width: frameBounds.width * canvasRect.width,
-			height: frameBounds.height * canvasRect.height
-		});
+		return clipStageBodyRegion(
+			canvasHitRegion({
+				left: canvasRect.left - editorRect.left + frameBounds.left * canvasRect.width,
+				top: canvasRect.top - editorRect.top + frameBounds.top * canvasRect.height,
+				width: frameBounds.width * canvasRect.width,
+				height: frameBounds.height * canvasRect.height
+			})
+		);
+	}
+
+	// A body often runs past the frame as the camera pushes in; its outline
+	// stops at the frame like the picture does, instead of crossing the chrome.
+	function clipStageBodyRegion(
+		region: CanvasHitRegionGeometry | null
+	): CanvasHitRegionGeometry | null {
 		const clip = currentVisibleCanvasEditorBounds();
 		if (!region || !clip) return region;
-		// A body often runs past the frame as the camera pushes in; its outline
-		// stops at the frame like the picture does, instead of crossing the chrome.
 		const left = Math.max(region.visibleBounds.left, clip.left);
 		const top = Math.max(region.visibleBounds.top, clip.top);
 		const right = Math.min(
@@ -406,6 +423,60 @@
 		);
 		if (right <= left || bottom <= top) return null;
 		return { ...region, visibleBounds: { left, top, width: right - left, height: bottom - top } };
+	}
+
+	// The bodies the Overlays contribute (ADR-0062), each selected exactly where
+	// the stage draws it: the same resolution the frame renderer runs, through
+	// the same rig at the playhead, projected vertex by vertex.
+	interface OverlayBodyHitRegion {
+		overlay: Overlay;
+		index: number;
+		region: CanvasHitRegionGeometry;
+	}
+
+	function overlayBodyHitRegions(): OverlayBodyHitRegion[] {
+		const stage = engineState.stage;
+		if (!stage || stage.type !== 'depth') return [];
+		if (compositionSize.width === 0 || compositionSize.height === 0) return [];
+		void measureEpoch;
+		const editorRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!editorRect || !canvasRect) return [];
+		const aspect = compositionSize.width / compositionSize.height;
+		const rig = createStageCameraRig({
+			aspect,
+			camera: resolveStageCameraForOrientation(stage.camera, engineState.transport.orientation),
+			time: clampNumber(animState.globalProgress, 0, 1)
+		});
+		const bodies = resolveOverlayStageBodies({
+			overlays: engineState.overlays,
+			pack: getPack(packState.slug),
+			typeface: stageTypeface,
+			overlayChannels: animState.overlayChannels,
+			overlayProgresses: animState.overlayProgresses,
+			rig,
+			aspect,
+			orientation: engineState.transport.orientation
+		});
+		const regions: OverlayBodyHitRegion[] = [];
+		for (const { overlay, index, body } of bodies) {
+			const frameBounds = projectStageMeshFrameBounds({
+				viewProjection: rig.viewProjection,
+				model: body.model,
+				mesh: body.mesh
+			});
+			if (!frameBounds) continue;
+			const region = clipStageBodyRegion(
+				canvasHitRegion({
+					left: canvasRect.left - editorRect.left + frameBounds.left * canvasRect.width,
+					top: canvasRect.top - editorRect.top + frameBounds.top * canvasRect.height,
+					width: frameBounds.width * canvasRect.width,
+					height: frameBounds.height * canvasRect.height
+				})
+			);
+			if (region) regions.push({ overlay, index, region });
+		}
+		return regions;
 	}
 
 	interface CanvasDragSnapGesture {
@@ -1510,6 +1581,13 @@
 	}
 
 	function selectCanvasCandidate(selectionKey: string): void {
+		if (selectionKey.startsWith('overlay-body:')) {
+			const overlayId = selectionKey.slice('overlay-body:'.length);
+			if (engineState.overlays.some((overlay) => overlay.id === overlayId)) {
+				selectLayer(createTimelineTrackId({ kind: 'overlay', overlayId }));
+			}
+			return;
+		}
 		if (selectionKey.startsWith('overlay:')) {
 			const overlayId = selectionKey.slice('overlay:'.length);
 			if (engineState.overlays.some((overlay) => overlay.id === overlayId)) {
@@ -1543,6 +1621,18 @@
 	function startCanvasCandidateGesture(event: PointerEvent, selectionKey: string): void {
 		if (selectionKey.startsWith('stage-body:')) {
 			selectStageBody(selectionKey.slice('stage-body:'.length));
+			startStageOrbit(event);
+			return;
+		}
+		if (selectionKey.startsWith('overlay-body:')) {
+			// An Overlay's body is that Overlay: its row selects, and the hand on
+			// it orbits the camera about the stage like any body (ADR-0060 §4).
+			selectLayer(
+				createTimelineTrackId({
+					kind: 'overlay',
+					overlayId: selectionKey.slice('overlay-body:'.length)
+				})
+			);
 			startStageOrbit(event);
 			return;
 		}
@@ -2429,6 +2519,54 @@
 				{/if}
 			</div>
 		{/if}
+	{/each}
+	<!-- The bodies the Overlays contribute (ADR-0062): each a selectable entity
+	     whose row is its Overlay's, its region the projected silhouette of its
+	     mesh where the stage draws it, stacked above the screen it stands before. -->
+	{#each overlayBodyHitRegions() as { overlay, index, region } (overlay.id)}
+		{@const selectionKey = `overlay-body:${overlay.id}`}
+		{@const selectionIdentity = { kind: 'overlay', overlayId: overlay.id } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{@const isSelected = isTrackSelected(selectionIdentity)}
+		<div
+			class={[
+				'canvas-selection-target',
+				'stage-body-hit',
+				isSelected && 'canvas-selection-target--selected',
+				isSelected && 'canvas-selection-target--primary'
+			]}
+			data-canvas-selection-key={selectionKey}
+			data-canvas-selection-id={selectionId}
+			data-canvas-selection-layer="stage-body"
+			data-canvas-paint-index={index + 1}
+			data-canvas-stable-id={overlay.id}
+			{@attach attachStageDolly}
+			onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
+			role="button"
+			tabindex="0"
+			aria-label={`Select ${overlay.type}`}
+			aria-pressed={isSelected}
+			title={CANVAS_OVERLAP_CYCLE_HINT}
+			onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+			style:left="{region.pointerBounds.left}px"
+			style:top="{region.pointerBounds.top}px"
+			style:width="{region.pointerBounds.width}px"
+			style:height="{region.pointerBounds.height}px"
+			style:z-index={canvasSelectionStackIndex({
+				layer: 'stage-body',
+				paintIndex: index + 1,
+				stableId: overlay.id
+			})}
+		>
+			<span
+				class="canvas-selection-outline"
+				aria-hidden="true"
+				style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+				style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+				style:width="{region.visibleBounds.width}px"
+				style:height="{region.visibleBounds.height}px"
+			></span>
+		</div>
 	{/each}
 	<!-- The stage body (ADR-0060 §3): the screen model as a selectable entity,
 	     its region the projected box of its mesh, ranked below the page it

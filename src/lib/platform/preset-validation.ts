@@ -10,6 +10,7 @@ import {
 	getSurfaceDefinition
 } from './pipelines/definition-registry';
 import { getCompositionEffectRegistration } from './pipelines/composition-effect-registry';
+import { STAGE_BODY_CEILINGS } from './pipelines/depth-stage-geometry';
 import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 import { getStageRegistration } from './pipelines/stage-registry';
 import {
@@ -302,7 +303,17 @@ function validateStageSemantics(preset: Preset, issues: PresetSemanticIssue[]): 
 	}
 	// Each posed Overlay (an explicit z or a pose) rides its own capture plane
 	// (ADR-0057); the stage allocates at most STAGE_POSED_OVERLAY_LIMIT of them.
-	const posed = partitionStageOverlays(preset.state.overlays).posed;
+	const { posed, bodies } = partitionStageOverlays(preset.state.overlays);
+	// Each body Overlay (ADR-0062) and the screen take one of the stage's body
+	// slots; the ceiling is the pool of body uniforms.
+	const bodyCount = bodies.length + (preset.state.stage?.screen ? 1 : 0);
+	if (bodyCount > STAGE_BODY_CEILINGS.maxBodies) {
+		const overflow = bodies[STAGE_BODY_CEILINGS.maxBodies - (preset.state.stage?.screen ? 1 : 0)];
+		issues.push({
+			path: ['state', 'overlays', preset.state.overlays.indexOf(overflow)],
+			message: `The depth stage carries at most ${STAGE_BODY_CEILINGS.maxBodies} bodies, the screen included; "${overflow.id}" is one more. Remove a body Overlay or the screen.`
+		});
+	}
 	if (posed.length > STAGE_POSED_OVERLAY_LIMIT) {
 		const overflow = posed[STAGE_POSED_OVERLAY_LIMIT];
 		issues.push({

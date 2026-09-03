@@ -16,6 +16,7 @@ import {
 	type StageCameraRig,
 	type StageCameraView
 } from './depth-stage-camera';
+import { getOverlayDefinition } from './definition-registry';
 
 // Plane geometry of the depth stage (ADR-0057 phase 1). Every captured Layer
 // rides a quad described by one basis — centre, half-width vector, half-height
@@ -241,14 +242,31 @@ export interface StageOverlayPartition {
 	shared: Overlay[];
 	/** Overlays that ride their own posed plane, in Layer order. */
 	posed: Overlay[];
+	/** Overlays whose renderer contributes a body instead of pixels (ADR-0062), in Layer order. */
+	bodies: Overlay[];
 }
 
 /** Split a composition's Overlays into the shared plane and the posed planes. */
+/** Whether an Overlay's definition renders it on the stage as a body (ADR-0062). */
+export function isStageBodyOverlay(overlay: Overlay): boolean {
+	return getOverlayDefinition(overlay.type)?.stageBody === true;
+}
+
+/**
+ * Where each Overlay reaches pixels on the stage: the shared plane, its own
+ * posed plane, or — for a body — no captured plane at all (ADR-0062), so the
+ * stage keeps it out of every DOM root and draws its geometry instead.
+ */
 export function partitionStageOverlays(overlays: readonly Overlay[]): StageOverlayPartition {
 	const shared: Overlay[] = [];
 	const posed: Overlay[] = [];
-	for (const overlay of overlays) (isPosedStageOverlay(overlay) ? posed : shared).push(overlay);
-	return { shared, posed };
+	const bodies: Overlay[] = [];
+	for (const overlay of overlays) {
+		if (isStageBodyOverlay(overlay)) bodies.push(overlay);
+		else if (isPosedStageOverlay(overlay)) posed.push(overlay);
+		else shared.push(overlay);
+	}
+	return { shared, posed, bodies };
 }
 
 /** A point on a plane in composition fractions (u right, v down — capture UV space). */

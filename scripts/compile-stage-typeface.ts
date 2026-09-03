@@ -6,6 +6,11 @@
 // Reads one font file the Pack already ships (a `@fontsource` WOFF2 cut),
 // takes the outline, advance, and pair kerning of every code point in the
 // headline glyph set, and writes `src/lib/assets/typefaces/<slug>.stageglyphs`.
+// Outlines are RESOLVED here, once: curves flattened at the stage tolerance
+// (in cap heights, so the same at every size), the contours a font draws
+// over itself split at their crossings, and the pieces unioned under the
+// nonzero rule fonts fill by — the file carries simple rings as line
+// commands, and the runtime triangulates them without a boolean library.
 // It prints the facts the registry declares — glyph count, metrics, the
 // source's sha256 — so a mismatch is visible before the tests catch it. This
 // is the only path that turns a font file into stage outlines; nothing parses
@@ -15,6 +20,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { create as createFont } from 'fontkit';
+import polygonClipping from 'polygon-clipping';
 
 import {
 	encodeStageTypeface,
@@ -22,6 +28,12 @@ import {
 	STAGE_GLYPH_COMMAND,
 	type StageGlyphOutline
 } from '../src/lib/platform/stage-glyph-format.ts';
+import {
+	flattenStageGlyph,
+	signedRingArea,
+	splitRingAtSelfIntersections,
+	type StageGlyphRing
+} from '../src/lib/platform/stage-glyph-outline.ts';
 
 function usage(): never {
 	throw new Error(
@@ -68,7 +80,54 @@ function outlineOf(codePoint: number): StageGlyphOutline | null {
 				throw new Error(`Unhandled outline command ${String(command.command)}.`);
 		}
 	}
-	return { codePoint, advance: glyph.advanceWidth, commands: new Float32Array(commands) };
+	return resolveOutline({
+		codePoint,
+		advance: glyph.advanceWidth,
+		commands: new Float32Array(commands)
+	});
+}
+
+type ClipRing = [number, number][];
+
+function toClipRing(ring: StageGlyphRing): ClipRing {
+	const out: ClipRing = [];
+	for (let i = 0; i < ring.length; i += 2) out.push([ring[i], ring[i + 1]]);
+	out.push([ring[0], ring[1]]);
+	return out;
+}
+
+/** Flatten, split, and union a glyph's contours into simple rings, re-encoded in font units. */
+function resolveOutline(outline: StageGlyphOutline): StageGlyphOutline {
+	if (outline.commands.length === 0) return outline;
+	const loops = flattenStageGlyph(outline, font.capHeight).flatMap(splitRingAtSelfIntersections);
+	if (loops.length === 0) return { ...outline, commands: new Float32Array(0) };
+	// The dominant winding of the largest loop is the outer winding; loops
+	// wound with it fill, loops wound against it are counters.
+	const largest = loops.reduce((best, loop) =>
+		Math.abs(signedRingArea(loop)) > Math.abs(signedRingArea(best)) ? loop : best
+	);
+	const outerSign = Math.sign(signedRingArea(largest)) || 1;
+	const filled = loops.filter((loop) => Math.sign(signedRingArea(loop)) === outerSign);
+	const counters = loops.filter((loop) => Math.sign(signedRingArea(loop)) !== outerSign);
+	const [first, ...rest] = filled.map((loop) => [toClipRing(loop)]);
+	let shape = polygonClipping.union(first, ...rest);
+	if (counters.length > 0) {
+		shape = polygonClipping.difference(shape, ...counters.map((loop) => [toClipRing(loop)]));
+	}
+	const commands: number[] = [];
+	for (const polygon of shape) {
+		for (const ring of polygon) {
+			const points = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+				? ring.slice(0, -1)
+				: ring;
+			if (points.length < 3) continue;
+			points.forEach(([x, y], index) => {
+				commands.push(index === 0 ? STAGE_GLYPH_COMMAND.move : STAGE_GLYPH_COMMAND.line, x * font.capHeight, y * font.capHeight);
+			});
+			commands.push(STAGE_GLYPH_COMMAND.close);
+		}
+	}
+	return { ...outline, commands: new Float32Array(commands) };
 }
 
 const glyphs: StageGlyphOutline[] = [];

@@ -2,6 +2,7 @@
 	import { engineState } from './engine-state.svelte';
 	import { STAGE_CAMERA_POSE_LIMITS, type Overlay, type OverlayPlacement } from './engine-schema';
 	import { cloneOverlayPlacement, resolveOverlayPlacement } from '$lib/utils/overlay-placement';
+	import { isStageBodyOverlay } from './pipelines/depth-stage-planes';
 	import InspectorSection from './InspectorSection.svelte';
 	import InspectorToggle from './InspectorToggle.svelte';
 	import Field from './Field.svelte';
@@ -48,7 +49,8 @@
 
 	// Focal-plane z (ADR-0021 semantics, signed by ADR-0057): 0 = the Surface
 	// plane, 1 = the backdrop, negative = lifted toward the camera; absent → the
-	// Overlay-Layer default 0.7 at render. Only consulted by the depth stage
+	// Overlay-Layer default 0.7 at render, or the Surface plane (0) for a body
+	// Overlay, which stands on the page (ADR-0062). Only consulted by the depth stage
 	// (ADR-0028) and the depth-of-field Effect (rack focus rides its focusPull
 	// params), so the row only shows then.
 	const depthActive = $derived(
@@ -221,7 +223,7 @@
 				max="1"
 				step="any"
 				value={ov.z ?? ''}
-				placeholder="0.7"
+				placeholder={isStageBodyOverlay(ov) ? '0' : '0.7'}
 				oninput={(e) => setZ((e.currentTarget as HTMLInputElement).value)}
 			/>
 			<button type="button" class="clear-btn" onclick={() => (ov.z = undefined)}>×</button>

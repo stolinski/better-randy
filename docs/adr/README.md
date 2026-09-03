@@ -72,6 +72,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0059](0059-compiled-stage-models-and-the-physical-screen.md)      | Canon (built and approved 2026-09-02; landed on `main`)                                      | Authored parts compile into registered stage models; the physical screen is the first body              |
 | [0060](0060-the-stage-in-the-workspace.md)                         | Canon (built and approved 2026-09-03; landed on `main`)                                      | Stage rows, stage inspectors, the body as a canvas entity, and the camera by hand                       |
 | [0061](0061-committed-composition-posters.md)                      | Canon (built 2026-09-03)                                                                     | Library posters are committed stills, chosen by content and gated for freshness; amends 0034 §8, 0052   |
+| [0062](0062-dimensional-type-compiled-typefaces-and-the-first-overlay-body.md) | Canon (built 2026-09-03; awaiting the gate on gfx-review)                                    | Dimensional type: compiled typefaces, resolved outlines, and the first Overlay-owned body; amends 0059 §2 |
 
 ## Supersession And Refinement
 
@@ -79,7 +80,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 - `0005` + `0008` -> invocation by `0010` -> deterministic context by `0013`.
 - `0014` + `0015` -> `0019` -> appearance-only/core fallback in `0023` + `0024` -> Preset-side completion in `0038`.
 - `0004` -> superseded recipe cookbook -> shipped Starter-template fork model in `0032`.
-- `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057` -> first body (the compiled screen model) landed by `0059`, which takes the one-asset-class revisit `0047` reserved -> the Stage made visible in the Workspace by `0060` (rows, inspectors, the body as an entity, the camera by hand).
+- `0021` -> flat multiplane mechanism in `0027` -> continuous dimensional mechanism in `0028` -> Pipeline-defined TypeGPU geometry expansion designed in `0051` -> ordered behind the filmed-canvas camera pose and posed planes of `0057` -> first body (the compiled screen model) landed by `0059`, which takes the one-asset-class revisit `0047` reserved -> the Stage made visible in the Workspace by `0060` (rows, inspectors, the body as an entity, the camera by hand) -> the first Overlay-owned body, dimensional type from compiled typefaces, by `0062`.
 - `0022` -> shipped snapshot-and-wipe implementation in `0026`; live dual-tree remains deferred.
 - `0033`'s original Sound-kit section -> superseded by its 2026-07-02 amendment; engine defaults + per-motion overrides are current.
 - `0034`'s three-zone/no-left-panel UI -> retained by `0045`; the existing right rail switches between Inspector and Media modes.

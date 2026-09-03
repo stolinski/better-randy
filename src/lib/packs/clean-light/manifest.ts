@@ -295,6 +295,9 @@ export const cleanLightPack: PackManifest = {
 		'watermark.tracking': { kind: 'style', value: '0.07em' },
 		'counter.ink': { kind: 'style', value: '#ffffff' },
 		'instance-stack.ink': { kind: 'style', value: '#ffffff' },
+		'dimensional-type.accent': { kind: 'style', value: '#0075de' },
+		'dimensional-type.face': { kind: 'style', value: 'geist-700' },
+		'dimensional-type.ink': { kind: 'style', value: '#16181d' },
 		'text-3d.ink': { kind: 'style', value: '#ffffff' },
 
 		// Paper tooth is not this register's material — the studio is

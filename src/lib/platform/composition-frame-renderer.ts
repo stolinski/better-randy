@@ -21,6 +21,9 @@ import {
 	type ResolvedMaterialTreatment
 } from './packs/resolve';
 import { getSurfaceDefinition } from './pipelines/definition-registry';
+import type { OverlayChannelValues } from './anim-state.svelte';
+import { resolveOverlayStageBodies } from './stage-body-overlays';
+import type { StageTypefaceData } from './stage-glyph-format';
 import type { StageMeshData } from './stage-mesh-format';
 import { getStageModel } from './stage-models';
 import {
@@ -29,7 +32,11 @@ import {
 } from './pipelines/runtime-loader';
 import { isAppearanceSlotPackClaimable } from './pipelines/identity-registry';
 import { CompositionPlanes, type CompositeBackdrop } from './pipelines/composition-planes';
-import { DepthStage, type DepthStagePosedOverlayPlane } from './pipelines/depth-stage';
+import {
+	DepthStage,
+	type DepthStageBody,
+	type DepthStagePosedOverlayPlane
+} from './pipelines/depth-stage';
 import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 import {
 	STAGE_CAM_Z,
@@ -84,6 +91,8 @@ interface ResolvedStageFrame {
 	sharedOverlayCount: number;
 	/** Overlays riding their own posed plane (ADR-0057), in Layer order. */
 	posedOverlays: readonly Overlay[];
+	/** Overlays the stage draws as bodies (ADR-0062); none captures them. */
+	bodyOverlayCount: number;
 	overlayZ: number;
 	/** The registered model whose glass the Surface plane is (ADR-0051 phase 2). */
 	screenModel: string | null;
@@ -149,6 +158,12 @@ export interface CompositionFrameRenderRequest {
 	substrateTexture: GPUTexture | null;
 	/** The decoded mesh of the stage's screen model, once its bytes are ready (ADR-0051 phase 2). */
 	stageModelMesh?: StageMeshData | null;
+	/** The decoded typefaces the stage's body Overlays set in, by slug; null until ready (ADR-0062). */
+	stageTypeface?: (slug: string) => StageTypefaceData | null;
+	/** Composition-owned motion per Overlay index (ADR-0035), read by body Overlays for their place and presence. */
+	overlayChannels?: readonly (OverlayChannelValues | null)[];
+	/** Each Overlay's own enter/exit progress, the body's presence when no channel drives it. */
+	overlayProgresses?: readonly number[];
 	videoUnderlayTexture: PreparedVideoUnderlayTexture | null;
 	readableProbeMode?: CompositionReadableProbeMode;
 	domCapture?: CompositionDomCaptureGenerations;
@@ -550,7 +565,7 @@ function resolveStageFrame(
 		focusZ = clampNumber(pull.from + (pull.to - pull.from) * eased, 0, 1);
 	}
 	const background = treatments.background;
-	const { shared, posed } = partitionStageOverlays(state.overlays);
+	const { shared, posed, bodies } = partitionStageOverlays(state.overlays);
 	return {
 		focusZ,
 		aperture: clampNumber(stage.focus.aperture, 0, 1),
@@ -561,6 +576,7 @@ function resolveStageFrame(
 		camera: resolveStageCameraForOrientation(stage.camera, state.transport.orientation),
 		sharedOverlayCount: shared.length,
 		posedOverlays: posed,
+		bodyOverlayCount: bodies.length,
 		overlayZ: SHARED_OVERLAY_PLANE_Z,
 		screenModel: stage.screen?.model ?? null,
 		light: treatments.light,
@@ -705,12 +721,34 @@ function renderStageFrame(
 		screenModel && request.stageModelMesh
 			? { model: screenModel, mesh: request.stageModelMesh }
 			: undefined;
+	const rig = createStageCameraRig({
+		aspect: depthStage.width / depthStage.height,
+		camera: stage.camera,
+		time: timebase.progress
+	});
+	// The bodies the Overlays contribute (ADR-0062), placed through the same
+	// rig this frame films with. Readiness awaited their typeface before first
+	// paint and export; a frame without it renders the stage without them.
+	const bodies: DepthStageBody[] =
+		stage.bodyOverlayCount > 0 && request.stageTypeface
+			? resolveOverlayStageBodies({
+					overlays: request.state.overlays,
+					pack: request.pack,
+					typeface: request.stageTypeface,
+					overlayChannels: request.overlayChannels,
+					overlayProgresses: request.overlayProgresses,
+					rig,
+					aspect: depthStage.width / depthStage.height,
+					orientation: request.state.transport.orientation
+				}).map((resolution) => resolution.body)
+			: [];
 	depthStage.render({
 		surfacePlaneView: stagedSurfaceTexture.createView(),
 		overlayPlaneView,
 		overlayZ: stage.overlayZ,
 		posedOverlayPlanes,
 		screen,
+		bodies,
 		focusZ: stage.focusZ,
 		aperture: stage.aperture,
 		focusBand: stage.focusBand,
@@ -723,11 +761,6 @@ function renderStageFrame(
 		camera: stage.camera,
 		light: stage.light,
 		surfaceFadeAlpha: stageSurfaceFadeAlpha(request.state, request.paperVisibility),
-		time: timebase.progress
-	});
-	const rig = createStageCameraRig({
-		aspect: depthStage.width / depthStage.height,
-		camera: stage.camera,
 		time: timebase.progress
 	});
 	effectChain.apply({

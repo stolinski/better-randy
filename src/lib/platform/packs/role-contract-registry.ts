@@ -1,5 +1,6 @@
 import { cssColorToRgbaFloat } from '$lib/utils/color';
 import { isChartMarkFillRoleValue } from './chart-mark-fill-contract';
+import { isStageTypeface, listStageTypefaces, REFERENCE_STAGE_TYPEFACE_SLUG } from '../stage-typefaces';
 import { MANDATORY_CORE_ROLES, type PackManifest, type PackRole, type PackRoleKind } from './types';
 
 export type PackRoleAvailability = 'mandatory' | 'reference-identity' | 'optional';
@@ -465,6 +466,8 @@ const colorRoleFallbacks: Readonly<Record<string, string>> = {
 	'checklist.plate': 'fill-treatment',
 	'circle.fill': 'accent-treatment',
 	'counter.ink': 'ink-treatment',
+	'dimensional-type.accent': 'accent-treatment',
+	'dimensional-type.ink': 'ink-treatment',
 	'highlight.fill': 'accent-treatment',
 	'instance-stack.ink': 'ink-treatment',
 	'label.ink': 'ink-treatment',
@@ -507,6 +510,10 @@ const intrinsicColorFallbackRoles = new Set([
 	'washi-tape.grain-light'
 ]);
 
+// Colour Roles a body consumes through the resolver, never a CSS variable:
+// dimensional type's face and extrusion are lit geometry (ADR-0062).
+const resolverColorRoles = new Set(['dimensional-type.ink', 'dimensional-type.accent']);
+
 const referenceIdentityRoles = new Set([
 	'achievement.accent',
 	'achievement.border',
@@ -524,6 +531,9 @@ const referenceIdentityRoles = new Set([
 	'checklist.plate',
 	'circle.fill',
 	'counter.ink',
+	'dimensional-type.accent',
+	'dimensional-type.face',
+	'dimensional-type.ink',
 	'cursor-trail.pointer',
 	'cursor-trail.trailMaterial',
 	'diagram.arrowhead',
@@ -569,7 +579,7 @@ for (const [role, fallbackRole] of Object.entries(colorRoleFallbacks)) {
 	const fallback = intrinsicColorFallbackRoles.has(role)
 		? intrinsic('Pipeline CSS default')
 		: ({ kind: 'role', role: fallbackRole } satisfies PackRoleFallback);
-	if (pipelineKey.startsWith('annotation:')) {
+	if (pipelineKey.startsWith('annotation:') || resolverColorRoles.has(role)) {
 		addContract({
 			role,
 			permittedKind: 'style',
@@ -660,6 +670,18 @@ for (const role of [
 		isNonEmptyString,
 		referenceIdentityRoles.has(role) ? 'reference-identity' : 'optional'
 	);
+
+// The face dimensional type sets in (ADR-0062): a registered stage typeface
+// slug, consumed by the resolver, never a CSS variable.
+addContract({
+	role: 'dimensional-type.face',
+	permittedKind: 'style',
+	availability: 'reference-identity',
+	fallback: intrinsic(`the reference stage typeface, ${REFERENCE_STAGE_TYPEFACE_SLUG}`),
+	consumers: [resolverConsumer('resolveStageTypefaceRole', undefined, 'overlay:dimensional-type')],
+	valueDescription: `a registered stage typeface slug (${listStageTypefaces().join(', ')})`,
+	validateValue: (value) => typeof value === 'string' && isStageTypeface(value)
+});
 
 for (const [role, core, pipelineKey] of [
 	['plain.edge', 'edge-treatment', 'surface:plain'],

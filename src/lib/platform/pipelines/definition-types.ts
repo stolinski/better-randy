@@ -64,6 +64,15 @@ export interface OverlayPipelineDefinition<TContent = unknown> {
 	disableEntryOffset?: boolean;
 	disableOpacityTransition?: boolean;
 	edgeTransition?: 'right';
+	/**
+	 * This Overlay renders on the depth Stage as a BODY (ADR-0051, ADR-0062):
+	 * its renderer contributes geometry instead of captured pixels, so the
+	 * stage keeps it out of every captured plane and the canvas selects it by
+	 * its projected silhouette. Off the stage its CanvasSource is the flat
+	 * fallback. Declared here, renderer-free, so partition and validation can
+	 * see it without loading the renderer.
+	 */
+	stageBody?: true;
 }
 
 export interface EffectPipelineDefinition<TParams = unknown> {

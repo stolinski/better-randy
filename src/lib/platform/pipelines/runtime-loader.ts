@@ -181,6 +181,10 @@ const overlayRendererLoaders: Record<string, RuntimeRendererLoader<OverlayRender
 		import('$lib/pipelines/overlays/cursor-trail').then(
 			(module) => module.cursorTrailOverlayRenderer as unknown as OverlayRenderer
 		),
+	[PIPELINE_DEFINITION_REGISTRY.overlays.dimensionalType.type]: () =>
+		import('$lib/pipelines/overlays/dimensional-type').then(
+			(module) => module.dimensionalTypeOverlayRenderer as unknown as OverlayRenderer
+		),
 	[PIPELINE_DEFINITION_REGISTRY.overlays.counter.type]: () =>
 		import('$lib/pipelines/overlays/counter').then(
 			(module) => module.counterOverlayRenderer as unknown as OverlayRenderer

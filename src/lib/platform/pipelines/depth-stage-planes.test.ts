@@ -180,12 +180,13 @@ describe('posed Overlay planes (ADR-0057)', () => {
 			...extra
 		}) as never;
 
-	it('assigns Overlays with a pose or an explicit depth to their own plane', () => {
-		const { shared, posed } = partitionStageOverlays([
+	it('assigns Overlays with a pose or an explicit depth to their own plane, and body Overlays to the stage (ADR-0062)', () => {
+		const { shared, posed, bodies } = partitionStageOverlays([
 			overlay('plain'),
 			overlay('deep', { z: 0.45 }),
 			overlay('turned', { pose: { yaw: 10, pitch: 0, roll: 0 } }),
-			overlay('lifted', { z: -0.2 })
+			overlay('lifted', { z: -0.2 }),
+			overlay('headline', { type: 'dimensional-type', pose: { yaw: 10, pitch: 0, roll: 0 } })
 		]);
 		assert.deepEqual(
 			shared.map((entry: { id: string }) => entry.id),
@@ -194,6 +195,10 @@ describe('posed Overlay planes (ADR-0057)', () => {
 		assert.deepEqual(
 			posed.map((entry: { id: string }) => entry.id),
 			['deep', 'turned', 'lifted']
+		);
+		assert.deepEqual(
+			bodies.map((entry: { id: string }) => entry.id),
+			['headline']
 		);
 	});
 

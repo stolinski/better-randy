@@ -20,3 +20,43 @@ export function cloneOverlayPlacement(placement: OverlayPlacement): OverlayPlace
 		rotation: placement.rotation
 	};
 }
+
+export interface OverlayPlacementExtents {
+	/** The element's width as a fraction of the frame width. */
+	width: number;
+	/** The element's height as a fraction of the frame height. */
+	height: number;
+}
+
+/**
+ * The centre an anchored placement lands an element of the given extents at,
+ * in frame fractions (x right, y down), by the same law the Overlay mount
+ * lays a DOM element out with: an edge anchor insets the element by the
+ * placement offset, a centre anchor ignores the offset, and a composition-
+ * owned motion delta shifts the spot (+x right, +y down) on every anchor.
+ * Bodies the stage draws itself have no DOM box to measure, so they are
+ * placed by this law analytically.
+ */
+export function resolveOverlayPlacementCenter(
+	placement: OverlayPlacement,
+	extents: OverlayPlacementExtents,
+	delta: { x: number; y: number } = { x: 0, y: 0 }
+): { x: number; y: number } {
+	const { anchor, offset, rect } = placement;
+	if (anchor === 'normalized-rect' && rect) {
+		return { x: rect.x + rect.width / 2 + delta.x, y: rect.y + rect.height / 2 + delta.y };
+	}
+	const ox = offset?.x ?? 0;
+	const oy = offset?.y ?? 0;
+	const y = anchor.startsWith('top')
+		? oy + delta.y + extents.height / 2
+		: anchor.startsWith('bottom')
+			? 1 - (oy - delta.y) - extents.height / 2
+			: 0.5 + delta.y;
+	const x = anchor.endsWith('left')
+		? ox + delta.x + extents.width / 2
+		: anchor.endsWith('right')
+			? 1 - (ox - delta.x) - extents.width / 2
+			: 0.5 + delta.x;
+	return { x, y };
+}

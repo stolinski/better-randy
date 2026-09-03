@@ -266,6 +266,9 @@ export const sentryPack: PackManifest = {
 		'watermark.tracking': { kind: 'style', value: LABEL_TRACKING },
 		'counter.ink': { kind: 'style', value: '#ffffff' },
 		'instance-stack.ink': { kind: 'style', value: '#ffffff' },
+		'dimensional-type.accent': { kind: 'style', value: '#fd44b0' },
+		'dimensional-type.face': { kind: 'style', value: 'rubik-700' },
+		'dimensional-type.ink': { kind: 'style', value: '#ffffff' },
 		'text-3d.ink': { kind: 'style', value: '#ffffff' },
 
 		// Paper tooth is not this register's material — the console is

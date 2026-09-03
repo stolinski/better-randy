@@ -368,6 +368,9 @@ export const crtTerminalPack: PackManifest = {
 		'watermark.accent': { kind: 'style', value: '#d9ffe0' },
 		'counter.ink': { kind: 'style', value: '#45ff6e' },
 		'instance-stack.ink': { kind: 'style', value: '#45ff6e' },
+		'dimensional-type.accent': { kind: 'style', value: '#d9ffe0' },
+		'dimensional-type.face': { kind: 'style', value: 'jetbrains-mono-800' },
+		'dimensional-type.ink': { kind: 'style', value: '#45ff6e' },
 		'text-3d.ink': { kind: 'style', value: '#45ff6e' },
 
 		// Paper tooth is a PAPER artifact (aesthetic doc: no grain-as-tooth — a

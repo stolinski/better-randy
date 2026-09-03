@@ -879,6 +879,21 @@ export class DepthStage {
 			.withDepthStencil(opaqueDepth)
 			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
 			.createPipeline();
+		// A body below full presence blends, so without a depth pre-pass its own
+		// far surfaces would show through its near ones — a leaning headline's
+		// face hatched with the segments of its sides (ADR-0062). The pre-pass
+		// lays the body's nearest depth down first; the colour pass then only
+		// shades what is really in front.
+		const bodyDepthPipeline = unstable
+			.withVertex(stageBodyVertexFn, {
+				position: stageBodyVertexLayout.attrib.position,
+				normal: stageBodyVertexLayout.attrib.normal,
+				region: stageBodyVertexLayout.attrib.region
+			})
+			.withPrimitive({ topology: 'triangle-list', cullMode: 'back', frontFace: 'ccw' })
+			.withDepthStencil(opaqueDepth)
+			.withMultisample({ count: STAGE_SCENE_SAMPLE_COUNT })
+			.createPipeline();
 		const shadowDepthPipeline = unstable
 			.withVertex(stageShadowDepthVertexFn, {
 				position: stageBodyVertexLayout.attrib.position
@@ -1710,6 +1725,18 @@ export class DepthStage {
 			// the glass occludes the tube behind it), writing depth and the sidecar
 			// like any opaque texel.
 			for (const draw of bodyDraws) {
+				if (draw.presence < 1) {
+					bodyDepthPipeline
+						.with(stageBodyVertexLayout, draw.mesh.vertexBuffer)
+						.with(bodyBindGroups.get(draw)!)
+						.withIndexBuffer(draw.mesh.indexBuffer, 'uint32')
+						.withDepthStencilAttachment({
+							view: sceneDepthView,
+							depthLoadOp: 'load',
+							depthStoreOp: 'store'
+						})
+						.drawIndexed(draw.mesh.indexCount);
+				}
 				bodyPipeline
 					.with(stageBodyVertexLayout, draw.mesh.vertexBuffer)
 					.with(bodyBindGroups.get(draw)!)

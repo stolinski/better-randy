@@ -1,20 +1,26 @@
-import earcut from 'earcut';
+import earcut, { deviation as earcutDeviation } from 'earcut';
 
 import {
-	STAGE_GLYPH_COMMAND,
 	STAGE_GLYPH_COMMAND_ARITY,
 	stageKerningKey,
 	type StageGlyphOutline,
 	type StageTypefaceData
 } from '../stage-glyph-format';
+import {
+	flattenStageGlyph,
+	groupStageGlyphContours,
+	signedRingArea,
+	type StageGlyphContour,
+	type StageGlyphRing
+} from '../stage-glyph-outline';
 import { STAGE_MESH_VERTEX_FLOATS, type StageMeshData } from '../stage-mesh-format';
 
 // Dimensional type's geometry (ADR-0062): a headline set in a compiled
 // typeface becomes one body. The line is shaped from the face's advances and
-// pair kerning; each glyph's outline is flattened to a tolerance the body's
-// size asks for, split into outer rings and the holes they contain by
-// winding, triangulated for the caps, and extruded: a back cap on the plane,
-// straight sides, a chamfer bevel, and a front cap standing toward the eye.
+// pair kerning; each glyph's resolved outline (`stage-glyph-outline.ts`) is
+// sorted into outer rings and the holes they contain, triangulated for the
+// caps, and extruded: a back cap on the plane, straight sides, a chamfer
+// bevel over an inset ring, and a front cap standing toward the eye.
 // Every step is deterministic — the same text in the same face at the same
 // size yields the same bytes — and the result is a `StageMeshData` the body
 // pass draws like a compiled model, with four material regions.
@@ -28,15 +34,14 @@ import { STAGE_MESH_VERTEX_FLOATS, type StageMeshData } from '../stage-mesh-form
 export const STAGE_TYPE_REGION = { face: 0, bevel: 1, side: 2, back: 3 } as const;
 export const STAGE_TYPE_REGION_COUNT = 4;
 
-/** Curve flattening: the largest deviation a chord may show, in cap heights. */
-const FLATTEN_TOLERANCE_CAP = 0.004;
-/** The fewest and most segments a curve flattens into. */
-const FLATTEN_SEGMENTS_MIN = 2;
-const FLATTEN_SEGMENTS_MAX = 24;
-/** Vertices closer than this (in cap heights) collapse: the outline's own repeats and hairline stubs. */
-const WELD_EPSILON = 1e-4;
-/** A bevel inset never exceeds this share of a ring's smallest half-width, so thin strokes keep a face. */
+/** The miter at a sharp corner grows no longer than this many bevels, so a spike never crosses the stroke. */
 const BEVEL_MITER_LIMIT = 2.5;
+/** A bevel never eats more than this share of a ring's smallest half-width, so thin strokes keep a face. */
+const BEVEL_STROKE_SHARE = 0.6;
+/** An inset ring that crosses itself is retried at half the bevel this many times before the glyph goes unbevelled. */
+const BEVEL_RETRIES = 6;
+/** The largest area mismatch a cap's triangulation may show before the ring is treated as crossed. */
+const CAP_DEVIATION_LIMIT = 1e-3;
 
 export interface StageTypeGlyphPlacement {
 	codePoint: number;
@@ -124,189 +129,14 @@ function outlineBounds(glyph: StageGlyphOutline): { minX: number; maxX: number }
 	return Number.isFinite(minX) ? { minX, maxX } : null;
 }
 
-type Ring = number[]; // x0, y0, x1, y1 … in cap heights, closed implicitly
-
-function segmentsFor(chord: number, deviation: number): number {
-	if (!(deviation > 0)) return FLATTEN_SEGMENTS_MIN;
-	const wanted = Math.ceil(Math.sqrt((deviation / FLATTEN_TOLERANCE_CAP) * 2));
-	return Math.max(FLATTEN_SEGMENTS_MIN, Math.min(FLATTEN_SEGMENTS_MAX, wanted, Math.ceil(chord / FLATTEN_TOLERANCE_CAP)));
-}
-
-/** Flatten a glyph's outline into closed rings in cap heights, welding repeats. */
-export function flattenStageGlyph(glyph: StageGlyphOutline, capHeight: number): Ring[] {
-	const scale = 1 / capHeight;
-	const { commands } = glyph;
-	const rings: Ring[] = [];
-	let ring: Ring = [];
-	let x = 0;
-	let y = 0;
-	const push = (px: number, py: number): void => {
-		const length = ring.length;
-		if (length >= 2) {
-			const dx = px - ring[length - 2];
-			const dy = py - ring[length - 1];
-			if (dx * dx + dy * dy < WELD_EPSILON * WELD_EPSILON) return;
-		}
-		ring.push(px, py);
-	};
-	const closeRing = (): void => {
-		if (ring.length >= 6) {
-			// Drop a closing point that repeats the first.
-			const dx = ring[ring.length - 2] - ring[0];
-			const dy = ring[ring.length - 1] - ring[1];
-			if (dx * dx + dy * dy < WELD_EPSILON * WELD_EPSILON) ring.length -= 2;
-			if (ring.length >= 6) rings.push(ring);
-		}
-		ring = [];
-	};
-	let cursor = 0;
-	while (cursor < commands.length) {
-		const opcode = commands[cursor];
-		switch (opcode) {
-			case STAGE_GLYPH_COMMAND.move:
-				closeRing();
-				x = commands[cursor + 1] * scale;
-				y = commands[cursor + 2] * scale;
-				push(x, y);
-				break;
-			case STAGE_GLYPH_COMMAND.line:
-				x = commands[cursor + 1] * scale;
-				y = commands[cursor + 2] * scale;
-				push(x, y);
-				break;
-			case STAGE_GLYPH_COMMAND.quadratic: {
-				const cx = commands[cursor + 1] * scale;
-				const cy = commands[cursor + 2] * scale;
-				const ex = commands[cursor + 3] * scale;
-				const ey = commands[cursor + 4] * scale;
-				const chord = Math.hypot(ex - x, ey - y);
-				const deviation = Math.hypot(cx - (x + ex) / 2, cy - (y + ey) / 2) / 2;
-				const segments = segmentsFor(chord, deviation);
-				for (let step = 1; step <= segments; step += 1) {
-					const t = step / segments;
-					const mt = 1 - t;
-					push(mt * mt * x + 2 * mt * t * cx + t * t * ex, mt * mt * y + 2 * mt * t * cy + t * t * ey);
-				}
-				x = ex;
-				y = ey;
-				break;
-			}
-			case STAGE_GLYPH_COMMAND.cubic: {
-				const c1x = commands[cursor + 1] * scale;
-				const c1y = commands[cursor + 2] * scale;
-				const c2x = commands[cursor + 3] * scale;
-				const c2y = commands[cursor + 4] * scale;
-				const ex = commands[cursor + 5] * scale;
-				const ey = commands[cursor + 6] * scale;
-				const chord = Math.hypot(ex - x, ey - y);
-				const deviation =
-					Math.max(
-						Math.hypot(c1x - (2 * x + ex) / 3, c1y - (2 * y + ey) / 3),
-						Math.hypot(c2x - (x + 2 * ex) / 3, c2y - (y + 2 * ey) / 3)
-					) * 0.75;
-				const segments = segmentsFor(chord, deviation);
-				for (let step = 1; step <= segments; step += 1) {
-					const t = step / segments;
-					const mt = 1 - t;
-					push(
-						mt * mt * mt * x + 3 * mt * mt * t * c1x + 3 * mt * t * t * c2x + t * t * t * ex,
-						mt * mt * mt * y + 3 * mt * mt * t * c1y + 3 * mt * t * t * c2y + t * t * t * ey
-					);
-				}
-				x = ex;
-				y = ey;
-				break;
-			}
-			case STAGE_GLYPH_COMMAND.close:
-				closeRing();
-				break;
-			default:
-				throw new TypeError(`Stage glyph outline has an unknown opcode ${opcode}.`);
-		}
-		cursor += 1 + STAGE_GLYPH_COMMAND_ARITY[opcode];
-	}
-	closeRing();
-	return rings;
-}
-
-function signedArea(ring: Ring): number {
-	let area = 0;
-	for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
-		area += (ring[j] - ring[i]) * (ring[i + 1] + ring[j + 1]);
-	}
-	return area / 2;
-}
-
-function ringContainsPoint(ring: Ring, px: number, py: number): boolean {
-	let inside = false;
-	for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
-		const xi = ring[i];
-		const yi = ring[i + 1];
-		const xj = ring[j];
-		const yj = ring[j + 1];
-		if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
-	}
-	return inside;
-}
-
-export interface StageTypeContour {
-	/** The outer ring, counter-clockwise (y up). */
-	outer: Ring;
-	/** Its holes, clockwise. */
-	holes: Ring[];
-}
-
 /**
- * Sort a glyph's rings into the outers and the holes each contains, by area
- * sign and containment: a font's outer contours and counters wind against
- * each other, and a counter sits inside exactly one outer. Orientation is
- * normalised so the caps triangulate and the sides extrude consistently.
+ * Inset a ring along its per-vertex edge normals by `amount`, miter-limited.
+ * Null when the inset crossed the stroke — an edge turned back on itself or
+ * the ring's area went the wrong way — so the caller can try a smaller bevel.
  */
-export function groupStageGlyphContours(rings: Ring[]): StageTypeContour[] {
-	const oriented = rings.map((ring) => ({ ring, area: signedArea(ring) }));
-	// The dominant winding of the largest rings is the outer winding.
-	const largest = oriented.reduce((best, entry) => (Math.abs(entry.area) > Math.abs(best.area) ? entry : best), oriented[0]);
-	if (!largest) return [];
-	const outerSign = Math.sign(largest.area) || 1;
-	const outers: StageTypeContour[] = [];
-	const holes: Ring[] = [];
-	for (const entry of oriented) {
-		if (Math.abs(entry.area) < WELD_EPSILON * WELD_EPSILON) continue;
-		if (Math.sign(entry.area) === outerSign) outers.push({ outer: entry.ring, holes: [] });
-		else holes.push(entry.ring);
-	}
-	for (const hole of holes) {
-		// A hole belongs to the smallest outer that contains its first vertex.
-		let owner: StageTypeContour | null = null;
-		let ownerArea = Number.POSITIVE_INFINITY;
-		for (const contour of outers) {
-			if (!ringContainsPoint(contour.outer, hole[0], hole[1])) continue;
-			const area = Math.abs(signedArea(contour.outer));
-			if (area < ownerArea) {
-				owner = contour;
-				ownerArea = area;
-			}
-		}
-		if (owner) owner.holes.push(hole);
-	}
-	// Normalise: outers counter-clockwise (positive area), holes clockwise.
-	for (const contour of outers) {
-		if (signedArea(contour.outer) < 0) contour.outer = reverseRing(contour.outer);
-		contour.holes = contour.holes.map((hole) => (signedArea(hole) > 0 ? reverseRing(hole) : hole));
-	}
-	return outers;
-}
-
-function reverseRing(ring: Ring): Ring {
-	const out: Ring = [];
-	for (let i = ring.length - 2; i >= 0; i -= 2) out.push(ring[i], ring[i + 1]);
-	return out;
-}
-
-/** Inset a ring along its per-vertex edge normals by `amount`, miter-limited so thin strokes keep a face. */
-function insetRing(ring: Ring, amount: number, inward: 1 | -1): Ring {
+function insetRing(ring: StageGlyphRing, amount: number, inward: 1 | -1): StageGlyphRing | null {
 	const count = ring.length / 2;
-	const out: Ring = new Array(ring.length);
+	const out: StageGlyphRing = new Array(ring.length);
 	for (let i = 0; i < count; i += 1) {
 		const prev = (i - 1 + count) % count;
 		const next = (i + 1) % count;
@@ -347,7 +177,42 @@ function insetRing(ring: Ring, amount: number, inward: 1 | -1): Ring {
 		out[i * 2] = x - inward * mx * distance;
 		out[i * 2 + 1] = y - inward * my * distance;
 	}
+	for (let i = 0; i < count; i += 1) {
+		const j = (i + 1) % count;
+		const ex = ring[j * 2] - ring[i * 2];
+		const ey = ring[j * 2 + 1] - ring[i * 2 + 1];
+		const ox = out[j * 2] - out[i * 2];
+		const oy = out[j * 2 + 1] - out[i * 2 + 1];
+		if (ex * ox + ey * oy <= 0) return null;
+	}
+	const before = signedRingArea(ring);
+	const after = signedRingArea(out);
+	if (Math.sign(after) !== Math.sign(before)) return null;
+	const shrank = Math.abs(after) < Math.abs(before);
+	if (shrank !== (inward === 1)) return null;
 	return out;
+}
+
+/** The inset front cap, or null when no bevel down to a hairline keeps the ring simple. */
+function insetContour(contour: StageGlyphContour, bevel: number): StageGlyphContour | null {
+	const outer = insetRing(contour.outer, bevel, 1);
+	if (!outer) return null;
+	const holes: StageGlyphRing[] = [];
+	for (const hole of contour.holes) {
+		const inset = insetRing(hole, bevel, -1);
+		if (!inset) return null;
+		holes.push(inset);
+	}
+	const flat = [...outer];
+	const holeIndices: number[] = [];
+	for (const hole of holes) {
+		holeIndices.push(flat.length / 2);
+		flat.push(...hole);
+	}
+	if (earcutDeviation(flat, holeIndices, 2, earcut(flat, holeIndices, 2)) > CAP_DEVIATION_LIMIT) {
+		return null;
+	}
+	return { outer, holes };
 }
 
 interface MeshBuilder {
@@ -366,7 +231,7 @@ function pushVertex(builder: MeshBuilder, x: number, y: number, z: number, nx: n
 }
 
 /** Triangulate a contour (outer + holes) as a flat cap at `z`, facing `facing` (+1 toward the eye). */
-function appendCap(builder: MeshBuilder, contour: StageTypeContour, z: number, facing: 1 | -1, region: number): void {
+function appendCap(builder: MeshBuilder, contour: StageGlyphContour, z: number, facing: 1 | -1, region: number): void {
 	const flat: number[] = [...contour.outer];
 	const holeIndices: number[] = [];
 	for (const hole of contour.holes) {
@@ -386,7 +251,7 @@ function appendCap(builder: MeshBuilder, contour: StageTypeContour, z: number, f
 }
 
 /** Join two rings of equal length at two depths with flat-shaded quads. */
-function appendBand(builder: MeshBuilder, near: Ring, nearZ: number, far: Ring, farZ: number, region: number, inward: 1 | -1): void {
+function appendBand(builder: MeshBuilder, near: StageGlyphRing, nearZ: number, far: StageGlyphRing, farZ: number, region: number, inward: 1 | -1): void {
 	const count = near.length / 2;
 	for (let i = 0; i < count; i += 1) {
 		const j = (i + 1) % count;
@@ -421,8 +286,8 @@ function appendBand(builder: MeshBuilder, near: Ring, nearZ: number, far: Ring, 
 	}
 }
 
-/** Bounds the miter so the inset ring never crosses its own stroke: the largest inset a ring allows. */
-function safeBevel(contour: StageTypeContour, bevel: number): number {
+/** The largest bevel a contour's thinnest stroke allows: a share of its area over half its perimeter. */
+function safeBevel(contour: StageGlyphContour, bevel: number): number {
 	let smallest = Number.POSITIVE_INFINITY;
 	const rings = [contour.outer, ...contour.holes];
 	for (const ring of rings) {
@@ -432,43 +297,54 @@ function safeBevel(contour: StageTypeContour, bevel: number): number {
 		for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
 			perimeter += Math.hypot(ring[i] - ring[j], ring[i + 1] - ring[j + 1]);
 		}
-		const halfWidth = Math.abs(signedArea(ring)) / Math.max(perimeter, 1e-6);
+		const halfWidth = Math.abs(signedRingArea(ring)) / Math.max(perimeter, 1e-6);
 		smallest = Math.min(smallest, halfWidth);
 	}
-	return Math.min(bevel, smallest * 0.9);
+	return Math.min(bevel, smallest * BEVEL_STROKE_SHARE);
 }
 
 /**
  * Build one glyph's body: back cap on z = 0, sides to z = depth − bevel, the
  * chamfer to z = depth over an inset ring, and the front cap on the inset.
  */
-function appendGlyphBody(builder: MeshBuilder, contours: StageTypeContour[], form: StageTypeForm, offsetX: number): void {
+function appendGlyphBody(builder: MeshBuilder, contours: StageGlyphContour[], form: StageTypeForm, offsetX: number): void {
 	for (const contour of contours) {
-		const shifted: StageTypeContour = {
+		const shifted: StageGlyphContour = {
 			outer: shiftRing(contour.outer, offsetX),
 			holes: contour.holes.map((hole) => shiftRing(hole, offsetX))
 		};
-		const bevel = safeBevel(shifted, form.bevel);
+		// The bevel this contour can carry: halved while its inset crosses the
+		// stroke, down to none — a hairline glyph extrudes straight rather than
+		// growing a spike.
+		let bevel = safeBevel(shifted, form.bevel);
+		let front: StageGlyphContour | null = null;
+		for (let attempt = 0; attempt < BEVEL_RETRIES && bevel > 1e-4; attempt += 1) {
+			front = insetContour(shifted, bevel);
+			if (front) break;
+			bevel /= 2;
+		}
+		if (!front) {
+			bevel = 0;
+			front = shifted;
+		}
 		const sideTop = Math.max(form.depth - bevel, 0);
 		appendCap(builder, shifted, 0, -1, STAGE_TYPE_REGION.back);
 		if (sideTop > 0) {
 			appendBand(builder, shifted.outer, sideTop, shifted.outer, 0, STAGE_TYPE_REGION.side, 1);
 			for (const hole of shifted.holes) appendBand(builder, hole, sideTop, hole, 0, STAGE_TYPE_REGION.side, 1);
 		}
-		const frontOuter = bevel > 0 ? insetRing(shifted.outer, bevel, 1) : shifted.outer;
-		const frontHoles = shifted.holes.map((hole) => (bevel > 0 ? insetRing(hole, bevel, -1) : hole));
 		if (bevel > 0) {
-			appendBand(builder, frontOuter, form.depth, shifted.outer, sideTop, STAGE_TYPE_REGION.bevel, 1);
+			appendBand(builder, front.outer, form.depth, shifted.outer, sideTop, STAGE_TYPE_REGION.bevel, 1);
 			shifted.holes.forEach((hole, index) => {
-				appendBand(builder, frontHoles[index], form.depth, hole, sideTop, STAGE_TYPE_REGION.bevel, 1);
+				appendBand(builder, front.holes[index], form.depth, hole, sideTop, STAGE_TYPE_REGION.bevel, 1);
 			});
 		}
-		appendCap(builder, { outer: frontOuter, holes: frontHoles }, form.depth, 1, STAGE_TYPE_REGION.face);
+		appendCap(builder, front, form.depth, 1, STAGE_TYPE_REGION.face);
 	}
 }
 
-function shiftRing(ring: Ring, offsetX: number): Ring {
-	const out: Ring = new Array(ring.length);
+function shiftRing(ring: StageGlyphRing, offsetX: number): StageGlyphRing {
+	const out: StageGlyphRing = new Array(ring.length);
 	for (let i = 0; i < ring.length; i += 2) {
 		out[i] = ring[i] + offsetX;
 		out[i + 1] = ring[i + 1];

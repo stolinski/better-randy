@@ -17,6 +17,18 @@ export const STAGE_OCCLUSION_SAMPLES = 48;
 const SPIRAL_TURNS = 7;
 /** Cosine bias that keeps a flat surface from occluding itself. */
 const OCCLUSION_BIAS = 0.06;
+/**
+ * How far a tap must rise above its centre, along the normal, before it
+ * counts: a pixel and a half of slope, plus the sidecar's own precision. The
+ * sidecar stores depth01 as a 16-bit float, whose step at a given depth is
+ * about a thousandth of that depth: a face nearly square to the camera reads
+ * back as terraces a few pixels wide, and the spiral traced their walls as a
+ * hatch across a leaning headline (ADR-0062). A real crease rises by a share
+ * of the radius, many steps deep, so it is untouched.
+ */
+const OCCLUSION_PIXEL_BIAS = 1.5;
+/** Two steps of the rg16float sidecar at a given view depth, as a fraction of that depth. */
+const OCCLUSION_DEPTH_PRECISION = 2 ** -9;
 /** Obscurance gain: how dark a fully creased fragment goes before the power. */
 export const STAGE_OCCLUSION_INTENSITY = 5.0;
 /** World radius of the obscurance: a step of the Surface plane's height at rest. */
@@ -97,7 +109,9 @@ export const stageOcclusionFragmentFn = tgpu['~unstable'].fragmentFn({
 	var N = normalize(cross(dx, dy));
 	if (dot(N, -P) < 0.0) { N = -N; }
 	let radius = u.params.x;
-	let radiusPx = clamp(radius * (f32(size.y) * 0.5 / u.projection.y) / PDist, ${RADIUS_PX_MIN}.0, ${RADIUS_PX_MAX}.0);
+	let pxPerWorld = (f32(size.y) * 0.5 / u.projection.y) / PDist;
+	let radiusPx = clamp(radius * pxPerWorld, ${RADIUS_PX_MIN}.0, ${RADIUS_PX_MAX}.0);
+	let riseBias = ${OCCLUSION_PIXEL_BIAS} / pxPerWorld + PDist * ${OCCLUSION_DEPTH_PRECISION};
 	// Interleaved gradient noise turns the spiral per pixel; the blur evens it.
 	let noise = fract(52.9829189 * fract(dot(vec2f(px), vec2f(0.06711056, 0.00583715))));
 	let angle0 = noise * 6.2831853;
@@ -112,7 +126,7 @@ export const stageOcclusionFragmentFn = tgpu['~unstable'].fragmentFn({
 		let vv = dot(v, v);
 		let vn = dot(v, N);
 		let falloff = max(1.0 - vv / (radius * radius), 0.0);
-		sum = sum + falloff * falloff * max(vn / sqrt(vv + 1e-6) - ${OCCLUSION_BIAS}, 0.0);
+		sum = sum + falloff * falloff * max((vn - riseBias) / sqrt(vv + 1e-6) - ${OCCLUSION_BIAS}, 0.0);
 	}
 	let obscurance = clamp(1.0 - sum * (u.params.y / ${STAGE_OCCLUSION_SAMPLES}.0), 0.0, 1.0);
 	return vec4f(obscurance, 0.0, 0.0, 1.0);

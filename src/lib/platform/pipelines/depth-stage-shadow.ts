@@ -34,8 +34,15 @@ const SHADOW_MAP_FILTER_TAPS = 24;
 const SHADOW_MAP_SEARCH_WORLD = 0.16;
 /** Penumbra width per world unit of caster–receiver gap (the key's softness). */
 const SHADOW_MAP_PENUMBRA_SLOPE = 0.14;
-/** Receiver offset along its normal, in shadow-map texels. */
+/** Receiver offset along its normal, in shadow-map texels, for a receiver square to the key. */
 const SHADOW_MAP_NORMAL_OFFSET_TEXELS = 1.5;
+/**
+ * A receiver turned away from the key spans more map depth per texel, so its
+ * own stored depth reads as a blocker — the striping a thin body's sides and a
+ * leaning face showed (ADR-0062). The offset and the depth bias grow with the
+ * slope, capped so a grazing face never floats free of its shadow.
+ */
+const SHADOW_MAP_SLOPE_LIMIT = 3;
 
 /**
  * Caster k of the march: `origin.w` = shadow strength (0 = empty slot), U/V
@@ -126,18 +133,21 @@ export function allCasterShadowsWgsl(uniforms: string): string {
  * WGSL: darken `shade` by the shadow map's occlusion of the fragment — a
  * blocker search sets the penumbra from the caster–receiver gap (contact
  * hardening), then a disc of comparison taps filters it. Expects `in.world`,
- * a unit `N`, the receiver's uniforms as `${uniforms}`, a `var shade`, and
- * `shadowMap` / `shadowSampler` on `layout`.
+ * a unit `N`, the key `light` (unit travel in xyz), the receiver's uniforms
+ * as `${uniforms}`, a `var shade`, and `shadowMap` / `shadowSampler` on
+ * `layout`.
  */
 export function shadowMapOcclusionWgsl(uniforms: string): string {
 	return /* wgsl */ `
 	if (${uniforms}.shadow.x > 0.001) {
 		let texelWorld = ${uniforms}.shadow.z / ${STAGE_SHADOW_MAP_SIZE}.0;
-		let offsetWorld = in.world + N * texelWorld * ${SHADOW_MAP_NORMAL_OFFSET_TEXELS};
+		let facing = clamp(abs(dot(N, light.xyz)), 0.05, 1.0);
+		let slope = min(sqrt(1.0 - facing * facing) / facing, ${SHADOW_MAP_SLOPE_LIMIT}.0);
+		let offsetWorld = in.world + N * texelWorld * ${SHADOW_MAP_NORMAL_OFFSET_TEXELS} * (1.0 + slope);
 		let sc = ${uniforms}.shadowViewProjection * vec4f(offsetWorld, 1.0);
 		let suv = vec2f(sc.x * 0.5 + 0.5, 0.5 - sc.y * 0.5);
 		if (all(suv >= vec2f(0.0)) && all(suv <= vec2f(1.0)) && sc.z <= 1.0) {
-			let receiver = sc.z - ${uniforms}.shadow.w;
+			let receiver = sc.z - ${uniforms}.shadow.w * (1.0 + slope);
 			let searchUv = ${SHADOW_MAP_SEARCH_WORLD} / max(${uniforms}.shadow.z, 1e-4);
 			// The blocker search reads stored depths directly (a depth texture
 			// cannot go through the filtering sampler); the filter below compares.

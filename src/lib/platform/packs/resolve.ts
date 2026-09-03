@@ -12,6 +12,7 @@
  * Only string-valued `style` Roles become CSS vars; structural Roles (edge
  * recipes, depth rigs, chrome) are consumed in code, not here.
  */
+import { isStageTypeface, REFERENCE_STAGE_TYPEFACE_SLUG } from '../stage-typefaces';
 import { cssColorToRgbaFloat, getRgbColorChannels } from '$lib/utils/color';
 import {
 	readChartMarkFillRecipe,
@@ -715,6 +716,17 @@ export function resolveTypographyColors(
  * unauthored mark inks (`readMarkColor`), the washi tape tint, and any
  * future colour slot whose absence must fall to a core rather than a bake.
  */
+/**
+ * The registered stage typeface a Pack sets dimensional type in (ADR-0062):
+ * its `dimensional-type.face` Role when it names a registered face, else the
+ * reference face — a User Pack that names any Google family still gets a
+ * compiled face to extrude.
+ */
+export function resolveStageTypefaceRole(manifest: PackManifest): string {
+	const value = resolvePackStyleRoleValue(manifest, 'dimensional-type.face');
+	return typeof value === 'string' && isStageTypeface(value) ? value : REFERENCE_STAGE_TYPEFACE_SLUG;
+}
+
 export function resolvePackRoleColor(
 	manifest: PackManifest,
 	roleName: string,

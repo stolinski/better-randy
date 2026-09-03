@@ -160,10 +160,22 @@ export const stageResolveLayout = tgpu.bindGroupLayout({
 });
 
 /**
+ * Depth01 spread within one pixel below which its samples lie on one surface.
+ * A surface tilted to the camera spreads its samples by a pixel of slope; a
+ * contour spreads them by the gap to whatever is behind. On one surface the
+ * sidecar takes the samples' average, so a leaning face reads back as the
+ * plane it is instead of a sawtooth the obscurance and the lens would trace
+ * (ADR-0062); across a contour it keeps the nearest.
+ */
+const SAME_SURFACE_SPREAD = 0.002;
+
+/**
  * Resolve the multisampled scene: colour averages its samples (the edge
  * antialiasing), the depth sidecar takes the NEAREST sample with its
- * occludable mark — never an average, whose in-between depth at a contour
- * would sweep through the focal plane and read "in focus" in the DOF gather.
+ * occludable mark wherever the samples straddle a contour — never an
+ * average there, whose in-between depth would sweep through the focal plane
+ * and read "in focus" in the DOF gather — and the samples' mean where they
+ * share one surface.
  */
 export const stageResolveFragmentFn = tgpu['~unstable'].fragmentFn({
 	in: { uv: d.vec2f },
@@ -173,10 +185,15 @@ export const stageResolveFragmentFn = tgpu['~unstable'].fragmentFn({
 	let coord = vec2i(in.uv * size);
 	var sum = vec4f(0.0);
 	var nearest = vec2f(1.0, 0.0);
+	var farthest = 0.0;
+	var depthSum = 0.0;
 	for (var i: i32 = 0; i < ${STAGE_SCENE_SAMPLE_COUNT}; i = i + 1) {
 		sum = sum + textureLoad(layout.$.sceneSamples, coord, i);
 		let sample = textureLoad(layout.$.depthSamples, coord, i).xy;
 		if (sample.x < nearest.x) { nearest = sample; }
+		farthest = max(farthest, sample.x);
+		depthSum = depthSum + sample.x;
 	}
-	return Out(sum / ${STAGE_SCENE_SAMPLE_COUNT}.0, vec4f(nearest.x, nearest.y, 0.0, 1.0));
+	let depth = select(nearest.x, depthSum / ${STAGE_SCENE_SAMPLE_COUNT}.0, farthest - nearest.x < ${SAME_SURFACE_SPREAD});
+	return Out(sum / ${STAGE_SCENE_SAMPLE_COUNT}.0, vec4f(depth, nearest.y, 0.0, 1.0));
 }`.$uses({ layout: stageResolveLayout });

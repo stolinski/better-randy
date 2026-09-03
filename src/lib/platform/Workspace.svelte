@@ -37,6 +37,10 @@
 	import { disposeSubstrateTextures, getSubstrateTexture } from './substrate-textures';
 	import { loadStageModelMesh } from './stage-model-assets';
 	import { StageModelController } from './stage-model-controller';
+	import { loadStageTypeface } from './stage-typeface-assets';
+	import { StageTypefaceController } from './stage-typeface-controller';
+	import { resolveStageTypefaceRole } from './packs/resolve';
+	import { partitionStageOverlays } from './pipelines/depth-stage-planes';
 	import {
 		CanvasPaintGenerationTracker,
 		clearCanvasPaintHandler,
@@ -165,6 +169,18 @@
 		onError: (error) => {
 			console.error('Stage model preparation failed.', error);
 			status = error instanceof Error ? error.message : 'Stage model preparation failed.';
+		}
+	});
+	// The typefaces the stage's body Overlays set in (ADR-0062), decoded before
+	// first paint and export the way the screen's mesh is.
+	const stageTypefaceController = new StageTypefaceController({
+		load: loadStageTypeface,
+		onReady: () => {
+			if (canvas && !isWorkspaceDestroyed) requestCanvasPaint(canvas);
+		},
+		onError: (error) => {
+			console.error('Stage typeface preparation failed.', error);
+			status = error instanceof Error ? error.message : 'Stage typeface preparation failed.';
 		}
 	});
 	const stageBodyMesh = $derived.by(() => {
@@ -477,6 +493,7 @@
 		const localPack = getPack(localPackSlug);
 		const localStageReadiness = stageSubstrateController.snapshot();
 		const localStageModelReadiness = stageModelController.snapshot();
+		const localStageTypefaceReadiness = stageTypefaceController.snapshot();
 
 		if (!localCompositionElement) {
 			throw new Error('Composition root is unavailable while waiting for resources.');
@@ -493,9 +510,11 @@
 			],
 			flushDom: tick,
 			waitForStage: () =>
-				Promise.all([localStageReadiness.promise, localStageModelReadiness.promise]).then(
-					() => undefined
-				),
+				Promise.all([
+					localStageReadiness.promise,
+					localStageModelReadiness.promise,
+					localStageTypefaceReadiness.promise
+				]).then(() => undefined),
 			waitForMedia: () => videoUnderlayRuntimeController.waitForReadiness(signal),
 			signal
 		});
@@ -522,6 +541,7 @@
 		}
 		stageSubstrateController.assertCurrent(localStageReadiness);
 		stageModelController.assertCurrent(localStageModelReadiness);
+		stageTypefaceController.assertCurrent(localStageTypefaceReadiness);
 	}
 
 	async function settleCompositionPaint(signal: AbortSignal): Promise<void> {
@@ -606,6 +626,9 @@
 			posedOverlayRoots,
 			substrateTexture: stageSubstrateController.texture(),
 			stageModelMesh: stageModelController.mesh(),
+			stageTypeface: (slug: string) => stageTypefaceController.typeface(slug),
+			overlayChannels: animState.overlayChannels,
+			overlayProgresses: animState.overlayProgresses,
 			videoUnderlayTexture: videoUnderlayRuntimeController.preparedTexture(),
 			readableProbeMode,
 			domCapture: {
@@ -793,6 +816,18 @@
 		const screenModel = localStage?.type === 'depth' ? (localStage.screen?.model ?? null) : null;
 		untrack(() => {
 			stageModelController.update({ stageIdentity: localStage ?? null, model: screenModel });
+		});
+	});
+
+	$effect(() => {
+		// The face every body Overlay sets in is the Pack's (ADR-0062): one
+		// typeface per composition while the stage carries a body.
+		const localStage = engineState.stage;
+		const hasBodies =
+			localStage?.type === 'depth' && partitionStageOverlays(engineState.overlays).bodies.length > 0;
+		const slugs = hasBodies ? [resolveStageTypefaceRole(getPack(packState.slug))] : [];
+		untrack(() => {
+			stageTypefaceController.update({ stageIdentity: localStage ?? null, slugs });
 		});
 	});
 
@@ -1365,6 +1400,7 @@
 		renderResourceSet = null;
 		stageSubstrateController.dispose();
 		stageModelController.dispose();
+		stageTypefaceController.dispose();
 		disposeSubstrateTextures();
 		host?.dispose();
 		host = null;
@@ -1556,6 +1592,7 @@
 				{overlayRootElement}
 				{posedOverlayRootElements}
 				{stageBodyMesh}
+				stageTypeface={(slug) => stageTypefaceController.typeface(slug)}
 				{canvas}
 				compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
 				{zoom}

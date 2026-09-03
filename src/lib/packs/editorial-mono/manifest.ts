@@ -144,6 +144,9 @@ export const editorialMonoPack: PackManifest = {
 		// matching the rest of the editorial dress.
 		'counter.ink': { kind: 'style', value: '#22d3ee' },
 		'instance-stack.ink': { kind: 'style', value: '#22d3ee' },
+		'dimensional-type.accent': { kind: 'style', value: '#22d3ee' },
+		'dimensional-type.face': { kind: 'style', value: 'playfair-display-700' },
+		'dimensional-type.ink': { kind: 'style', value: '#eef3f8' },
 		'text-3d.ink': { kind: 'style', value: '#22d3ee' },
 		// Surface overrides — a cool editorial dress proving Surfaces re-skin
 		// under a second Pack (same Presets, different pixels). Only the Roles

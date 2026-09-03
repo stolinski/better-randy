@@ -1,0 +1,87 @@
+{
+	"schema": "gfx@1",
+	"name": "Hands on",
+	"description": "Dimensional type (ADR-0062): one headline standing on the Pack field as a real body — the Pack's face parsed into extruded, bevelled glyphs, its face and bevel in the Pack's ink and its extrusion in the Pack's accent, lit by the key, grounded by its own shadow, and holding the lens. The headline arrives lifted and leaning and settles onto its plane; the camera rests low and to the left and travels toward square for the whole cut, so the extrusion reads and then flattens as the piece resolves. Under the tall frame the same headline reflows by the frame's width and holds inside its safe width; the camera is the same. Intentional omissions: no page, no lower-third, no marks, no plate — the headline is the piece.",
+	"kind": "deliverable",
+	"pack": "syntax",
+	"state": {
+		"transport": {
+			"orientation": "horizontal",
+			"durationSeconds": 6,
+			"fps": 30,
+			"format": "webm"
+		},
+		"backgroundFill": "pack",
+		"typography": {
+			"fontFamily": "sans"
+		},
+		"marks": {
+			"defaults": {},
+			"timings": []
+		},
+		"surface": {
+			"type": "plain",
+			"content": {
+				"body": ""
+			}
+		},
+		"overlays": [
+			{
+				"type": "dimensional-type",
+				"id": "headline",
+				"content": {
+					"text": "HANDS ON",
+					"size": 0.16,
+					"depth": 0.4,
+					"bevel": 0.05,
+					"lift": 0.9,
+					"lean": 16
+				},
+				"position": {
+					"anchor": "center"
+				},
+				"enter": {
+					"start": 0.06,
+					"duration": 0.3,
+					"ease": "settled"
+				},
+				"exit": {
+					"start": 0.88,
+					"duration": 0.1,
+					"ease": "smooth"
+				}
+			}
+		],
+		"effects": [],
+		"stage": {
+			"type": "depth",
+			"camera": {
+				"move": "static",
+				"pose": {
+					"yaw": -22,
+					"pitch": 8,
+					"distance": 0.8,
+					"aim": {
+						"x": 0.5,
+						"y": 0.5
+					}
+				},
+				"travel": {
+					"to": {
+						"yaw": -8,
+						"pitch": 4,
+						"distance": 0.66
+					},
+					"start": 0,
+					"duration": 1,
+					"ease": "smooth"
+				}
+			},
+			"focus": {
+				"focusZ": 0,
+				"aperture": 0.4,
+				"band": 0.05
+			}
+		}
+	}
+}

@@ -40,9 +40,18 @@
 	}: Props = $props();
 
 	const frame = $derived(getVideoFrameSize(engineState.transport.orientation));
+	// On the stage, posed Overlays leave the shared root for their own capture
+	// roots, and body Overlays (ADR-0062) leave every root: the stage draws
+	// their geometry, so no plane captures them.
+	const stagePartition = $derived(
+		engineState.stage?.type === 'depth' ? partitionStageOverlays(engineState.overlays) : null
+	);
 	const posedOverlayIds = $derived(
-		engineState.stage?.type === 'depth'
-			? partitionStageOverlays(engineState.overlays).posed.map((overlay) => overlay.id)
+		stagePartition ? stagePartition.posed.map((overlay) => overlay.id) : []
+	);
+	const sharedRootExcludedIds = $derived(
+		stagePartition
+			? [...stagePartition.posed, ...stagePartition.bodies].map((overlay) => overlay.id)
 			: []
 	);
 </script>
@@ -78,7 +87,7 @@
 		style:block-size={`${frame.height}px`}
 		style:inline-size={`${frame.width}px`}
 	>
-		<OverlayMount excludeIds={posedOverlayIds} />
+		<OverlayMount excludeIds={sharedRootExcludedIds} />
 		<CaptionsMount />
 	</div>
 	<!-- One root per posed Overlay (ADR-0057): the same frame-sized sibling

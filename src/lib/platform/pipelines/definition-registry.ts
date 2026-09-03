@@ -27,6 +27,7 @@ import { tiledDeformationEffectDefinition } from '$lib/pipelines/effects/tiled-d
 import { waterEffectDefinition } from '$lib/pipelines/effects/water/definition';
 import { achievementOverlayDefinition } from '$lib/pipelines/overlays/achievement/definition';
 import { counterOverlayDefinition } from '$lib/pipelines/overlays/counter/definition';
+import { dimensionalTypeOverlayDefinition } from '$lib/pipelines/overlays/dimensional-type/definition';
 import { cursorTrailOverlayDefinition } from '$lib/pipelines/overlays/cursor-trail/definition';
 import { instagramFollowOverlayDefinition } from '$lib/pipelines/overlays/instagram-follow/definition';
 import { instanceStackOverlayDefinition } from '$lib/pipelines/overlays/instance-stack/definition';
@@ -121,6 +122,7 @@ export const PIPELINE_DEFINITION_REGISTRY = {
 		shaderFill: shaderFillOverlayDefinition,
 		cursorTrail: cursorTrailOverlayDefinition,
 		counter: counterOverlayDefinition,
+		dimensionalType: dimensionalTypeOverlayDefinition,
 		instanceStack: instanceStackOverlayDefinition,
 		text3d: text3dOverlayDefinition,
 		tweetStack: tweetStackOverlayDefinition,

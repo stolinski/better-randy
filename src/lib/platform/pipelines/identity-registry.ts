@@ -80,6 +80,7 @@ import { underlineIdentity } from '$lib/pipelines/annotations/underline/identity
 // Overlays
 import { achievementIdentity } from '$lib/pipelines/overlays/achievement/identity';
 import { counterIdentity } from '$lib/pipelines/overlays/counter/identity';
+import { dimensionalTypeIdentity } from '$lib/pipelines/overlays/dimensional-type/identity';
 import { cursorTrailIdentity } from '$lib/pipelines/overlays/cursor-trail/identity';
 import { instagramFollowIdentity } from '$lib/pipelines/overlays/instagram-follow/identity';
 import { instanceStackIdentity } from '$lib/pipelines/overlays/instance-stack/identity';
@@ -138,6 +139,7 @@ export const IDENTITY_REGISTRY: Readonly<Record<string, IdentitySpec>> = {
 	// Overlays
 	'overlay:achievement': achievementIdentity,
 	'overlay:counter': counterIdentity,
+	'overlay:dimensional-type': dimensionalTypeIdentity,
 	'overlay:cursor-trail': cursorTrailIdentity,
 	'overlay:instance-stack': instanceStackIdentity,
 	'overlay:lower-third': lowerThirdIdentity,

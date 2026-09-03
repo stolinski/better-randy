@@ -58,6 +58,7 @@ const EXPECTED_PIPELINE_TYPE_IDS = [
 	'shader-fill',
 	'cursor-trail',
 	'counter',
+	'dimensional-type',
 	'instance-stack',
 	'text-3d',
 	'tweet-stack',

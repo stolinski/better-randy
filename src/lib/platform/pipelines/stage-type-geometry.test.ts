@@ -5,11 +5,10 @@ import { describe, it } from 'vitest';
 
 import { decodeStageTypeface } from '../stage-glyph-format.ts';
 import { STAGE_MESH_VERTEX_FLOATS } from '../stage-mesh-format.ts';
+import { flattenStageGlyph, groupStageGlyphContours } from '../stage-glyph-outline.ts';
 import { REFERENCE_STAGE_TYPEFACE_SLUG } from '../stage-typefaces.ts';
 import {
 	buildStageTypeMesh,
-	flattenStageGlyph,
-	groupStageGlyphContours,
 	shapeStageTypeLine,
 	STAGE_TYPE_REGION,
 	STAGE_TYPE_REGION_COUNT
@@ -87,7 +86,10 @@ describe('buildStageTypeMesh', () => {
 			if (region === STAGE_TYPE_REGION.back) assert.ok(mesh.vertices[offset + 5] < -0.99);
 		}
 		assert.ok(Math.abs(faceZ - form.depth) < 1e-6);
-		assert.ok(Math.abs(sideMaxZ - (form.depth - form.bevel)) < 1e-6, 'sides stop where the bevel starts');
+		// A thin stem carries less bevel than asked so it keeps a face; the sides
+		// still stop exactly where the bevel starts.
+		const bevel = form.depth - sideMaxZ;
+		assert.ok(bevel > 0.02 && bevel <= form.bevel + 1e-6, `bevel ${bevel}`);
 	});
 
 	it('is deterministic', () => {
