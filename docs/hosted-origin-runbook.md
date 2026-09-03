@@ -84,8 +84,6 @@ classifies that name on the `docs-site` surface.
 
 ## Build, deploy, verify
 
-> **While the WebMCP Challenge runs (from 2026-09-03):** the origin deploys from the `dev` branch's worktree, not from `main` — see the temporary rule in `AGENTS.md`. `GFX_RELEASE` still names the deployed commit, so `/api/health` reports a `dev` commit during the challenge.
-
 ```bash
 pnpm build:hosted            # PUBLIC_GFX_HOSTED=1 vite build → .svelte-kit/cloudflare
 pnpm preview:hosted          # wrangler dev: the real Worker runtime on localhost
