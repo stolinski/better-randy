@@ -44,6 +44,15 @@ describe('composition workspace focus', () => {
 			reference: { kind: 'manual', cueId: 'cue-1' }
 		});
 		expect(layerSelection.id).toBe('sound-reference:manual:cue-1');
+
+		moveCompositionWorkspaceFocus({ target: 'stage-camera' });
+		expect(layerSelection.id).toBe('stage-camera');
+
+		moveCompositionWorkspaceFocus({ target: 'stage-focus' });
+		expect(layerSelection.id).toBe('stage-focus');
+
+		moveCompositionWorkspaceFocus({ target: 'stage-body', bodyId: 'screen' });
+		expect(layerSelection.id).toBe('stage-body:screen');
 	});
 
 	it('reveals an Effect as a named row of the composition-root inspector', () => {

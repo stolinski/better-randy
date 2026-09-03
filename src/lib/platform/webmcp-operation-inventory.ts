@@ -119,6 +119,9 @@ export type WebmcpOperationFocusTarget =
 	| 'captions'
 	| 'media-library'
 	| 'video-clip'
+	| 'stage-camera'
+	| 'stage-focus'
+	| 'stage-body'
 	| 'timeline-playhead'
 	| 'session-catalog';
 

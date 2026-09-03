@@ -9,6 +9,7 @@
 	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import BlockInspector from './BlockInspector.svelte';
 	import CaptionsInspector from './CaptionsInspector.svelte';
+	import DepthStageSection from './DepthStageSection.svelte';
 	import MediaInspector from './MediaInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
 	import SurfaceInspector from './SurfaceInspector.svelte';
@@ -48,6 +49,10 @@
 				case 'sound':
 				case 'video':
 					return { kind: 'generic' as const, id };
+				case 'stage-camera':
+				case 'stage-focus':
+				case 'stage-body':
+					return { kind: 'stage' as const };
 			}
 		}
 
@@ -78,6 +83,8 @@
 				return 'Sound cue';
 			case 'video-clip':
 				return 'Video clip';
+			case 'stage':
+				return 'Stage';
 			case 'generic':
 				return 'Selection';
 		}
@@ -139,6 +146,8 @@
 			<SoundCueInspector reference={resolved.reference} />
 		{:else if resolved.kind === 'video-clip'}
 			<VideoClipInspector clipId={resolved.clipId} />
+		{:else if resolved.kind === 'stage'}
+			<DepthStageSection />
 		{:else}
 			<div class="generic-label">
 				<span class="generic-label__id">{resolved.id}</span>

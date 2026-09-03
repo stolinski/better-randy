@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import { buildCompositionTimelineTracks } from './composition-timeline-tracks.ts';
-import { createDefaultEngineState, type ChartMotion, type EngineState } from './engine-schema.ts';
+import {
+	createDefaultEngineState,
+	StageSchema,
+	type ChartMotion,
+	type EngineState
+} from './engine-schema.ts';
 import { createTimelineTrackId, createVideoClipSelectionId } from './timeline-entity-identity.ts';
 import { isVideoTimelineTrack } from './timeline-track.ts';
 
@@ -396,5 +401,96 @@ describe('composition timeline tracks', () => {
 		assert.equal(track.label, 'tweet pile');
 		track.transitions[0].onUpdate?.({ start: 0.2, duration: 0.44 });
 		assert.deepEqual(state.overlays.at(-1)?.content, { pileStart: 0.2, pileWindow: 0.44 });
+	});
+});
+
+describe('stage rows (ADR-0060)', () => {
+	function makeStagedState(orientation: 'horizontal' | 'vertical'): EngineState {
+		const state = makeTimelineState();
+		state.transport.orientation = orientation;
+		state.stage = StageSchema.parse({
+			type: 'depth',
+			camera: {
+				pose: { yaw: 14, distance: 1.9 },
+				travel: { to: { distance: 1.1 }, start: 0.1, duration: 0.6 },
+				vertical: {
+					pose: { yaw: 10, distance: 1.12 },
+					travel: { to: { distance: 0.72 }, start: 0.2, duration: 0.5 }
+				}
+			},
+			focus: { focusZ: 0, aperture: 0.35, band: 0.05, pull: { from: 0, to: 1, start: 0.3, duration: 0.2 } },
+			screen: { model: 'crt-fw900' }
+		});
+		return state;
+	}
+
+	it('leads the outline with Camera, Focus, and one row per body while the stage is on', () => {
+		const tracks = buildCompositionTimelineTracks(makeStagedState('horizontal'), appearance);
+		assert.deepEqual(
+			tracks.slice(0, 4).map((track) => track.id),
+			[
+				createTimelineTrackId({ kind: 'stage-camera' }),
+				createTimelineTrackId({ kind: 'stage-focus' }),
+				createTimelineTrackId({ kind: 'stage-body', bodyId: 'screen' }),
+				createTimelineTrackId({ kind: 'surface' })
+			]
+		);
+		assert.equal(tracks[0].label, 'Camera');
+		assert.equal(tracks[1].label, 'Focus');
+		assert.equal(tracks[2].label, 'CRT monitor (FW900)');
+		assert.deepEqual(
+			tracks[2].transitions.map((transition) => [transition.start, transition.duration]),
+			[[0, 1]]
+		);
+	});
+
+	it('shows no stage rows without a stage', () => {
+		const tracks = buildCompositionTimelineTracks(makeTimelineState(), appearance);
+		assert.equal(tracks[0].id, createTimelineTrackId({ kind: 'surface' }));
+	});
+
+	it('drags the travel and the rack focus back into the composition', () => {
+		const state = makeStagedState('horizontal');
+		const tracks = buildCompositionTimelineTracks(state, appearance);
+		const travel = tracks[0].transitions[0];
+		assert.deepEqual([travel.start, travel.duration], [0.1, 0.6]);
+		travel.onUpdate?.({ start: 0.25, duration: 0.4 });
+		assert.deepEqual(
+			[state.stage?.camera.travel?.start, state.stage?.camera.travel?.duration],
+			[0.25, 0.4]
+		);
+		const pull = tracks[1].transitions[0];
+		pull.onUpdate?.({ start: 0.5, duration: 0.3 });
+		assert.deepEqual([state.stage?.focus.pull?.start, state.stage?.focus.pull?.duration], [0.5, 0.3]);
+	});
+
+	it('films the vertical frame through the vertical travel, and writes it', () => {
+		const state = makeStagedState('vertical');
+		const tracks = buildCompositionTimelineTracks(state, appearance);
+		const travel = tracks[0].transitions[0];
+		assert.deepEqual([travel.start, travel.duration], [0.2, 0.5]);
+		travel.onUpdate?.({ start: 0.3, duration: 0.45 });
+		assert.deepEqual(
+			[state.stage?.camera.vertical?.travel?.start, state.stage?.camera.vertical?.travel?.duration],
+			[0.3, 0.45]
+		);
+		assert.equal(state.stage?.camera.travel?.start, 0.1, 'the horizontal travel is untouched');
+	});
+
+	it('keeps the Camera and Focus rows without their clips, so the entities stay selectable', () => {
+		const state = makeStagedState('horizontal');
+		state.stage!.camera.travel = undefined;
+		state.stage!.camera.vertical = undefined;
+		state.stage!.focus.pull = undefined;
+		state.stage!.screen = undefined;
+		const tracks = buildCompositionTimelineTracks(state, appearance);
+		assert.deepEqual(
+			tracks.slice(0, 3).map((track) => [track.id, track.transitions.length]),
+			[
+				[createTimelineTrackId({ kind: 'stage-camera' }), 0],
+				[createTimelineTrackId({ kind: 'stage-focus' }), 0],
+				[createTimelineTrackId({ kind: 'surface' }), 1]
+			]
+		);
 	});
 });

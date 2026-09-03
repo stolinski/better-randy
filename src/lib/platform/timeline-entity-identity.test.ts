@@ -37,7 +37,10 @@ describe('timeline entity identity', () => {
 			{ kind: 'text-animation', textAnimationId: 'title-roll-stack' },
 			{ kind: 'captions' },
 			{ kind: 'video' },
-			{ kind: 'sound' }
+			{ kind: 'sound' },
+			{ kind: 'stage-camera' },
+			{ kind: 'stage-focus' },
+			{ kind: 'stage-body', bodyId: 'screen' }
 		];
 
 		for (const identity of identities) {
@@ -145,9 +148,12 @@ describe('timeline entity identity', () => {
 			message:
 				'Timeline entity identity: track identity must name a kind, received an identity without a kind.'
 		});
-		assert.throws(() => createTimelineTrackId({ kind: 'stage' } as unknown as TimelineTrackIdentity), {
+		assert.throws(() => createTimelineTrackId({ kind: 'scene' } as unknown as TimelineTrackIdentity), {
 			name: 'TypeError',
-			message: 'Timeline entity identity: unsupported track kind stage.'
+			message: 'Timeline entity identity: unsupported track kind scene.'
 		});
+		assert.throws(() => createTimelineTrackId({ kind: 'stage-body', bodyId: '' }), TypeError);
+		assert.equal(parseTimelineTrackId('stage-body:'), null);
+		assert.equal(parseTimelineTrackId('stage-camera:1'), null);
 	});
 });

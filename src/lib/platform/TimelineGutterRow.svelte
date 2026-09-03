@@ -46,7 +46,10 @@
 		block: 'Block',
 		overlay: 'Overlay',
 		sound: 'Cues',
-		video: 'Video'
+		video: 'Video',
+		'stage-camera': 'Stage',
+		'stage-focus': 'Stage',
+		'stage-body': 'Body'
 	};
 
 	function gutterKindLabel(trackId: TimelineTrackId): string | null {

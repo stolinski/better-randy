@@ -28,6 +28,9 @@ export type OverlayTimelineSubtrack =
 
 export type BlockTimelineSubtrack = { kind: 'roll' };
 
+// The Layer rows, the Video and Sound rails, and the STAGE rows (ADR-0060):
+// the camera, the focus, and one row per body on the Dimensional Stage. A
+// body id names the body the Stage gave it (`screen` for `stage.screen`).
 export type TimelineTrackIdentity =
 	| { kind: 'surface' }
 	| { kind: 'surface-message'; index: number }
@@ -40,7 +43,13 @@ export type TimelineTrackIdentity =
 	| { kind: 'text-animation'; textAnimationId: string }
 	| { kind: 'captions' }
 	| { kind: 'video' }
-	| { kind: 'sound' };
+	| { kind: 'sound' }
+	| { kind: 'stage-camera' }
+	| { kind: 'stage-focus' }
+	| { kind: 'stage-body'; bodyId: string };
+
+/** The body id of the physical screen (`stage.screen`) on the timeline and the canvas. */
+export const STAGE_SCREEN_BODY_ID = 'screen';
 
 export type SoundRailReference =
 	{ kind: 'derived'; cueId: string } | { kind: 'manual'; cueId: string };
@@ -112,7 +121,11 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 		case 'captions':
 		case 'video':
 		case 'sound':
+		case 'stage-camera':
+		case 'stage-focus':
 			return identity.kind as TimelineTrackId;
+		case 'stage-body':
+			return `stage-body:${requireIdentitySegment(identity.bodyId, 'Stage body id')}` as TimelineTrackId;
 		case 'surface-message':
 			return `surface-message:${requireIdentityIndex(identity.index, 'Message index')}` as TimelineTrackId;
 		case 'checklist-item':
@@ -143,7 +156,14 @@ export function createTimelineTrackId(identity: TimelineTrackIdentity): Timeline
 }
 
 export function parseTimelineTrackId(value: string): TimelineTrackIdentity | null {
-	if (value === 'surface' || value === 'captions' || value === 'video' || value === 'sound') {
+	if (
+		value === 'surface' ||
+		value === 'captions' ||
+		value === 'video' ||
+		value === 'sound' ||
+		value === 'stage-camera' ||
+		value === 'stage-focus'
+	) {
 		return { kind: value };
 	}
 
@@ -162,6 +182,7 @@ export function parseTimelineTrackId(value: string): TimelineTrackIdentity | nul
 		if (prefix === 'text-animation') {
 			return { kind: 'text-animation', textAnimationId: entityId };
 		}
+		if (prefix === 'stage-body') return { kind: 'stage-body', bodyId: entityId };
 		return null;
 	}
 

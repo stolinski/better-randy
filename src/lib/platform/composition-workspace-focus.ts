@@ -36,7 +36,10 @@ export type CompositionWorkspaceFocus =
 	| { target: 'sound-cue'; reference: SoundRailReference }
 	| { target: 'captions' }
 	| { target: 'media-library' }
-	| { target: 'video-clip'; clipId: string };
+	| { target: 'video-clip'; clipId: string }
+	| { target: 'stage-camera' }
+	| { target: 'stage-focus' }
+	| { target: 'stage-body'; bodyId: string };
 
 /**
  * The focus targets a Workspace-resident operation may name. Declared as data
@@ -54,7 +57,10 @@ export const COMPOSITION_WORKSPACE_FOCUS_TARGETS = [
 	'sound-cue',
 	'captions',
 	'media-library',
-	'video-clip'
+	'video-clip',
+	'stage-camera',
+	'stage-focus',
+	'stage-body'
 ] as const satisfies readonly WebmcpOperationFocusTarget[];
 
 function unhandledWorkspaceFocus(focus: never): never {
@@ -113,6 +119,15 @@ export function moveCompositionWorkspaceFocus(focus: CompositionWorkspaceFocus):
 			return;
 		case 'video-clip':
 			selectVideoClip(focus.clipId);
+			return;
+		case 'stage-camera':
+			selectLayer(createTimelineTrackId({ kind: 'stage-camera' }));
+			return;
+		case 'stage-focus':
+			selectLayer(createTimelineTrackId({ kind: 'stage-focus' }));
+			return;
+		case 'stage-body':
+			selectLayer(createTimelineTrackId({ kind: 'stage-body', bodyId: focus.bodyId }));
 			return;
 		default:
 			unhandledWorkspaceFocus(focus);
