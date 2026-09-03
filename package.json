@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"license": "FSL-1.1-ALv2",
 	"type": "module",
+	"packageManager": "pnpm@11.1.3",
 	"scripts": {
 		"dev": "vite dev",
 		"dev:hosted": "PUBLIC_GFX_HOSTED=1 PUBLIC_GFX_COMPOSITION_STORE=browser GFX_RELEASE=gfx@dev-hosted vite dev",
