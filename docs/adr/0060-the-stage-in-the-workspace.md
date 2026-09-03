@@ -2,7 +2,7 @@
 
 ## Status
 
-**Designed, not built (2026-09-02; building as Dex epic `0wmi5ndk`, ordered before dimensional type).** Extends [ADR-0034](0034-gui-design-authoring-interface.md) (the timeline as the layer list) and [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations, focus) to the **Dimensional Stage** of [ADR-0028](0028-dimensional-depth-stage.md), [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md), and [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md). Amends one consequence of ADR-0057.
+**Canon (built 2026-09-03 as Dex epic `0wmi5ndk`, ordered before dimensional type; awaiting the human gate on gfx-review).** Extends [ADR-0034](0034-gui-design-authoring-interface.md) (the timeline as the layer list) and [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations, focus) to the **Dimensional Stage** of [ADR-0028](0028-dimensional-depth-stage.md), [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md), and [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md). Amends one consequence of ADR-0057.
 
 Date: 2026-09-02
 
@@ -36,9 +36,9 @@ Dimensional type is the next body ([ADR-0059](0059-compiled-stage-models-and-the
 ## Consequences
 
 - `timeline-entity-identity.ts` gains three stage kinds; `composition-timeline-tracks.ts` gains `appendStageTracks` at the head of the order; the gutter labels, the inspector routing, `composition-workspace-focus.ts`, and the inventory's focus targets each learn them (the focus switch is exhaustiveness-checked, so a missed case fails the type check).
-- `DepthStageSection.svelte` splits into `StageCameraInspector.svelte`, `StageFocusInspector.svelte`, and `StageScreenInspector.svelte`; the root keeps the stage switch and the backdrop.
-- `CanvasEditingOverlay.svelte` gains a `stage-body` selection layer, a projected-box candidate fed by the resident mesh bounds through `Workspace.svelte`, an orbit gesture, and a wheel dolly; `canvas-interaction-geometry.ts` gains the layer rank.
-- `composition-appearance-operations.ts` and `webmcp-appearance-tools.ts` gain the two operations; `pnpm audit:webmcp-parity` and `pnpm audit:parity` gate them.
-- `TimelineOutline.svelte` records undo for every drag.
+- `DepthStageSection.svelte` splits into `StageCameraInspector.svelte`, `StageFocusInspector.svelte`, and `StageBodyInspector.svelte` (keyed by body id, the screen today); the root keeps the stage switch and the backdrop; `stage-camera-editing.ts` holds the pose writers, the orbit and dolly conversions, and the rest pose the inspector and the gestures share.
+- `CanvasEditingOverlay.svelte` gains a `stage-body` selection layer whose region is the body's projected silhouette (`projectStageBodyFrameBounds` in `depth-stage-geometry.ts`: every resident vertex through the renderer's own camera — a deep object's bounding box projects far wider than the object), fed by the resident mesh through `Workspace.svelte`; the orbit gesture and the wheel dolly; `canvas-interaction-geometry.ts` gains the layer rank.
+- `composition-appearance-operations.ts` and `webmcp-appearance-tools.ts` gain the two operations, and the camera's tool schema carries the pose, the travel, and the vertical camera an agent could not set before; `pnpm audit:webmcp-parity` and `pnpm audit:parity` gate them.
+- `TimelineOutline.svelte` and `VideoTimelineTrack.svelte` record undo for every drag through `captureCompositionGestureOrigin` / `recordCompositionGestureEdit` beside the transaction; the canvas gestures record through the same pair. A whole-document undo returns the selection to the composition root, as an operation's undo does.
 - The human gate is the Workspace itself on gfx-review with `crt-filmed` open: rows, selection, orbit, undo.
 - Dimensional type ([ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md)) follows and arrives as a body row, a canvas entity, and an inspector on day one.
