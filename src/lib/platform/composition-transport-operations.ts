@@ -60,6 +60,11 @@ export interface SetCompositionTimingRequest {
 	expectedRevision: number;
 	durationSeconds?: number;
 	fps?: number;
+	/**
+	 * The frame the library poster is rendered from, in seconds (ADR-0061);
+	 * null clears it so the poster script chooses the frame by content again.
+	 */
+	posterSeconds?: number | null;
 }
 
 export interface SetCompositionFormatRequest {
@@ -125,13 +130,17 @@ export async function runSetCompositionTimingOperation(
 
 	const revision = compositionEditHistory.revision;
 
-	if (request.durationSeconds === undefined && request.fps === undefined) {
+	if (
+		request.durationSeconds === undefined &&
+		request.fps === undefined &&
+		request.posterSeconds === undefined
+	) {
 		return refuseCompositionOperation(
 			row,
 			revision,
 			'invalid_argument',
-			'Set at least one of the composition duration or frame rate.',
-			{ alternatives: ['durationSeconds', 'fps'] }
+			'Set at least one of the composition duration, frame rate, or poster time.',
+			{ alternatives: ['durationSeconds', 'fps', 'posterSeconds'] }
 		);
 	}
 
@@ -142,6 +151,20 @@ export async function runSetCompositionTimingOperation(
 			'invalid_argument',
 			'The composition duration must be a finite number of seconds.',
 			{ rejected: String(request.durationSeconds) }
+		);
+	}
+
+	if (
+		request.posterSeconds !== undefined &&
+		request.posterSeconds !== null &&
+		(!Number.isFinite(request.posterSeconds) || request.posterSeconds < 0)
+	) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'invalid_argument',
+			'The poster time must be zero or more seconds, or null to let the poster frame be chosen by content.',
+			{ rejected: String(request.posterSeconds) }
 		);
 	}
 
@@ -168,6 +191,11 @@ export async function runSetCompositionTimingOperation(
 				draft.state.transport.durationSeconds = request.durationSeconds;
 			}
 			if (request.fps !== undefined) draft.state.transport.fps = request.fps;
+			if (request.posterSeconds === null) {
+				delete draft.state.transport.posterSeconds;
+			} else if (request.posterSeconds !== undefined) {
+				draft.state.transport.posterSeconds = request.posterSeconds;
+			}
 		}
 	});
 }

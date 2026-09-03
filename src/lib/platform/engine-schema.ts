@@ -394,11 +394,17 @@ const TransportFpsSchema = z.union([
 	z.literal([...NTSC_FRACTIONAL_FPS])
 ]);
 
+// `posterSeconds` names the frame the library poster is rendered from
+// (ADR-0061). Absent, the poster script photographs a few candidate frames and
+// keeps the one that shows the most; present, it is the one frame photographed,
+// clamped to the run. Absolute seconds on purpose: a retime rescales motion
+// windows, and a hero frame chosen by hand is a moment, not a fraction.
 const TransportSchema = z.object({
 	orientation: VideoOrientationSchema,
 	durationSeconds: z.number().min(0.1).max(600),
 	fps: TransportFpsSchema,
-	format: ExportFormatSchema
+	format: ExportFormatSchema,
+	posterSeconds: z.number().min(0).max(600).optional()
 });
 
 // paperColor / inkColor are OPTIONAL overrides (ADR-0038): absent, surfaces

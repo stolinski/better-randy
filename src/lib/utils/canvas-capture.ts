@@ -1,4 +1,4 @@
-import type { RenderedFramePixels } from './rendered-frame-pixels.ts';
+import { measureRenderedFramePixels, type RenderedFramePixels } from './rendered-frame-pixels.ts';
 
 /** Capture the native backing store as an alpha-preserving PNG. */
 export async function captureCanvasPng(source: HTMLCanvasElement): Promise<Blob | null> {
@@ -73,4 +73,43 @@ export async function captureCanvasWebp(
 	} finally {
 		bitmap.close();
 	}
+}
+
+/** A poster-sized still of a canvas together with what it shows. */
+export interface PosterFrameCapture {
+	blob: Blob;
+	width: number;
+	height: number;
+	/** Share of pixels differing from the frame's first pixel — the visible content, 0–1. */
+	contentFraction: number;
+	/** Every pixel identical: the frame renders nothing at all. */
+	isBlank: boolean;
+}
+
+/**
+ * Capture a canvas at poster size and measure what the still shows, so a
+ * caller can refuse to keep a frame that renders nothing
+ * (`isPosterFrameUsable` in ./poster-frame-choice.ts). Measured on the
+ * downscaled still because that is the image a card displays.
+ */
+export async function capturePosterFrame(
+	source: HTMLCanvasElement,
+	maxWidth = 640,
+	quality = 0.82
+): Promise<PosterFrameCapture | null> {
+	const blob = await captureCanvasWebp(source, maxWidth, quality);
+	if (!blob) return null;
+	const pixels = await readImageBlobPixels(blob);
+	const measurement = measureRenderedFramePixels({
+		width: pixels.width,
+		height: pixels.height,
+		data: pixels.data
+	});
+	return {
+		blob,
+		width: pixels.width,
+		height: pixels.height,
+		contentFraction: measurement.nonUniformPixelCount / measurement.pixelCount,
+		isBlank: measurement.isBlank
+	};
 }

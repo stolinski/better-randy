@@ -1,3 +1,4 @@
+import { committedCompositionPosterUrl } from '$lib/platform/composition-posters';
 import { listPosterKeys } from '$lib/platform/poster-store.server';
 import { posterKeyForPreset } from '$lib/platform/posters';
 import { listFixtures, listPresets, type CataloguedPreset } from '$lib/platform/preset-catalog';
@@ -15,7 +16,10 @@ function homepagePresetCard(entry: CataloguedPreset) {
 		hasDepthStage: entry.preset.state.stage !== undefined,
 		hasDepthOfField: entry.preset.state.effects.some((effect) => effect.type === 'depth-of-field'),
 		durationSeconds: entry.preset.state.transport.durationSeconds,
-		posterKey: posterKeyForPreset(entry.preset)
+		// The committed still of this exact content (ADR-0061), shipped with the
+		// app on every origin; null when the poster is missing or stale, and the
+		// card shows its Surface default instead.
+		posterUrl: committedCompositionPosterUrl(entry.slug, posterKeyForPreset(entry.preset))
 	};
 }
 
@@ -26,7 +30,8 @@ function homepagePresetCard(entry: CataloguedPreset) {
 // Fixtures and the poster store are both development-only (ADR-0039, ADR-0053):
 // a fixture documents an engine gap rather than shipping as a deliverable, and
 // the public runtime has no disk-backed poster store to read. A public visitor
-// gets the deliverable library and nothing else.
+// gets the deliverable library and nothing else. Library posters are not the
+// store's: they are committed assets, so the public library shows them too.
 export const load: PageServerLoad = async () => {
 	if (!areDevelopmentOnlySurfacesServed()) {
 		return { posterKeys: [], presets: listPresets().map(homepagePresetCard), fixtures: [] };

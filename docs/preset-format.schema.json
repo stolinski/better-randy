@@ -67,6 +67,11 @@
                 "webm",
                 "prores"
               ]
+            },
+            "posterSeconds": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 600
             }
           },
           "required": [

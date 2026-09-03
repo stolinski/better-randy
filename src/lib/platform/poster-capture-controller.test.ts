@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
+import type { PosterFrameCapture } from '$lib/utils/canvas-capture';
+
 import { PosterCaptureController, type PosterCaptureServices } from './poster-capture-controller';
 
 interface Deferred<T> {
@@ -20,6 +22,17 @@ async function flushPromises(): Promise<void> {
 	for (let index = 0; index < 20; index += 1) await Promise.resolve();
 }
 
+function posterFrame(overrides: Partial<PosterFrameCapture> = {}): PosterFrameCapture {
+	return {
+		blob: new Blob(['poster']),
+		width: 640,
+		height: 360,
+		contentFraction: 0.2,
+		isBlank: false,
+		...overrides
+	};
+}
+
 describe('PosterCaptureController', () => {
 	it('cancels delayed work when the canvas/composition identity changes', async () => {
 		const firstDelay = deferred<void>();
@@ -33,7 +46,7 @@ describe('PosterCaptureController', () => {
 			exists: async () => false,
 			capture: async (canvas) => {
 				captures.push(canvas);
-				return new Blob(['poster']);
+				return posterFrame();
 			},
 			store: async () => undefined,
 			reportError: () => undefined
@@ -67,7 +80,7 @@ describe('PosterCaptureController', () => {
 			exists: async () => false,
 			capture: async () => {
 				steps.push('capture');
-				return new Blob(['poster']);
+				return posterFrame();
 			},
 			store: async () => {
 				steps.push('store');
@@ -76,7 +89,11 @@ describe('PosterCaptureController', () => {
 		};
 		const controller = new PosterCaptureController(services);
 
-		controller.update({ key: 'settle-key', canvas: {} as HTMLCanvasElement, compositionIdentity: {} });
+		controller.update({
+			key: 'settle-key',
+			canvas: {} as HTMLCanvasElement,
+			compositionIdentity: {}
+		});
 		await flushPromises();
 
 		assert.deepEqual(steps, ['settle-paint']);
@@ -99,7 +116,7 @@ describe('PosterCaptureController', () => {
 			exists: async () => false,
 			capture: async () => {
 				captures += 1;
-				return new Blob(['poster']);
+				return posterFrame();
 			},
 			store: async () => {
 				storeAttempts += 1;
@@ -119,6 +136,39 @@ describe('PosterCaptureController', () => {
 
 		assert.equal(errors.length, 1);
 		assert.equal(storeAttempts, 2);
+		assert.equal(captures, 2);
+	});
+
+	it('never stores a frame that shows nothing, and leaves the key open for the next view', async () => {
+		const stored: string[] = [];
+		const errors: unknown[] = [];
+		let captures = 0;
+		const services: PosterCaptureServices = {
+			waitForFonts: async () => undefined,
+			delay: async () => undefined,
+			nextFrame: async () => undefined,
+			settlePaint: async () => undefined,
+			exists: async () => false,
+			capture: async () => {
+				captures += 1;
+				return captures === 1 ? posterFrame({ contentFraction: 0, isBlank: true }) : posterFrame();
+			},
+			store: async (key) => {
+				stored.push(key);
+			},
+			reportError: (error) => errors.push(error)
+		};
+		const controller = new PosterCaptureController(services);
+		const request = { key: 'blank-key', canvas: {} as HTMLCanvasElement, compositionIdentity: {} };
+
+		controller.update(request);
+		await flushPromises();
+		assert.deepEqual(stored, []);
+		assert.deepEqual(errors, []);
+
+		controller.update(request);
+		await flushPromises();
+		assert.deepEqual(stored, ['blank-key']);
 		assert.equal(captures, 2);
 	});
 });

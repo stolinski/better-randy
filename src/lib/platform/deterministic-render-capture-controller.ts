@@ -1,3 +1,4 @@
+import { readBlobAsDataUrl } from '$lib/utils/blob-encoding';
 import { captureCanvasPng, readImageBlobPixels } from '$lib/utils/canvas-capture';
 import type {
 	DeterministicReadableCompositedMask,
@@ -42,15 +43,6 @@ interface ElementPaintSnapshot {
 // applies to the authored foreground/background colors, not partial coverage.
 const AUTHORITATIVE_MASK_PEAK_FRACTION = 0.9;
 const TRANSPARENT_COMPOSITE_GRAY = 127;
-
-async function blobDataUrl(blob: Blob): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onerror = () => reject(reader.error ?? new Error('PNG data URL read failed.'));
-		reader.onload = () => resolve(String(reader.result));
-		reader.readAsDataURL(blob);
-	});
-}
 
 function allPaintElements(roots: readonly HTMLElement[]): Array<HTMLElement | SVGElement> {
 	return roots.flatMap((root) => [root, ...root.querySelectorAll<HTMLElement | SVGElement>('*')]);
@@ -291,9 +283,9 @@ export class DeterministicRenderCaptureController {
 		const artifacts = this.artifacts(readableId);
 		if (!artifacts) return null;
 		const [backgroundPng, treatmentPng, authoritativeMaskPng] = await Promise.all([
-			blobDataUrl(artifacts.backgroundPng),
-			blobDataUrl(artifacts.treatmentPng),
-			blobDataUrl(artifacts.authoritativeMaskPng)
+			readBlobAsDataUrl(artifacts.backgroundPng),
+			readBlobAsDataUrl(artifacts.treatmentPng),
+			readBlobAsDataUrl(artifacts.authoritativeMaskPng)
 		]);
 		return { backgroundPng, treatmentPng, authoritativeMaskPng };
 	}

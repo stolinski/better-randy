@@ -81,14 +81,16 @@
 	import { seekDeterministicTimelineFrame } from './deterministic-render-capture-authority';
 	import { deriveDeterministicTransitionReadableContracts } from './deterministic-readable-contract';
 	import { DeterministicRenderCaptureController } from './deterministic-render-capture-controller';
-	import { captureCanvasWebp, readCanvasFramePixels } from '$lib/utils/canvas-capture';
+	import { readBlobAsBase64 } from '$lib/utils/blob-encoding';
+	import { capturePosterFrame, readCanvasFramePixels } from '$lib/utils/canvas-capture';
+	import { isPosterFrameUsable } from '$lib/utils/poster-frame-choice';
 	import { cloneJsonValue } from '$lib/utils/json-clone';
 	import {
 		deterministicFrameAddressFor,
 		type DeterministicFrameRequest,
 		type DeterministicSettledFrame
 	} from '$lib/utils/deterministic-render-measurements';
-	import { posterExists, putPoster } from './posters';
+	import { posterExists, putPoster, type ScriptedPosterFrameCapture } from './posters';
 	import { PosterCaptureController } from './poster-capture-controller';
 	import {
 		CompositionRenderResourceController,
@@ -176,27 +178,33 @@
 		nextFrame: abortableAnimationFrame,
 		settlePaint: settleCompositionPaint,
 		exists: posterExists,
-		// A capture that lands before the video underlay's first decoded frame is
-		// a blank webp (~1 KB). Retry with fresh settle windows until pixels
-		// arrive; a genuinely empty composition still stores after the retries.
+		// A capture that lands before the video underlay's first decoded frame
+		// shows nothing. Retry with fresh settle windows until content arrives;
+		// a frame that still shows nothing is handed back as measured, and the
+		// controller declines to store it (ADR-0061).
 		capture: async (canvas) => {
-			let blob = await captureCanvasWebp(canvas);
-			for (let attempt = 0; attempt < 4 && (blob === null || blob.size <= 1200); attempt++) {
+			let frame = await capturePosterFrame(canvas);
+			for (
+				let attempt = 0;
+				attempt < 4 && (frame === null || !isPosterFrameUsable(frame));
+				attempt++
+			) {
 				await new Promise((resolveDelay) => window.setTimeout(resolveDelay, 700));
 				await settleCompositionPaint(new AbortController().signal);
 				await new Promise(requestAnimationFrame);
-				blob = await captureCanvasWebp(canvas);
+				frame = await capturePosterFrame(canvas);
 			}
-			return blob;
+			return frame;
 		},
 		store: putPoster,
 		reportError: (error) => console.error('Poster capture failed', error)
 	});
 
-	// Poster capture (see ./posters). Once the composition has mounted its GPU
-	// host and the route has resolved a content key, force one settled paint and
-	// snapshot the canvas to a content-keyed WebP. Runs identically for the live
-	// editor and the picker's hidden generator iframe; guarded to once per key.
+	// User-composition poster capture (see ./posters). Once the composition has
+	// mounted its GPU host and the route has resolved a content key, force one
+	// settled paint and snapshot the canvas to a content-keyed WebP; guarded to
+	// once per key. Library Presets pass no key: their posters are committed
+	// stills rendered by `pnpm capture:posters` (ADR-0061).
 	$effect(() => {
 		const key = posterKey;
 		const localCanvas = canvas;
@@ -205,7 +213,6 @@
 			posterCaptureController.update(null);
 			return;
 		}
-		if (typeof window !== 'undefined') window.__gfxPosterKey = key;
 		posterCaptureController.update({
 			key,
 			canvas: localCanvas,
@@ -533,6 +540,40 @@
 		}
 	}
 
+	// Scripted poster capture (ADR-0061): `pnpm capture:posters` parks the
+	// playhead on each candidate frame through this seam and reads the still
+	// back with its measurement. Peer to `__gfxExport`; never a UI path.
+	async function capturePosterFrameAt(
+		timestampSeconds: number
+	): Promise<ScriptedPosterFrameCapture | null> {
+		const localCanvas = canvas;
+		const localTimeline = timeline;
+		if (!localCanvas || !localTimeline) {
+			throw new Error('Composition canvas and timeline are unavailable for poster capture.');
+		}
+		const signal = new AbortController().signal;
+		await fontsReady();
+		localTimeline.pause();
+		localTimeline.seek(timestampSeconds);
+		await settleCompositionPaint(signal);
+		// Composited is not yet presented: `toBlob` reads the presented image,
+		// which lands two frame boundaries after the submit (see the deterministic
+		// settle below for why one is not enough).
+		await host?.device.queue.onSubmittedWorkDone();
+		await abortableAnimationFrame(signal);
+		await abortableAnimationFrame(signal);
+		const frame = await capturePosterFrame(localCanvas);
+		if (!frame) return null;
+		return {
+			timestampSeconds: localTimeline.time,
+			width: frame.width,
+			height: frame.height,
+			contentFraction: frame.contentFraction,
+			isBlank: frame.isBlank,
+			webpBase64: await readBlobAsBase64(frame.blob)
+		};
+	}
+
 	function currentFrameRenderResources(): CompositionFrameRenderResources {
 		return (
 			renderResourceSet?.snapshot() ?? {
@@ -822,6 +863,7 @@
 					// Agent-facing export seam (ADR-0042) — the sync loop drives the
 					// real export path with a start timecode + sync filename.
 					window.__gfxExport = performExport;
+					window.__gfxCapturePosterFrameAt = capturePosterFrameAt;
 				}
 				// The `delivery` family exports through this handle, and waits on the
 				// same outcome the Export button produces (ADR-0054 §7).
@@ -1299,6 +1341,7 @@
 		if (typeof window !== 'undefined') {
 			window.__gfxTextAnimationManager = undefined;
 			window.__gfxExport = undefined;
+			window.__gfxCapturePosterFrameAt = undefined;
 			window.__captureGfxDeterministicReadablePngArtifacts = undefined;
 			window.__captureGfxDeterministicRenderRegionManifest = undefined;
 			window.__readGfxRuntimeRenderRegistryIdentity = undefined;

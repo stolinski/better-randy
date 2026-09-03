@@ -4,7 +4,6 @@
 	import type { Attachment } from 'svelte/attachments';
 
 	import type { SurfaceType } from '$lib/platform/engine-schema';
-	import { posterUrl } from '$lib/platform/posters';
 	import { imageContentViewBoxInset } from '$lib/utils/image-alpha-bounds';
 	import SurfaceIcon from './SurfaceIcon.svelte';
 
@@ -14,11 +13,12 @@
 
 	interface Props {
 		slug: string;
-		// Content key of this composition's own poster — passed ONLY when the
-		// route's server load says the poster exists in the store. Null means
-		// "no own poster": the card starts on the surface default immediately
-		// instead of discovering absence through a 404 (console noise).
-		thumbKey: string | null;
+		// URL of this composition's own poster — a committed still for a library
+		// Preset, the store's capture for a User composition — passed ONLY when
+		// the server load knows it exists. Null means "no own poster": the card
+		// starts on the surface default immediately instead of discovering
+		// absence through a 404 (console noise).
+		thumbSrc: string | null;
 		name: string;
 		type: SurfaceType;
 		badge: string | null;
@@ -32,15 +32,15 @@
 		aspect: 'wide' | 'tall';
 	}
 
-	let { slug, thumbKey, name, type, badge, kindLabel, durationSeconds, reflow, aspect }: Props =
+	let { slug, thumbSrc, name, type, badge, kindLabel, durationSeconds, reflow, aspect }: Props =
 		$props();
 
-	// Fallback chain: this composition's own poster (capture-on-view) → the
-	// committed surface-type default → the surface glyph. The base level comes
-	// from poster knowledge; onerror only downgrades on a genuinely missing
-	// file — it is a backstop, not the discovery mechanism.
+	// Fallback chain: this composition's own poster → the committed
+	// surface-type default → the surface glyph. The base level comes from
+	// poster knowledge; onerror only downgrades on a genuinely missing file —
+	// it is a backstop, not the discovery mechanism.
 	let downgrade = $state<'surface' | 'failed' | null>(null);
-	const level = $derived(downgrade ?? (thumbKey !== null ? 'composition' : 'surface'));
+	const level = $derived(downgrade ?? (thumbSrc !== null ? 'composition' : 'surface'));
 	let ready = $state(false);
 	let shouldLoad = $state(false);
 
@@ -61,8 +61,8 @@
 	const src = $derived(
 		level === 'surface'
 			? `/surface-posters/${type}.webp`
-			: level === 'composition' && thumbKey !== null
-				? posterUrl(thumbKey)
+			: level === 'composition' && thumbSrc !== null
+				? thumbSrc
 				: ''
 	);
 
@@ -104,11 +104,7 @@
 </script>
 
 <a class="poster-card" href={resolve('/p/[slug]', { slug })}>
-	<span
-		class="poster-card__preview"
-		class:is-tall={aspect === 'tall'}
-		{@attach loadVisiblePoster}
-	>
+	<span class="poster-card__preview" class:is-tall={aspect === 'tall'} {@attach loadVisiblePoster}>
 		{#if src && shouldLoad}
 			<img
 				class="poster-card__thumb"
@@ -137,7 +133,11 @@
 				<span class="poster-card__badge">{badge}</span>
 			{/if}
 			{#if reflow}
-				<span class="poster-card__reflow" title="Reflows 16:9 ↔ 9:16" aria-label="Reflows 16:9 and 9:16">▭▯</span>
+				<span
+					class="poster-card__reflow"
+					title="Reflows 16:9 ↔ 9:16"
+					aria-label="Reflows 16:9 and 9:16">▭▯</span
+				>
 			{/if}
 			{#if durationSeconds !== null}
 				<span class="poster-card__duration">{durationSeconds.toFixed(1)} s</span>

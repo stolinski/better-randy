@@ -74,6 +74,10 @@ _Avoid_: document, override, patch, project (all imply a non-Preset or base-boun
 The two places a **Preset** lives. The **corpus** is the git-tracked set under `src/lib/presets/` — Critic-accepted, build-harness reference artifacts, **read-only from the GUI** (they serve as Starter templates). The **user store** is a separate user-writable location holding **User compositions**. Both hold the same Preset format. Pre-parity, everything lived in the corpus; the store split is what lets GUI authoring coexist with the proof corpus without polluting it.
 _Avoid_: conflating the two; calling the user store a "database" or "project" (it is a Preset store).
 
+**Poster**:
+The rendered still that stands for a composition on the home page, keyed by a content hash of the Preset so it can never describe another version of it. A **corpus** Preset's poster is a **committed** asset under `src/lib/assets/composition-posters/`, written by `pnpm capture:posters` at the frame that shows the most (or the authored `transport.posterSeconds`) and shipped with the app on every origin; `composition-posters.test.ts` fails while a deliverable's poster is missing or stale. A **User composition**'s poster is captured on view into the development-only `.posters/` store, and a frame that shows nothing is never kept. A **Surface default** (`static/surface-posters/<type>.webp`) stands in only until a composition has a poster of its own ([ADR-0061](adr/0061-committed-composition-posters.md)).
+_Avoid_: thumbnail (the still is a render, not a scaled screenshot), preview (that is the live canvas).
+
 **Layer**:
 One of the five composition layers — **Surface**, **Block**, **Annotation**, **Overlay**, **Effect**. Render order and registry membership are defined by which layer a renderer belongs to.
 _Avoid_: tier, level, stage (in the composition context).

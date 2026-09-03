@@ -105,6 +105,23 @@
 		rescaleCompositionTimings(engineState, prev / next);
 		engineState.transport.durationSeconds = next;
 	}
+
+	// The frame the library poster is rendered from (ADR-0061). Empty means the
+	// poster script chooses the frame by content; a value names one moment,
+	// clamped to the run when it is photographed.
+	function handlePosterSecondsChange(event: Event): void {
+		const input = event.currentTarget as HTMLInputElement;
+		if (input.value.trim() === '') {
+			delete engineState.transport.posterSeconds;
+			return;
+		}
+		const next = Number(input.value);
+		if (!Number.isFinite(next) || next < 0) {
+			input.value = engineState.transport.posterSeconds?.toString() ?? '';
+			return;
+		}
+		engineState.transport.posterSeconds = next;
+	}
 </script>
 
 <div class="root-inspector">
@@ -158,6 +175,17 @@
 					<option value={rate}>{rate} fps</option>
 				{/each}
 			</select>
+		</Field>
+		<Field label="Poster">
+			<input
+				type="number"
+				min="0"
+				max={engineState.transport.durationSeconds}
+				step="0.1"
+				value={engineState.transport.posterSeconds ?? ''}
+				onchange={handlePosterSecondsChange}
+			/>
+			<span class="ins-unit">s</span>
 		</Field>
 	</InspectorSection>
 

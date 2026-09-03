@@ -83,10 +83,7 @@ describe('transport timing', () => {
 			})
 		);
 
-		expect(changed).toEqual([
-			'/state/transport/durationSeconds',
-			'/state/transport/fps'
-		]);
+		expect(changed).toEqual(['/state/transport/durationSeconds', '/state/transport/fps']);
 		expect(engineState.transport.durationSeconds).toBe(9);
 		expect(engineState.transport.fps).toBe(24);
 	});
@@ -114,7 +111,33 @@ describe('transport timing', () => {
 		const failure = expectFailed(await runSetCompositionTimingOperation({ expectedRevision: 0 }));
 
 		expect(failure.code).toBe('invalid_argument');
-		expect(failure.alternatives).toEqual(['durationSeconds', 'fps']);
+		expect(failure.alternatives).toEqual(['durationSeconds', 'fps', 'posterSeconds']);
+	});
+
+	it('names the poster frame in seconds and clears it with null', async () => {
+		const applied = await runSetCompositionTimingOperation({
+			expectedRevision: 0,
+			posterSeconds: 2.5
+		});
+		expect(expectChangedPointers(applied)).toEqual(['/state/transport/posterSeconds']);
+		expect(engineState.transport.posterSeconds).toBe(2.5);
+
+		const cleared = await runSetCompositionTimingOperation({
+			expectedRevision: applied.status === 'applied' ? applied.revision : 0,
+			posterSeconds: null
+		});
+		expect(expectChangedPointers(cleared)).toEqual(['/state/transport/posterSeconds']);
+		expect(engineState.transport.posterSeconds).toBeUndefined();
+	});
+
+	it('refuses a poster time before the start of the run', async () => {
+		const failure = expectFailed(
+			await runSetCompositionTimingOperation({ expectedRevision: 0, posterSeconds: -1 })
+		);
+
+		expect(failure.code).toBe('invalid_argument');
+		expect(failure.rejected).toBe('-1');
+		expect(engineState.transport.posterSeconds).toBeUndefined();
 	});
 
 	it('reports a duration outside the schema range as a blocking finding', async () => {

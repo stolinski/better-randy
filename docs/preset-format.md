@@ -32,7 +32,12 @@ A preset is a single JSON document validated by `PresetSchema` (`src/lib/platfor
                                // 23.976 | 29.97 | 59.94 (ADR-0042). The literal is
                                // display only — frame math resolves it to the exact
                                // rational (30000/1001) via resolveFrameRate.
-  "format": "webm" | "prores"
+  "format": "webm" | "prores",
+  "posterSeconds": number      // optional, 0 – 600: the frame the library poster is
+                               // rendered from (ADR-0061). Absent, `pnpm capture:posters`
+                               // photographs a few candidate frames and keeps the one
+                               // that shows the most; present, that one moment is
+                               // photographed, clamped to the run.
 }
 ```
 

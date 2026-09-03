@@ -38,8 +38,9 @@
 	type CompositionRouteStatus = 'loading' | 'ready' | 'missing' | 'error';
 	let resolutionStatus = $state<CompositionRouteStatus>('loading');
 
-	// Content key for the poster of whatever composition is loaded — handed to the
+	// Content key for the poster of the loaded User composition — handed to the
 	// Workspace, which captures the settled frame under it once (see ./posters).
+	// Null for a library Preset: its poster is a committed still (ADR-0061).
 	let posterKey = $state<string | null>(null);
 
 	// Snapshot taken immediately after applyPreset — used to detect the first
@@ -133,7 +134,9 @@
 			pipelineRendererRuntime.activate(rendererBundle);
 			applyPreset(preset);
 			resolutionStatus = 'ready';
-			posterKey = posterKeyForPreset(preset);
+			// Only a User composition is captured on view; a library Preset's poster
+			// is a committed still (ADR-0061).
+			posterKey = sessionComposition ? posterKeyForPreset(sessionComposition) : null;
 			activeIsUserComposition = sessionComposition !== null;
 			loadSnapshot = snapshotState();
 			compositionMeta.isUserComposition = activeIsUserComposition;
@@ -281,7 +284,7 @@
 			}
 			pipelineRendererRuntime.activate(rendererBundle);
 			applyPreset(corpusPreset);
-			posterKey = posterKeyForPreset(corpusPreset);
+			posterKey = null;
 			activeIsUserComposition = false;
 			loadSnapshot = snapshotState();
 			compositionMeta.isUserComposition = false;

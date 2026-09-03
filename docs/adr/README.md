@@ -71,6 +71,7 @@ Architecture Decision Records are the _why_ behind Supers's shape. Current engin
 | [0058](0058-stale-build-recovery-for-on-demand-imports.md)         | Canon (built 2026-09-02)                                                                     | A tab that outlives a rebuild reloads onto the current build instead of failing an on-demand import     |
 | [0059](0059-compiled-stage-models-and-the-physical-screen.md)      | Canon (built and approved 2026-09-02; landed on `main`)                                      | Authored parts compile into registered stage models; the physical screen is the first body              |
 | [0060](0060-the-stage-in-the-workspace.md)                         | Canon (built and approved 2026-09-03; landed on `main`)                                      | Stage rows, stage inspectors, the body as a canvas entity, and the camera by hand                       |
+| [0061](0061-committed-composition-posters.md)                      | Canon (built 2026-09-03)                                                                     | Library posters are committed stills, chosen by content and gated for freshness; amends 0034 §8, 0052   |
 
 ## Supersession And Refinement
 

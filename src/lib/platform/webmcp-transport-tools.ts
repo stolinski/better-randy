@@ -24,6 +24,7 @@ import {
 	runSetCompositionTimingOperation
 } from './composition-transport-operations';
 import {
+	readWebmcpClearableNumberArgument,
 	readWebmcpLiteralArgument,
 	readWebmcpObservedRevisionArgument,
 	readWebmcpOptionalNumberArgument,
@@ -31,6 +32,7 @@ import {
 	runWebmcpToolOperation
 } from './webmcp-tool-arguments';
 import {
+	webmcpClearableNumberProperty,
 	webmcpDerivedEnumProperty,
 	webmcpObservedRevisionProperty,
 	webmcpTransportRateProperty
@@ -75,6 +77,10 @@ export function listWebmcpTransportToolDefinitions(): readonly WebmcpToolDefinit
 					},
 					fps: webmcpTransportRateProperty(
 						'The delivery rate. Every frame computation resolves it to an exact rational.'
+					),
+					posterSeconds: webmcpClearableNumberProperty(
+						'The frame the library poster is rendered from, in seconds. Null clears it, so the poster frame is chosen by content again.',
+						{ minimum: 0 }
 					)
 				},
 				required: ['expectedRevision'],
@@ -85,7 +91,8 @@ export function listWebmcpTransportToolDefinitions(): readonly WebmcpToolDefinit
 					runSetCompositionTimingOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						durationSeconds: readWebmcpOptionalNumberArgument(args, 'durationSeconds'),
-						fps: readWebmcpOptionalNumberArgument(args, 'fps')
+						fps: readWebmcpOptionalNumberArgument(args, 'fps'),
+						posterSeconds: readWebmcpClearableNumberArgument(args, 'posterSeconds')
 					})
 				)
 		},

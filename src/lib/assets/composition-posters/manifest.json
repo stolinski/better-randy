@@ -1,0 +1,702 @@
+{
+	"achievement-complete": {
+		"contentKey": "2a922f88ba8d605a",
+		"timestampSeconds": 2.05,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.057
+	},
+	"achievement-unlocked": {
+		"contentKey": "9f32d55f2313e692",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0754
+	},
+	"annotation-box-demo": {
+		"contentKey": "4740bcd3e6b7e616",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"apollo-lunar-travelers": {
+		"contentKey": "e6ea4184cf95ac7e",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"bar-chart-apollo-sample-return": {
+		"contentKey": "7844c52cb641fc64",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"captions-karaoke": {
+		"contentKey": "39e05dbbfef10d4e",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.0421
+	},
+	"captions-pack-style-demo": {
+		"contentKey": "6293e105f13beacd",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.007
+	},
+	"captions-word-pop": {
+		"contentKey": "2e912c6e3b6e6946",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.0248
+	},
+	"chapter-card-descent": {
+		"contentKey": "355d011a51039f95",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9923
+	},
+	"chart-domain-survey-fixture": {
+		"contentKey": "a6df08eee54c0866",
+		"timestampSeconds": 4.8,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"checklist-project-setup": {
+		"contentKey": "e4f08f4ec33487f7",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2103
+	},
+	"checklist-show-rundown": {
+		"contentKey": "e46f68849a17058c",
+		"timestampSeconds": 5.005,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2103
+	},
+	"chromatic-aberration-demo": {
+		"contentKey": "a0101284da519df0",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"cloth-bend-demo": {
+		"contentKey": "43bb32bec02d632f",
+		"timestampSeconds": 1.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9969
+	},
+	"column-us-population-1950-2020": {
+		"contentKey": "c4a2396a5f2b15f1",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"counter-demo": {
+		"contentKey": "98134197adefcd10",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0087
+	},
+	"counter-milestone": {
+		"contentKey": "697710515c0e763a",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4248
+	},
+	"crt-filmed": {
+		"contentKey": "e27abcfaefbe7a69",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9985
+	},
+	"crt-tube-demo": {
+		"contentKey": "bc9ec4c6c314d587",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9999
+	},
+	"cursor-trail-demo": {
+		"contentKey": "1a1144f1a6011fa2",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9966
+	},
+	"cursor-trail-title-sweep": {
+		"contentKey": "ae96f8f7a96fb80b",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9294
+	},
+	"depth-of-field-bokeh": {
+		"contentKey": "7e4f7d1ca32644dc",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2397
+	},
+	"depth-of-field-rack-focus": {
+		"contentKey": "fabffa48150169c7",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1965
+	},
+	"depth-of-field-tabletop": {
+		"contentKey": "2981bf4c423371a4",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.993
+	},
+	"depth-stage-demo": {
+		"contentKey": "eb53e35188c1b9b4",
+		"timestampSeconds": 2.8,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9979
+	},
+	"deterministic-imessage-readable-audit-fixture": {
+		"contentKey": "30a4e62fdb041012",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.3939
+	},
+	"deterministic-readable-audit-fixture": {
+		"contentKey": "071f341597b06abc",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1075
+	},
+	"diagram-schema-fixture": {
+		"contentKey": "3fdedb52d24ab494",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0387
+	},
+	"dithering-demo": {
+		"contentKey": "38f31be668ba8c44",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9745
+	},
+	"docu-flowchart": {
+		"contentKey": "593cbacfc3e83dce",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0532
+	},
+	"docu-map-journey": {
+		"contentKey": "3825efa56625f4bb",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9999
+	},
+	"docu-stat-build": {
+		"contentKey": "bff71c75babfc8ef",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0756
+	},
+	"docu-timeline-build": {
+		"contentKey": "63fc8d35d7b7dd2f",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1244
+	},
+	"docu-timeline-build-clean-light": {
+		"contentKey": "f6a8380d72d356ef",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1121
+	},
+	"dof-multiplane-check": {
+		"contentKey": "3d6da9e3d64179bb",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.5276
+	},
+	"fluid-ripple-demo": {
+		"contentKey": "eb936ea691add659",
+		"timestampSeconds": 1.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9221
+	},
+	"fluted-glass-demo": {
+		"contentKey": "73168c76aa07691d",
+		"timestampSeconds": 1.2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9819
+	},
+	"halftone-cmyk-demo": {
+		"contentKey": "a0932a9c78da99a0",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9478
+	},
+	"halftone-dots-demo": {
+		"contentKey": "46c45d509c50972f",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9996
+	},
+	"heatmap-demo": {
+		"contentKey": "2d452e2392b322f6",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9974
+	},
+	"imessage-friday-deploy": {
+		"contentKey": "560ca0c1fa24036b",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1429
+	},
+	"instagram-follow": {
+		"contentKey": "57c211bd79731234",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.1588
+	},
+	"instance-stack-vertical": {
+		"contentKey": "bb64fedf0bfbcfad",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.5156
+	},
+	"isolate-demo": {
+		"contentKey": "59272689041f623e",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0226
+	},
+	"keyframes-cascade-demo": {
+		"contentKey": "3e5ddc25445558c6",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2981
+	},
+	"lower-third": {
+		"contentKey": "b968136b2af5eeb3",
+		"timestampSeconds": 3.35,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0648
+	},
+	"lower-third-cascade-reveal": {
+		"contentKey": "8157d3b377429a99",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0578
+	},
+	"lower-third-clean-light": {
+		"contentKey": "737611383e116baa",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0615
+	},
+	"newspaper-body-test": {
+		"contentKey": "ee7a487f00332f38",
+		"timestampSeconds": 1.4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9998
+	},
+	"ntsc-signal-demo": {
+		"contentKey": "d8c7cef3e0c66846",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"optical-glass-photo-fixture": {
+		"contentKey": "2f72f5ae7d18f5a9",
+		"timestampSeconds": 2.4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.8711
+	},
+	"optical-lens-showcase": {
+		"contentKey": "55bb64497f720f76",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"outro-watch-next": {
+		"contentKey": "4293753ce916157a",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9309
+	},
+	"plastic-msw-destinations": {
+		"contentKey": "8702446b7c7efb54",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 1
+	},
+	"pullquote-on-photo": {
+		"contentKey": "5eafec8b9b8b3710",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9995
+	},
+	"quote-lift-out": {
+		"contentKey": "c06742d21fa5057e",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"quote-magnify": {
+		"contentKey": "7262c888b8a3f199",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"quote-tear-out": {
+		"contentKey": "774fba28db1db6f3",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"quote-vertical": {
+		"contentKey": "1f2353842378399c",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.8432
+	},
+	"research-paper-attention": {
+		"contentKey": "5a92242000f8f7c9",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"research-paper-critique": {
+		"contentKey": "ceababc62ab85390",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"shader-fill-demo": {
+		"contentKey": "42402012681e0c0d",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.12
+	},
+	"shader-fill-syntax-gradient": {
+		"contentKey": "ba87fb0c2410c383",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.17
+	},
+	"sound-escape-hatches": {
+		"contentKey": "75126cb87de5a045",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9976
+	},
+	"source-bug-nasa-archive": {
+		"contentKey": "0e6f58d0cf35272d",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0247
+	},
+	"stage-oblique-fixture": {
+		"contentKey": "683f3f8febc99697",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9997
+	},
+	"text-3d-cylinder": {
+		"contentKey": "df532236fef7574f",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.043
+	},
+	"text-anim-showcase-generic": {
+		"contentKey": "81d172d5f80a1260",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.5313
+	},
+	"text-anim-showcase-kinetic-center-build": {
+		"contentKey": "c7d7cfdea5e5a61c",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"text-anim-showcase-kinetic-top-build": {
+		"contentKey": "3094da97e777347d",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 1138,
+		"contentFraction": 0.8432
+	},
+	"text-anim-showcase-shared-slide-opacity": {
+		"contentKey": "986676adad9f433f",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4721
+	},
+	"tiled-deformation-demo": {
+		"contentKey": "caa883cc02e3dedb",
+		"timestampSeconds": 1.6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9523
+	},
+	"title-card-brand-mark": {
+		"contentKey": "1249b5bdb7c0ff26",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.2098
+	},
+	"title-card-chapter-heading": {
+		"contentKey": "a0dc810844566c7e",
+		"timestampSeconds": 2.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0428
+	},
+	"title-card-newspaper": {
+		"contentKey": "d7a854940d387c8a",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9999
+	},
+	"title-sequence-drop": {
+		"contentKey": "887ce40930f283e4",
+		"timestampSeconds": 2.4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9876
+	},
+	"title-sequence-signal": {
+		"contentKey": "23d419392580d624",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9824
+	},
+	"transition-particle-dissolve-demo": {
+		"contentKey": "7d7a4012e0799af8",
+		"timestampSeconds": 0,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9958
+	},
+	"transition-seeded-shatter-demo": {
+		"contentKey": "904f9063cd9f1a19",
+		"timestampSeconds": 0,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9996
+	},
+	"transition-sheet-peel-demo": {
+		"contentKey": "3556f0e05c0ecc84",
+		"timestampSeconds": 0,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9996
+	},
+	"transition-wipe-demo": {
+		"contentKey": "4d57a9c89c9b0c2c",
+		"timestampSeconds": 0,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9995
+	},
+	"tweet-stack-reaction-flood": {
+		"contentKey": "a99732b4b6f40ce9",
+		"timestampSeconds": 5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.729
+	},
+	"type-hero-vantage": {
+		"contentKey": "9a6b588d8a079e11",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9972
+	},
+	"type-hero-vantage-clean-light": {
+		"contentKey": "160aa4ae9df74d62",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9996
+	},
+	"wake-conversation-flow": {
+		"contentKey": "dc19d054e6faabfc",
+		"timestampSeconds": 6,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1161
+	},
+	"washi-tape-corner-accent": {
+		"contentKey": "f516b9ded5cfc674",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4755
+	},
+	"water-demo": {
+		"contentKey": "d27cc00d7f6e4683",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9923
+	},
+	"watermark-channel-sig": {
+		"contentKey": "4e589dfbddcb08de",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9237
+	},
+	"watermark-demo": {
+		"contentKey": "afa1acecb94aeb7f",
+		"timestampSeconds": 2,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.0165
+	},
+	"web-document-github": {
+		"contentKey": "e9d2ab4953768f55",
+		"timestampSeconds": 4.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.5102
+	},
+	"web-document-hackernews": {
+		"contentKey": "eb52808d59e4f613",
+		"timestampSeconds": 3.75,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4586
+	},
+	"web-document-news": {
+		"contentKey": "38861ae9c3e5c455",
+		"timestampSeconds": 5.25,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4887
+	},
+	"web-document-pubmed-somatization": {
+		"contentKey": "32763dbeacf1c19e",
+		"timestampSeconds": 4,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.5866
+	},
+	"web-document-reddit": {
+		"contentKey": "baca6216c757ced3",
+		"timestampSeconds": 4.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4639
+	},
+	"web-document-twitter": {
+		"contentKey": "74d73cf3a2a21118",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.4889
+	},
+	"web-document-wikipedia": {
+		"contentKey": "b0c769a3440ed9d2",
+		"timestampSeconds": 4.9,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.617
+	},
+	"web-document-youtube": {
+		"contentKey": "9defb71e24ad150f",
+		"timestampSeconds": 4.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.3678
+	},
+	"website-filmed": {
+		"contentKey": "38309c1d2ca029dc",
+		"timestampSeconds": 3.5,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.9997
+	},
+	"website-showcase": {
+		"contentKey": "cd810f659c8916e1",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.6978
+	},
+	"youtube-subscribe": {
+		"contentKey": "e51305a3d9ccab10",
+		"timestampSeconds": 3,
+		"width": 640,
+		"height": 360,
+		"contentFraction": 0.1201
+	}
+}

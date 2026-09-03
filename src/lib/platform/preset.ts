@@ -213,6 +213,14 @@ export function applyCompositionState(preset: Preset): void {
 	engineState.transport.durationSeconds = next.transport.durationSeconds;
 	engineState.transport.fps = next.transport.fps;
 	engineState.transport.format = next.transport.format;
+	// Optional: absent means the poster frame is chosen by content (ADR-0061),
+	// and the key must be absent rather than undefined so the wire format and
+	// its content hash stay identical to the document's.
+	if (next.transport.posterSeconds === undefined) {
+		delete engineState.transport.posterSeconds;
+	} else {
+		engineState.transport.posterSeconds = next.transport.posterSeconds;
+	}
 
 	engineState.typography.fontFamily = next.typography.fontFamily;
 	engineState.typography.paperColor = next.typography.paperColor;

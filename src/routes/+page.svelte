@@ -5,6 +5,7 @@
 
 	import { GFX_PRODUCT_NAME } from '$lib/identity/gfx-brand';
 	import type { CompositionValidationFinding } from '$lib/platform/composition-validation-findings';
+	import { posterUrl } from '$lib/platform/posters';
 	import type { UserCompositionMeta } from '$lib/platform/user-composition-store';
 	import gfxLogotype from '$lib/assets/identity/gfx-logotype.svg';
 	import gfxMark from '$lib/assets/identity/gfx-mark.svg';
@@ -21,8 +22,10 @@
 		'slug' | 'name' | 'forkedFrom' | 'savedAt' | 'posterKey' | 'durationSeconds' | 'surfaceType'
 	>;
 
-	// Posters that actually exist (server load reads the store) — cards get a
-	// thumbKey only for these, so nothing probes a not-yet-captured poster.
+	// User-composition posters that actually exist (server load reads the
+	// store) — their cards get a thumbSrc only for these, so nothing probes a
+	// not-yet-captured poster. Library cards carry their committed poster URL
+	// from the load itself (ADR-0061).
 	const posterKeys = $derived(new Set(data.posterKeys));
 
 	// Which compositor a Preset drives, resolved the same way Workspace does:
@@ -188,9 +191,8 @@
 
 	async function createBlankUserComposition(): Promise<void> {
 		importIssues = [];
-		const { runCreateBlankCompositionOperation } = await import(
-			'$lib/platform/composition-lifecycle-operations'
-		);
+		const { runCreateBlankCompositionOperation } =
+			await import('$lib/platform/composition-lifecycle-operations');
 		const outcome = await runCreateBlankCompositionOperation();
 		if (outcome.status === 'failed') {
 			importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
@@ -227,9 +229,8 @@
 				return;
 			}
 
-			const { runImportCompositionJsonOperation } = await import(
-				'$lib/platform/composition-lifecycle-operations'
-			);
+			const { runImportCompositionJsonOperation } =
+				await import('$lib/platform/composition-lifecycle-operations');
 			const outcome = await runImportCompositionJsonOperation({ document: value });
 			if (outcome.status === 'failed') {
 				importIssues = [documentImportIssue(outcome.message), ...outcome.findings.findings];
@@ -290,9 +291,7 @@
 	<li>
 		<PosterCard
 			slug={entry.slug}
-			thumbKey={entry.posterKey !== null && posterKeys.has(entry.posterKey)
-				? entry.posterKey
-				: null}
+			thumbSrc={entry.posterUrl}
 			name={entry.name}
 			type={entry.surfaceType}
 			badge={compositorBadge(entry)}
@@ -311,8 +310,8 @@
 	<li class="card-cell">
 		<PosterCard
 			slug={userComposition.slug}
-			thumbKey={userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
-				? userComposition.posterKey
+			thumbSrc={userComposition.posterKey !== null && posterKeys.has(userComposition.posterKey)
+				? posterUrl(userComposition.posterKey)
 				: null}
 			name={userComposition.name}
 			type={userComposition.surfaceType}

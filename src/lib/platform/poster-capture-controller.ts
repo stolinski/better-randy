@@ -1,3 +1,6 @@
+import type { PosterFrameCapture } from '$lib/utils/canvas-capture';
+import { isPosterFrameUsable } from '$lib/utils/poster-frame-choice';
+
 export interface PosterCaptureRequest {
 	canvas: HTMLCanvasElement;
 	compositionIdentity: object;
@@ -5,7 +8,7 @@ export interface PosterCaptureRequest {
 }
 
 export interface PosterCaptureServices {
-	capture(canvas: HTMLCanvasElement): Promise<Blob | null>;
+	capture(canvas: HTMLCanvasElement): Promise<PosterFrameCapture | null>;
 	delay(signal: AbortSignal): Promise<void>;
 	exists(key: string): Promise<boolean>;
 	nextFrame(signal: AbortSignal): Promise<void>;
@@ -24,7 +27,13 @@ function throwIfAborted(signal: AbortSignal): void {
 	if (signal.aborted) throw signal.reason;
 }
 
-/** Owns delayed, once-per-content-key poster capture without outliving its Workspace identity. */
+/**
+ * Owns delayed, once-per-content-key poster capture for a User composition
+ * without outliving its Workspace identity. A frame that shows nothing is
+ * never stored and never counts as done: the key stays open, so the next view
+ * of the composition tries again instead of pinning a blank card to it
+ * ([ADR-0061](../../../docs/adr/0061-committed-composition-posters.md)).
+ */
 export class PosterCaptureController {
 	readonly #services: PosterCaptureServices;
 	readonly #completedKeys = new Set<string>();
@@ -76,10 +85,11 @@ export class PosterCaptureController {
 				this.#completedKeys.add(request.key);
 				return;
 			}
-			const blob = await this.#services.capture(request.canvas);
+			const frame = await this.#services.capture(request.canvas);
 			this.#assertCurrent(revision, signal);
-			if (!blob) throw new Error('Poster canvas capture returned no image.');
-			await this.#services.store(request.key, blob);
+			if (!frame) throw new Error('Poster canvas capture returned no image.');
+			if (!isPosterFrameUsable(frame)) return;
+			await this.#services.store(request.key, frame.blob);
 			this.#assertCurrent(revision, signal);
 			this.#completedKeys.add(request.key);
 		} catch (error) {
