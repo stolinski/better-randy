@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (built 2026-09-03 as Dex epic `0wmi5ndk`, ordered before dimensional type; awaiting the human gate on gfx-review).** Extends [ADR-0034](0034-gui-design-authoring-interface.md) (the timeline as the layer list) and [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations, focus) to the **Dimensional Stage** of [ADR-0028](0028-dimensional-depth-stage.md), [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md), and [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md). Amends one consequence of ADR-0057.
+**Canon (built and approved 2026-09-03 as Dex epic `0wmi5ndk`, ordered before dimensional type; Scott took the gate on gfx-review and the branch landed on `main`).** Extends [ADR-0034](0034-gui-design-authoring-interface.md) (the timeline as the layer list) and [ADR-0054](0054-webmcp-operation-transaction-and-security-contract.md) (operations, focus) to the **Dimensional Stage** of [ADR-0028](0028-dimensional-depth-stage.md), [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md), and [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md). Amends one consequence of ADR-0057.
 
 Date: 2026-09-02
 
