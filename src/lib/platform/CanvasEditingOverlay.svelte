@@ -48,6 +48,10 @@
 	} from './canvas-element-selection';
 	import { compositionEditHistory } from './composition-edit-history';
 	import {
+		captureCompositionGestureOrigin,
+		recordCompositionGestureEdit
+	} from './composition-edit-transaction';
+	import {
 		captureDiagramLabelTextBoxSnapshot,
 		diagramLabelTextBoxSnapshotsEqual,
 		resolveDiagramLabelTextBoxResize,
@@ -68,6 +72,14 @@
 		posedOverlayStagePlane,
 		type StagePlane
 	} from './pipelines/depth-stage-planes';
+	import {
+		restStageCameraPose,
+		setStageCameraPoseAngle,
+		setStageCameraPoseDistance,
+		stageDollyDistance,
+		stageOrbitDegreesForDrag
+	} from './stage-camera-editing';
+	import { STAGE_CAMERA_POSE_LIMITS, type Preset, type StageCameraPose } from './engine-schema';
 	import { getStageModel } from './stage-models';
 	import {
 		canvasElementSelection,
@@ -1531,6 +1543,7 @@
 	function startCanvasCandidateGesture(event: PointerEvent, selectionKey: string): void {
 		if (selectionKey.startsWith('stage-body:')) {
 			selectStageBody(selectionKey.slice('stage-body:'.length));
+			startStageOrbit(event);
 			return;
 		}
 		if (selectionKey.startsWith('overlay:')) {
@@ -1824,13 +1837,129 @@
 
 	// The pose the current frame is filmed through: under a vertical frame
 	// with its own camera, reframing edits the vertical pose.
-	function stageCameraPose(): { aim: { x: number; y: number } } | null {
+	function stageCameraPose(): StageCameraPose | null {
 		const stage = engineState.stage;
 		if (stage?.type !== 'depth') return null;
 		const vertical =
 			engineState.transport.orientation === 'vertical' ? stage.camera.vertical?.pose : undefined;
 		return vertical ?? stage.camera.pose ?? null;
 	}
+
+	// The same pose, authored from the rest camera when the frame has none yet —
+	// a first orbit or dolly turns the pose on the way the inspector's toggle does.
+	function ensureStageCameraPose(): StageCameraPose | null {
+		const stage = engineState.stage;
+		if (stage?.type !== 'depth') return null;
+		if (engineState.transport.orientation === 'vertical' && stage.camera.vertical) {
+			stage.camera.vertical.pose ??= restStageCameraPose();
+			return stage.camera.vertical.pose;
+		}
+		stage.camera.pose ??= restStageCameraPose();
+		return stage.camera.pose;
+	}
+
+	// ─── Orbit and dolly by hand (ADR-0060 §4) ────────────────────────────────────
+	// At fit zoom, dragging a body orbits the camera about its aim as if the
+	// object were grabbed: drag right turns the object's near side right (the
+	// camera swings left), drag down tips its top toward the eye (the camera
+	// rises). The wheel dollies. Both write the frame's pose through the same
+	// clamped writers the Camera inspector uses and record one undo entry per
+	// gesture; grabbing the page keeps reframing the aim as before.
+
+	interface StageOrbitGesture {
+		startX: number;
+		startY: number;
+		originYaw: number;
+		originPitch: number;
+		frameHeightPx: number;
+		moved: boolean;
+		document: Preset;
+	}
+
+	let orbitGesture: StageOrbitGesture | null = null;
+
+	function startStageOrbit(event: PointerEvent): void {
+		if (event.button !== 0 || zoom > 1) return;
+		const pose = ensureStageCameraPose();
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!pose || !canvasRect || canvasRect.height <= 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		orbitGesture = {
+			startX: event.clientX,
+			startY: event.clientY,
+			originYaw: pose.yaw,
+			originPitch: pose.pitch,
+			frameHeightPx: canvasRect.height,
+			moved: false,
+			document: captureCompositionGestureOrigin()
+		};
+		window.addEventListener('pointermove', onStageOrbitMove);
+		window.addEventListener('pointerup', onStageOrbitUp);
+	}
+
+	function onStageOrbitMove(event: PointerEvent): void {
+		const gesture = orbitGesture;
+		if (!gesture) return;
+		const dx = event.clientX - gesture.startX;
+		const dy = event.clientY - gesture.startY;
+		if (!gesture.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+		gesture.moved = true;
+		const pose = stageCameraPose();
+		if (!pose) return;
+		setStageCameraPoseAngle(
+			pose,
+			'yaw',
+			gesture.originYaw - stageOrbitDegreesForDrag(dx, gesture.frameHeightPx),
+			STAGE_CAMERA_POSE_LIMITS.yawDegrees
+		);
+		setStageCameraPoseAngle(
+			pose,
+			'pitch',
+			gesture.originPitch + stageOrbitDegreesForDrag(dy, gesture.frameHeightPx),
+			STAGE_CAMERA_POSE_LIMITS.pitchDegrees
+		);
+		measureEpoch += 1;
+	}
+
+	function onStageOrbitUp(): void {
+		const gesture = orbitGesture;
+		orbitGesture = null;
+		window.removeEventListener('pointermove', onStageOrbitMove);
+		window.removeEventListener('pointerup', onStageOrbitUp);
+		if (!gesture?.moved) return;
+		recordCompositionGestureEdit('Orbit stage camera', gesture.document);
+	}
+
+	// A wheel is a burst of events; the dolly records once when the hand rests.
+	const STAGE_DOLLY_SETTLE_MS = 300;
+	let dollyOrigin: Preset | null = null;
+	let dollySettleTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function settleStageDolly(): void {
+		dollySettleTimer = null;
+		const origin = dollyOrigin;
+		dollyOrigin = null;
+		if (origin) recordCompositionGestureEdit('Dolly stage camera', origin);
+	}
+
+	function onStageDollyWheel(event: WheelEvent): void {
+		if (zoom > 1 || engineState.stage?.type !== 'depth') return;
+		const pose = ensureStageCameraPose();
+		if (!pose) return;
+		event.preventDefault();
+		dollyOrigin ??= captureCompositionGestureOrigin();
+		setStageCameraPoseDistance(pose, stageDollyDistance(pose.distance, event.deltaY));
+		measureEpoch += 1;
+		if (dollySettleTimer !== null) clearTimeout(dollySettleTimer);
+		dollySettleTimer = setTimeout(settleStageDolly, STAGE_DOLLY_SETTLE_MS);
+	}
+
+	// Wheel listeners must opt out of passive to keep the page from scrolling.
+	const attachStageDolly: Attachment<HTMLElement> = (element) => {
+		element.addEventListener('wheel', onStageDollyWheel, { passive: false });
+		return () => element.removeEventListener('wheel', onStageDollyWheel);
+	};
 
 	function onBackdropDown(event: PointerEvent): void {
 		if (event.button !== 0) return;
@@ -1923,6 +2052,9 @@
 
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
+		if (dollySettleTimer !== null) clearTimeout(dollySettleTimer);
+		window.removeEventListener('pointermove', onStageOrbitMove);
+		window.removeEventListener('pointerup', onStageOrbitUp);
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
 		window.removeEventListener('pointercancel', onPointerUp);
@@ -1948,6 +2080,7 @@
 	<div
 		class="canvas-editing-overlay__backdrop"
 		class:canvas-editing-overlay__backdrop--pannable={zoom > 1}
+		{@attach attachStageDolly}
 		onpointerdown={onBackdropDown}
 		onpointerenter={() => {
 			measureEpoch += 1;
@@ -2320,6 +2453,7 @@
 				data-canvas-selection-layer="stage-body"
 				data-canvas-paint-index={0}
 				data-canvas-stable-id={bodyId}
+				{@attach attachStageDolly}
 				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
 				role="button"
 				tabindex="0"

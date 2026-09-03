@@ -57,3 +57,31 @@ export function parseUnitIntervalInput(value: string): number | null {
 	const n = Number(value);
 	return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null;
 }
+
+/** Dragging across the whole rendered frame height orbits the camera this far. */
+export const STAGE_ORBIT_DEGREES_PER_FRAME_HEIGHT = 90;
+
+/**
+ * The orbit a drag of `deltaPx` makes on a frame drawn `frameHeightPx` tall
+ * (ADR-0060 §4): the same hand travel orbits the same angle at every zoom.
+ */
+export function stageOrbitDegreesForDrag(deltaPx: number, frameHeightPx: number): number {
+	if (!(frameHeightPx > 0)) return 0;
+	return (deltaPx / frameHeightPx) * STAGE_ORBIT_DEGREES_PER_FRAME_HEIGHT;
+}
+
+/** One wheel pixel dollies the distance by this factor, applied geometrically. */
+export const STAGE_DOLLY_PER_WHEEL_PIXEL = 0.0015;
+
+/**
+ * The distance after a wheel of `wheelDeltaY` pixels (ADR-0060 §4): rolling
+ * toward the page pushes in, geometric so the feel is even across the range,
+ * clamped to the pose limits.
+ */
+export function stageDollyDistance(distance: number, wheelDeltaY: number): number {
+	const next = distance * Math.exp(wheelDeltaY * STAGE_DOLLY_PER_WHEEL_PIXEL);
+	return Math.max(
+		STAGE_CAMERA_POSE_LIMITS.minDistance,
+		Math.min(STAGE_CAMERA_POSE_LIMITS.maxDistance, next)
+	);
+}
