@@ -374,6 +374,8 @@ export const WEBMCP_OPERATION_FAMILIES: readonly WebmcpOperationFamily[] = [
 			{ pointer: '/state/marks/defaults', scope: 'value' },
 			{ pointer: '/state/effects/*/params', scope: 'value' },
 			{ pointer: '/state/stage', scope: 'value' },
+			{ pointer: '/state/stage/camera', scope: 'value' },
+			{ pointer: '/state/stage/focus', scope: 'value' },
 			{ pointer: '/state/surface/backgroundVisibility', scope: 'value' }
 		]
 	},
@@ -1434,6 +1436,38 @@ export const WEBMCP_OPERATION_INVENTORY: readonly WebmcpOperationRow[] = [
 		focus: ['composition-root'],
 		exposure: 'agent-tool',
 		guiSurface: 'src/lib/platform/DepthStageSection.svelte'
+	},
+	{
+		id: 'appearance.set-stage-camera',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_stage_camera',
+		summary:
+			'Set the stage camera alone, leaving the rest of the stage as it is: the legacy move, the rest pose (yaw, pitch, roll, distance, aim), its one travel, and the vertical pose and travel for the tall frame. Refused when the composition has no stage.',
+		effect: 'write',
+		writes: ['/state/stage/camera'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['stage-camera'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/StageCameraInspector.svelte'
+	},
+	{
+		id: 'appearance.set-stage-focus',
+		family: 'appearance',
+		toolName: 'gfx_appearance_set_stage_focus',
+		summary:
+			'Set the stage focus alone, leaving the rest of the stage as it is: the focal plane, the aperture, the sharp band, and the rack focus with its window. Refused when the composition has no stage.',
+		effect: 'write',
+		writes: ['/state/stage/focus'],
+		precondition: 'composition-editable',
+		requiresExpectedRevision: true,
+		undoable: true,
+		cancellable: false,
+		focus: ['stage-focus'],
+		exposure: 'agent-tool',
+		guiSurface: 'src/lib/platform/StageFocusInspector.svelte'
 	},
 	{
 		id: 'appearance.set-backdrop-visibility',

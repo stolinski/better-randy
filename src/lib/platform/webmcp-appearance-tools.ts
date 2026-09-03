@@ -39,6 +39,8 @@ import {
 	runSetCompositionEffectParamsOperation,
 	runSetCompositionMarkDefaultsOperation,
 	runSetCompositionPackOperation,
+	runSetCompositionStageCameraOperation,
+	runSetCompositionStageFocusOperation,
 	runSetCompositionStageOperation,
 	runSetCompositionTypographyOperation
 } from './composition-appearance-operations';
@@ -55,6 +57,7 @@ import {
 } from './webmcp-derived-tool-schemas';
 
 import type { CompositionMarkAppearancePatch } from './composition-appearance-operations';
+import { STAGE_CAMERA_POSE_LIMITS } from './engine-schema';
 import type { AnnotationMarkStyle } from '../annotations/annotation-mark-styles';
 import type { WebmcpSchemaProperty } from './webmcp-derived-tool-schemas';
 import type { WebmcpToolDefinition } from './webmcp-tool-controller';
@@ -121,6 +124,127 @@ function readMarkDefaults(
 	return written;
 }
 
+function stageCameraAngleProperty(description: string, limit: number): WebmcpSchemaProperty {
+	return { type: 'number', description, minimum: -limit, maximum: limit };
+}
+
+/** A camera pose's fields (ADR-0057): every one optional, so a travel target may name only what moves. */
+function stageCameraPoseProperties(): Record<string, WebmcpSchemaProperty> {
+	return {
+		yaw: stageCameraAngleProperty(
+			'Degrees; positive swings the eye to the page’s right.',
+			STAGE_CAMERA_POSE_LIMITS.yawDegrees
+		),
+		pitch: stageCameraAngleProperty(
+			'Degrees; positive lifts the eye above the page.',
+			STAGE_CAMERA_POSE_LIMITS.pitchDegrees
+		),
+		roll: stageCameraAngleProperty(
+			'Degrees; positive tilts the horizon clockwise.',
+			STAGE_CAMERA_POSE_LIMITS.rollDegrees
+		),
+		distance: {
+			type: 'number',
+			description: 'The dolly along the line of sight, as a fraction of the rest distance.',
+			minimum: STAGE_CAMERA_POSE_LIMITS.minDistance,
+			maximum: STAGE_CAMERA_POSE_LIMITS.maxDistance
+		},
+		aim: {
+			type: 'object',
+			description: 'The page point the camera orbits and looks at, in composition fractions.',
+			properties: {
+				x: webmcpFractionProperty('Across the page, 0 left through 1 right.'),
+				y: webmcpFractionProperty('Down the page, 0 top through 1 bottom.')
+			},
+			additionalProperties: false
+		}
+	};
+}
+
+function stageCameraPoseProperty(description: string): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description,
+		properties: stageCameraPoseProperties(),
+		additionalProperties: false
+	};
+}
+
+function stageCameraTravelProperty(description: string): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description,
+		properties: {
+			to: stageCameraPoseProperty('The pose it eases toward; fields left out hold the rest pose.'),
+			start: webmcpFractionProperty('Where the travel opens, as a fraction of the clip.'),
+			duration: webmcpFractionProperty('How much of the clip it takes.'),
+			ease: webmcpDerivedEnumProperty('motion-ease', 'The curve it travels on.')
+		},
+		required: ['to'],
+		additionalProperties: false
+	};
+}
+
+/**
+ * The stage camera (ADR-0057, ADR-0059, ADR-0060): the legacy move, the rest
+ * pose, its one travel, and the vertical pose and travel for the tall frame.
+ * Written whole, like the stage.
+ */
+function stageCameraProperty(): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description: 'The whole camera: how it rests, travels, and reflows to the vertical frame.',
+		properties: {
+			move: webmcpDerivedEnumProperty('stage-camera-move', 'The legacy move it makes.'),
+			amount: webmcpFractionProperty('How far the legacy move travels.'),
+			ease: webmcpDerivedEnumProperty('motion-ease', 'The curve the legacy move travels on.'),
+			pose: stageCameraPoseProperty('The rest pose; omit it for the shipped frontal camera.'),
+			travel: stageCameraTravelProperty('One authored move from the rest pose.'),
+			vertical: {
+				type: 'object',
+				description:
+					'The camera under a vertical frame: each field present replaces its horizontal counterpart whole.',
+				properties: {
+					pose: stageCameraPoseProperty('The vertical rest pose.'),
+					travel: stageCameraTravelProperty('The vertical travel.')
+				},
+				additionalProperties: false
+			}
+		},
+		additionalProperties: false
+	};
+}
+
+/** The stage focus: the focal plane and the lens that renders it. Written whole, like the stage. */
+function stageFocusProperty(): WebmcpSchemaProperty {
+	return {
+		type: 'object',
+		description: 'The whole focus: the focal plane and the lens that renders it.',
+		properties: {
+			focusZ: webmcpFractionProperty('The in-focus depth, 0 near through 1 far.'),
+			aperture: webmcpFractionProperty('How strongly out-of-focus depth melts.'),
+			band: webmcpFractionProperty('Depth either side of the plane that stays sharp.'),
+			pull: {
+				type: 'object',
+				description: 'A rack focus: the focal plane travels over its own window.',
+				properties: {
+					from: webmcpFractionProperty('The depth it starts on.'),
+					to: webmcpFractionProperty('The depth it lands on.'),
+					start: webmcpFractionTimeProperty(
+						'Where the pull opens: legacy fraction, seconds, milliseconds, or frames.'
+					),
+					duration: webmcpFractionTimeProperty(
+						'How long it takes: legacy fraction, seconds, milliseconds, or frames.'
+					)
+				},
+				required: ['from', 'to', 'start', 'duration'],
+				additionalProperties: false
+			}
+		},
+		additionalProperties: false
+	};
+}
+
 /**
  * The whole dimensional stage. Written whole rather than merged, so every field
  * a caller leaves out takes the stage schema's own default and a read-back says
@@ -132,42 +256,8 @@ function stageProperty(): WebmcpSchemaProperty {
 		description: 'The whole stage. Omit it entirely to remove the stage.',
 		properties: {
 			type: webmcpDerivedEnumProperty('stage-type', 'Which registered stage composites the piece.'),
-			camera: {
-				type: 'object',
-				description: 'How the camera travels over the clip.',
-				properties: {
-					move: webmcpDerivedEnumProperty('stage-camera-move', 'The move it makes.'),
-					amount: webmcpFractionProperty('How far it travels.'),
-					ease: webmcpDerivedEnumProperty('motion-ease', 'The curve it travels on.')
-				},
-				additionalProperties: false
-			},
-			focus: {
-				type: 'object',
-				description: 'The focal plane and the lens that renders it.',
-				properties: {
-					focusZ: webmcpFractionProperty('The in-focus depth, 0 near through 1 far.'),
-					aperture: webmcpFractionProperty('How strongly out-of-focus depth melts.'),
-					band: webmcpFractionProperty('Depth either side of the plane that stays sharp.'),
-					pull: {
-						type: 'object',
-						description: 'A rack focus: the focal plane travels over its own window.',
-						properties: {
-							from: webmcpFractionProperty('The depth it starts on.'),
-							to: webmcpFractionProperty('The depth it lands on.'),
-							start: webmcpFractionTimeProperty(
-								'Where the pull opens: legacy fraction, seconds, milliseconds, or frames.'
-							),
-							duration: webmcpFractionTimeProperty(
-								'How long it takes: legacy fraction, seconds, milliseconds, or frames.'
-							)
-						},
-						required: ['from', 'to', 'start', 'duration'],
-						additionalProperties: false
-					}
-				},
-				additionalProperties: false
-			},
+			camera: stageCameraProperty(),
+			focus: stageFocusProperty(),
 			backdrop: {
 				type: 'object',
 				description: 'What the far plane carries.',
@@ -438,6 +528,44 @@ export function listWebmcpAppearanceToolDefinitions(): readonly WebmcpToolDefini
 					runSetCompositionStageOperation({
 						expectedRevision: readWebmcpObservedRevisionArgument(args),
 						stage: readWebmcpOptionalRecordArgument(args, 'stage') ?? null
+					})
+				)
+		},
+		{
+			operationId: 'appearance.set-stage-camera',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					camera: stageCameraProperty()
+				},
+				required: ['expectedRevision', 'camera'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.set-stage-camera', () =>
+					runSetCompositionStageCameraOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						camera: readWebmcpOptionalRecordArgument(args, 'camera') ?? {}
+					})
+				)
+		},
+		{
+			operationId: 'appearance.set-stage-focus',
+			inputSchema: {
+				type: 'object',
+				properties: {
+					expectedRevision: webmcpObservedRevisionProperty(),
+					focus: stageFocusProperty()
+				},
+				required: ['expectedRevision', 'focus'],
+				additionalProperties: false
+			},
+			run: (args) =>
+				runWebmcpToolOperation('appearance.set-stage-focus', () =>
+					runSetCompositionStageFocusOperation({
+						expectedRevision: readWebmcpObservedRevisionArgument(args),
+						focus: readWebmcpOptionalRecordArgument(args, 'focus') ?? {}
 					})
 				)
 		},

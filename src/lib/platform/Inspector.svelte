@@ -9,7 +9,6 @@
 	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import BlockInspector from './BlockInspector.svelte';
 	import CaptionsInspector from './CaptionsInspector.svelte';
-	import DepthStageSection from './DepthStageSection.svelte';
 	import MediaInspector from './MediaInspector.svelte';
 	import RootInspector from './RootInspector.svelte';
 	import SurfaceInspector from './SurfaceInspector.svelte';
@@ -17,6 +16,9 @@
 	import TextAnimInspector from './TextAnimInspector.svelte';
 	import MarkInspector from './MarkInspector.svelte';
 	import SoundCueInspector from './SoundCueInspector.svelte';
+	import StageBodyInspector from './StageBodyInspector.svelte';
+	import StageCameraInspector from './StageCameraInspector.svelte';
+	import StageFocusInspector from './StageFocusInspector.svelte';
 	import VideoClipInspector from './VideoClipInspector.svelte';
 
 	// Resolve the selected runtime identity to its curated inspector. Main rows
@@ -50,9 +52,11 @@
 				case 'video':
 					return { kind: 'generic' as const, id };
 				case 'stage-camera':
+					return { kind: 'stage-camera' as const };
 				case 'stage-focus':
+					return { kind: 'stage-focus' as const };
 				case 'stage-body':
-					return { kind: 'stage' as const };
+					return { kind: 'stage-body' as const, bodyId: track.bodyId };
 			}
 		}
 
@@ -83,8 +87,12 @@
 				return 'Sound cue';
 			case 'video-clip':
 				return 'Video clip';
-			case 'stage':
-				return 'Stage';
+			case 'stage-camera':
+				return 'Camera';
+			case 'stage-focus':
+				return 'Focus';
+			case 'stage-body':
+				return 'Body';
 			case 'generic':
 				return 'Selection';
 		}
@@ -146,8 +154,12 @@
 			<SoundCueInspector reference={resolved.reference} />
 		{:else if resolved.kind === 'video-clip'}
 			<VideoClipInspector clipId={resolved.clipId} />
-		{:else if resolved.kind === 'stage'}
-			<DepthStageSection />
+		{:else if resolved.kind === 'stage-camera'}
+			<StageCameraInspector />
+		{:else if resolved.kind === 'stage-focus'}
+			<StageFocusInspector />
+		{:else if resolved.kind === 'stage-body'}
+			<StageBodyInspector bodyId={resolved.bodyId} />
 		{:else}
 			<div class="generic-label">
 				<span class="generic-label__id">{resolved.id}</span>

@@ -1438,7 +1438,7 @@ const StageCameraVerticalSchema = z.object({
 	travel: StageCameraTravelSchema.optional()
 });
 
-const StageCameraSchema = z.object({
+export const StageCameraSchema = z.object({
 	// The legacy named move. It composes on top of the pose in the camera's
 	// own frame (push dollies along the line of sight, drift slides along the
 	// camera's right axis), so old Presets and new poses coexist.
@@ -1459,7 +1459,7 @@ const StageFocusPullSchema = z.object({
 	duration: FractionSchema
 });
 
-const StageFocusSchema = z.object({
+export const StageFocusSchema = z.object({
 	focusZ: FractionSchema.default(0), // in-focus depth (ADR-0021 scalar; 0 near … 1 far)
 	aperture: FractionSchema.default(0.6), // max circle-of-confusion / blur strength
 	// Hyperfocal half-width (depth01): content within this depth distance of the

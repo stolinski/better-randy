@@ -45,6 +45,7 @@ vi.mock('./user-pack-store', () => ({
 	}
 }));
 
+import { compositionEditHistory } from './composition-edit-history';
 import { compositionMeta } from './composition-meta.svelte';
 import { engineState, packState, transitionState } from './engine-state.svelte';
 import { pipelineRendererRuntime } from './pipelines/runtime-context.svelte';
@@ -58,6 +59,8 @@ import {
 	runSetCompositionEffectParamsOperation,
 	runSetCompositionMarkDefaultsOperation,
 	runSetCompositionPackOperation,
+	runSetCompositionStageCameraOperation,
+	runSetCompositionStageFocusOperation,
 	runSetCompositionStageOperation,
 	runSetCompositionTypographyOperation
 } from './composition-appearance-operations';
@@ -400,5 +403,86 @@ describe('composition backdrop visibility', () => {
 		expect(failure.code).toBe('precondition_unmet');
 		expect(failure.rejected).toBe('plain');
 		expect(failure.alternatives).toContain('paper');
+	});
+});
+
+describe('composition stage camera and focus (ADR-0060 §5)', () => {
+	it('refuses to set a camera or a focus while the composition has no stage', async () => {
+		const camera = expectFailed(
+			await runSetCompositionStageCameraOperation({
+				expectedRevision: 0,
+				camera: { pose: { yaw: 12 } }
+			})
+		);
+		expect(camera.code).toBe('precondition_unmet');
+		const focus = expectFailed(
+			await runSetCompositionStageFocusOperation({ expectedRevision: 0, focus: { aperture: 0.3 } })
+		);
+		expect(focus.code).toBe('precondition_unmet');
+		expect(engineState.stage).toBeUndefined();
+	});
+
+	it('writes the camera whole and leaves the rest of the stage as it was', async () => {
+		expectApplied(
+			await runSetCompositionStageOperation({
+				expectedRevision: 0,
+				stage: { type: 'depth', focus: { aperture: 0.3 }, screen: { model: 'crt-fw900' } }
+			})
+		);
+		const changed = expectApplied(
+			await runSetCompositionStageCameraOperation({
+				expectedRevision: 1,
+				camera: {
+					pose: { yaw: 14, distance: 1.9, aim: { x: 0.5, y: 0.64 } },
+					travel: { to: { distance: 1.1 }, start: 0.1, duration: 0.6 },
+					vertical: { pose: { yaw: 10, distance: 1.12 } }
+				}
+			})
+		);
+		expect(changed.some((pointer) => pointer.startsWith('/state/stage/camera'))).toBe(true);
+		expect(engineState.stage?.camera).toMatchObject({
+			move: 'static',
+			pose: { yaw: 14, pitch: 0, roll: 0, distance: 1.9, aim: { x: 0.5, y: 0.64 } },
+			travel: { to: { distance: 1.1 }, start: 0.1, duration: 0.6, ease: 'smooth' },
+			vertical: { pose: { yaw: 10, distance: 1.12 } }
+		});
+		expect(engineState.stage?.focus.aperture).toBe(0.3);
+		expect(engineState.stage?.screen).toEqual({ model: 'crt-fw900' });
+		expect(compositionEditHistory.undoLabel).toBe('Set stage camera');
+	});
+
+	it('refuses a camera outside the pose limits and applies nothing', async () => {
+		expectApplied(
+			await runSetCompositionStageOperation({ expectedRevision: 0, stage: { type: 'depth' } })
+		);
+		const failure = expectFailed(
+			await runSetCompositionStageCameraOperation({
+				expectedRevision: 1,
+				camera: { pose: { yaw: 90 } }
+			})
+		);
+		expect(failure.code).toBe('schema_invalid');
+		expect(engineState.stage?.camera.pose).toBeUndefined();
+	});
+
+	it('writes the focus whole, resolving a rack focus window given in time units', async () => {
+		expectApplied(
+			await runSetCompositionStageOperation({
+				expectedRevision: 0,
+				stage: { type: 'depth', camera: { pose: { yaw: 14 } } }
+			})
+		);
+		const changed = expectApplied(
+			await runSetCompositionStageFocusOperation({
+				expectedRevision: 1,
+				focus: { aperture: 0.35, band: 0.05, pull: { from: 0, to: 1, start: { seconds: 0.6 }, duration: { frames: 18 } } }
+			})
+		);
+		expect(changed.some((pointer) => pointer.startsWith('/state/stage/focus'))).toBe(true);
+		expect(engineState.stage?.focus).toMatchObject({ focusZ: 0, aperture: 0.35, band: 0.05 });
+		expect(engineState.stage?.focus.pull?.start).toBeCloseTo(0.1);
+		expect(engineState.stage?.focus.pull?.duration).toBeCloseTo(0.1);
+		expect(engineState.stage?.camera.pose?.yaw).toBe(14);
+		expect(compositionEditHistory.undoLabel).toBe('Set stage focus');
 	});
 });

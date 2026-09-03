@@ -41,6 +41,8 @@ import { packState } from './engine-state.svelte';
 import {
 	ENGINE_FONT_FAMILIES,
 	resolveMarkForIndex,
+	StageCameraSchema,
+	StageFocusSchema,
 	StageSchema,
 	type FontFamily,
 	type MarkAppearance,
@@ -468,11 +470,12 @@ export async function runSetCompositionEffectParamsOperation(
 	});
 }
 
-function normalizeStageTimeInputs(stage: unknown, document: Preset): unknown {
-	if (!isRecord(stage)) return stage;
-	const normalized = structuredClone(stage);
-	if (!isRecord(normalized.focus) || !isRecord(normalized.focus.pull)) return normalized;
-	const pull = normalized.focus.pull;
+/** A rack focus window given in seconds, milliseconds, or frames becomes the fraction the schema stores. */
+function normalizeStageFocusTimeInputs(focus: unknown, document: Preset): unknown {
+	if (!isRecord(focus)) return focus;
+	const normalized = structuredClone(focus);
+	if (!isRecord(normalized.pull)) return normalized;
+	const pull = normalized.pull;
 	const grid = {
 		durationSeconds: document.state.transport.durationSeconds,
 		fps: document.state.transport.fps
@@ -484,6 +487,126 @@ function normalizeStageTimeInputs(stage: unknown, document: Preset): unknown {
 		pull.duration = resolveCompositionFractionTime(pull.duration, grid);
 	}
 	return normalized;
+}
+
+function normalizeStageTimeInputs(stage: unknown, document: Preset): unknown {
+	if (!isRecord(stage)) return stage;
+	const normalized = structuredClone(stage);
+	normalized.focus = normalizeStageFocusTimeInputs(normalized.focus, document);
+	return normalized;
+}
+
+export interface SetCompositionStageCameraRequest {
+	expectedRevision: number;
+	/** The whole camera: the move, the pose, the travel, the vertical camera. Written whole, like the stage. */
+	camera: unknown;
+}
+
+export interface SetCompositionStageFocusRequest {
+	expectedRevision: number;
+	/** The whole focus: the plane, the aperture, the band, the rack focus. Written whole, like the stage. */
+	focus: unknown;
+}
+
+/**
+ * Set the stage camera alone (ADR-0060 §5): the decision a person makes by
+ * orbiting on the canvas or editing the Camera inspector, and an agent makes
+ * in one call, without restating the rest of the stage. The camera is written
+ * whole; a composition without a stage has no camera to set.
+ */
+export async function runSetCompositionStageCameraOperation(
+	request: SetCompositionStageCameraRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('appearance.set-stage-camera');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const revision = compositionEditHistory.revision;
+	const document = readOpenCompositionDocument();
+	if (!document.state.stage) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'precondition_unmet',
+			'This composition carries no dimensional stage, so it has no camera to set. Set the stage first.'
+		);
+	}
+	const parsed = StageCameraSchema.safeParse(request.camera);
+	if (!parsed.success) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'schema_invalid',
+			'This is not a camera the stage films through.',
+			{ findings: describeCompositionSchemaFindings(parsed.error) }
+		);
+	}
+	const camera = parsed.data;
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: 'Set stage camera',
+		focus: { target: 'stage-camera' },
+		mutate: (draft) => {
+			if (!draft.state.stage) {
+				throw new CompositionOperationError(
+					'precondition_unmet',
+					'The dimensional stage left the composition while the camera was being set.'
+				);
+			}
+			draft.state.stage.camera = structuredClone(camera);
+		}
+	});
+}
+
+/**
+ * Set the stage focus alone (ADR-0060 §5): the focal plane, the aperture, the
+ * sharp band, and the rack focus whose window the Focus row's clip is. A rack
+ * focus window may be given in seconds, milliseconds, or frames.
+ */
+export async function runSetCompositionStageFocusOperation(
+	request: SetCompositionStageFocusRequest
+): Promise<CompositionOperationOutcome> {
+	const row = requireCompositionOperationRow('appearance.set-stage-focus');
+	const refusal = refuseUnlessCompositionEditable(row);
+	if (refusal) return refusal;
+
+	const revision = compositionEditHistory.revision;
+	const document = readOpenCompositionDocument();
+	if (!document.state.stage) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'precondition_unmet',
+			'This composition carries no dimensional stage, so it has no focus to set. Set the stage first.'
+		);
+	}
+	const parsed = StageFocusSchema.safeParse(normalizeStageFocusTimeInputs(request.focus, document));
+	if (!parsed.success) {
+		return refuseCompositionOperation(
+			row,
+			revision,
+			'schema_invalid',
+			'This is not a focus the stage lens renders.',
+			{ findings: describeCompositionSchemaFindings(parsed.error) }
+		);
+	}
+	const focus = parsed.data;
+	return runCompositionEditTransaction({
+		operationId: row.id,
+		expectedRevision: request.expectedRevision,
+		undoLabel: 'Set stage focus',
+		focus: { target: 'stage-focus' },
+		mutate: (draft) => {
+			if (!draft.state.stage) {
+				throw new CompositionOperationError(
+					'precondition_unmet',
+					'The dimensional stage left the composition while the focus was being set.'
+				);
+			}
+			draft.state.stage.focus = structuredClone(focus);
+		}
+	});
 }
 
 /**

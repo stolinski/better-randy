@@ -69,7 +69,9 @@ export const TIMELINE_KIND_COLORS: Partial<Record<string, string>> = {
 	overlay: OVERLAY_COLOR,
 	'text-animation': TEXT_ANIMATION_COLOR,
 	'sound-cue': SOUND_CUE_COLOR,
-	stage: STAGE_COLOR
+	'stage-camera': STAGE_COLOR,
+	'stage-focus': STAGE_COLOR,
+	'stage-body': STAGE_COLOR
 };
 
 /** A stage row's window clip: the travel and the rack focus are timeline fractions already. */
