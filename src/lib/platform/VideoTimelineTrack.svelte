@@ -12,8 +12,12 @@
 		type VideoClipDragOrigin
 	} from '$lib/utils/video-clip-edit';
 
+	import {
+		captureCompositionGestureOrigin,
+		recordCompositionGestureEdit
+	} from './composition-edit-transaction';
 	import { compositionMediaInspection } from './composition-media-inspection.svelte';
-	import type { Media, VideoClip } from './engine-schema';
+	import type { Media, Preset, VideoClip } from './engine-schema';
 	import { engineState } from './engine-state.svelte';
 	import { inspectorRailMode } from './inspector-rail-mode.svelte';
 	import { MEDIA_LIBRARY_ASSET_MIME } from './media-library-drag-transfer';
@@ -47,6 +51,8 @@
 		laneWidth: number;
 		originalClips: VideoClip[];
 		currentClip: VideoClip;
+		/** The open composition at press, for the one undo entry the release records (ADR-0060 §6). */
+		originDocument: Preset;
 	}
 
 	let { track, timeline }: Props = $props();
@@ -98,6 +104,8 @@
 		removePointerListeners();
 		if (shouldRollback && isOriginMediaActive) {
 			state.originMedia.videoTrack.clips = snapshotVideoTimelineClips(state.originalClips);
+		} else if (isOriginMediaActive) {
+			recordCompositionGestureEdit('Retime video clip', state.originDocument);
 		}
 		if (state.captureElement.hasPointerCapture(state.pointerId)) {
 			state.captureElement.releasePointerCapture(state.pointerId);
@@ -189,7 +197,8 @@
 			pointerStartX: event.clientX,
 			laneWidth: laneRect.width,
 			originalClips,
-			currentClip: { ...origin.clip, audio: { ...origin.clip.audio } }
+			currentClip: { ...origin.clip, audio: { ...origin.clip.audio } },
+			originDocument: captureCompositionGestureOrigin()
 		};
 		window.addEventListener('pointermove', handlePointerMove);
 		window.addEventListener('pointerup', handlePointerUp);

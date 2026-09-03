@@ -6,6 +6,8 @@ import { compositionAutosaveInvalidation } from './composition-autosave-invalida
 import { compositionEditHistory } from './composition-edit-history';
 import {
 	CompositionOperationError,
+	captureCompositionGestureOrigin,
+	recordCompositionGestureEdit,
 	runCompositionEditTransaction,
 	runCompositionHistoryTransaction,
 	type CompositionEditTransactionRequest,
@@ -554,5 +556,38 @@ describe('composition edit transaction invariants', () => {
 				)
 			).not.toThrow();
 		}
+	});
+});
+
+describe('composition gesture edits (ADR-0060 §6)', () => {
+	it('records one undo entry for a gesture that moved something, and undo restores it', () => {
+		const origin = captureCompositionGestureOrigin();
+		const revisionBefore = compositionEditHistory.revision;
+		const invalidationsBefore = compositionAutosaveInvalidation.revision;
+		const enterBefore = JSON.stringify(engineState.surface.enter ?? null);
+
+		engineState.surface.enter = { start: 0.2, duration: 0.1, ease: 'smooth' };
+		expect(recordCompositionGestureEdit('Retime Surface', origin)).toBe(true);
+
+		expect(compositionEditHistory.revision).toBe(revisionBefore + 1);
+		expect(compositionEditHistory.undoLabel).toBe('Retime Surface');
+		expect(compositionAutosaveInvalidation.revision).toBe(invalidationsBefore + 1);
+
+		compositionEditHistory.undo();
+		expect(JSON.stringify(engineState.surface.enter ?? null)).toBe(enterBefore);
+		compositionEditHistory.redo();
+		expect(engineState.surface.enter).toEqual({ start: 0.2, duration: 0.1, ease: 'smooth' });
+	});
+
+	it('records nothing for a gesture that moved nothing', () => {
+		const origin = captureCompositionGestureOrigin();
+		const revisionBefore = compositionEditHistory.revision;
+		const invalidationsBefore = compositionAutosaveInvalidation.revision;
+
+		expect(recordCompositionGestureEdit('Retime Surface', origin)).toBe(false);
+
+		expect(compositionEditHistory.revision).toBe(revisionBefore);
+		expect(compositionAutosaveInvalidation.revision).toBe(invalidationsBefore);
+		expect(compositionEditHistory.undoLabel).not.toBe('Retime Surface');
 	});
 });

@@ -3,6 +3,11 @@
 	import { SvelteMap } from 'svelte/reactivity';
 
 	import {
+		captureCompositionGestureOrigin,
+		recordCompositionGestureEdit
+	} from './composition-edit-transaction';
+	import type { Preset } from './engine-schema';
+	import {
 		clearKeyframeSelection,
 		keyframeSelection,
 		selectKeyframe,
@@ -48,16 +53,21 @@
 
 	// ─── Track area drag state ──────────────────────────────────────────────────
 
+	// Every editing drag carries the open composition as it stood at press, so
+	// the release can record one undo entry for whatever the drag wrote
+	// (ADR-0060 §6) — the writers on the transitions mutate live state directly.
 	interface TransitionDragState {
 		kind: 'transition';
 		trackId: TimelineTrackId;
 		transitionId: string;
+		label: string;
 		mode: TimelineClipDragMode;
 		origin: { start: number; duration: number };
 		/** Captured at drag start for unified bars; absent for simple window clips. */
 		unifiedOrigin?: UnifiedDragOrigin;
 		pointerStartX: number;
 		containerWidth: number;
+		document: Preset;
 	}
 
 	interface SeekDragState {
@@ -79,6 +89,7 @@
 		pointerStartX: number;
 		containerWidth: number;
 		moved: boolean;
+		document: Preset;
 	}
 
 	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;
@@ -339,6 +350,12 @@
 		if (dragState?.kind === 'keyframe' && !dragState.moved) {
 			timeline.seek(dragState.originFraction * timeline.durationSeconds);
 		}
+		// One undo entry per editing gesture; a press that moved nothing records none.
+		if (dragState?.kind === 'transition') {
+			recordCompositionGestureEdit(`Retime ${dragState.label}`, dragState.document);
+		} else if (dragState?.kind === 'keyframe' && dragState.moved) {
+			recordCompositionGestureEdit('Move keyframe', dragState.document);
+		}
 		dragState = null;
 		window.removeEventListener('pointermove', handlePointerMove);
 		window.removeEventListener('pointerup', handlePointerUp);
@@ -370,6 +387,7 @@
 			kind: 'transition',
 			trackId: track.id,
 			transitionId: transition.id,
+			label: track.label,
 			mode,
 			origin: { start: transition.start, duration: transition.duration },
 			unifiedOrigin: u
@@ -383,7 +401,8 @@
 					}
 				: undefined,
 			pointerStartX: event.clientX,
-			containerWidth: rect.width
+			containerWidth: rect.width,
+			document: captureCompositionGestureOrigin()
 		};
 		window.addEventListener('pointermove', handlePointerMove);
 		window.addEventListener('pointerup', handlePointerUp);
@@ -416,7 +435,8 @@
 			originFraction: keyframe.fraction,
 			pointerStartX: event.clientX,
 			containerWidth: rect.width,
-			moved: false
+			moved: false,
+			document: captureCompositionGestureOrigin()
 		};
 		window.addEventListener('pointermove', handlePointerMove);
 		window.addEventListener('pointerup', handlePointerUp);
@@ -463,7 +483,9 @@
 		const transition = track?.transitions.find((t) => t.onKeyframeDelete !== undefined);
 		if (!transition?.onKeyframeDelete) return;
 		event.preventDefault();
+		const origin = captureCompositionGestureOrigin();
 		transition.onKeyframeDelete(identity.channel, identity.index);
+		recordCompositionGestureEdit('Delete keyframe', origin);
 		clearKeyframeSelection();
 	}
 

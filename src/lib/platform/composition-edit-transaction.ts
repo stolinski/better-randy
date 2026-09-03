@@ -55,6 +55,7 @@ import { engineState, packState, transitionState } from './engine-state.svelte';
 import { PresetIngressSchema } from './preset-ingress';
 import { presetToWireFormat, serializeCompositionState } from './preset-pure';
 import { cloneJsonValue } from '../utils/json-clone';
+import { hashObject } from '../utils/object';
 import type { WebmcpOperationErrorCode, WebmcpOperationRow } from './webmcp-operation-inventory';
 
 /** How many changed pointers a receipt names before it reports only the total. */
@@ -184,6 +185,34 @@ function applyCompositionDocument(document: Preset): void {
 	applyCompositionState(document);
 	applyPresetBase(document);
 	transitionState.active = resolveTransition(document.transition);
+}
+
+/**
+ * The open composition as it stands before a GUI gesture — a timeline drag, a
+ * canvas orbit — begins writing live state. Pair with
+ * `recordCompositionGestureEdit` at the gesture's release (ADR-0060 §6).
+ */
+export function captureCompositionGestureOrigin(): Preset {
+	return captureOpenCompositionDocument();
+}
+
+/**
+ * Record one undo entry for a gesture that mutated live state since
+ * `origin` was captured, and invalidate the autosave. A gesture that moved
+ * nothing records nothing and returns false, so a click on a clip is not an
+ * undo step. The entry restores whole documents, exactly as an operation's
+ * transaction does, so GUI and agent edits share one history shape.
+ */
+export function recordCompositionGestureEdit(label: string, origin: Preset): boolean {
+	const next = captureOpenCompositionDocument();
+	if (hashObject(next) === hashObject(origin)) return false;
+	compositionEditHistory.recordApplied({
+		label,
+		undo: () => applyCompositionDocument(origin),
+		redo: () => applyCompositionDocument(next)
+	});
+	invalidateCompositionAutosave();
+	return true;
 }
 
 /**
