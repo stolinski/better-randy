@@ -52,7 +52,7 @@
 		originalClips: VideoClip[];
 		currentClip: VideoClip;
 		/** The open composition at press, for the one undo entry the release records (ADR-0060 §6). */
-		originDocument: Preset;
+		originDocument: Preset | null;
 	}
 
 	let { track, timeline }: Props = $props();

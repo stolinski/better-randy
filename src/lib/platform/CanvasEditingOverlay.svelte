@@ -1873,7 +1873,7 @@
 		originPitch: number;
 		frameHeightPx: number;
 		moved: boolean;
-		document: Preset;
+		document: Preset | null;
 	}
 
 	let orbitGesture: StageOrbitGesture | null = null;

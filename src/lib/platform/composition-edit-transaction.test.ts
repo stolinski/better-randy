@@ -591,3 +591,16 @@ describe('composition gesture edits (ADR-0060 §6)', () => {
 		expect(compositionEditHistory.undoLabel).not.toBe('Retime Surface');
 	});
 });
+
+describe('composition gesture edits never gate the gesture', () => {
+	it('records nothing, and throws nothing, when the open composition cannot be read', () => {
+		const revisionBefore = compositionEditHistory.revision;
+		// A duration the transport schema rejects makes the open document unreadable.
+		engineState.transport.durationSeconds = -1;
+		const origin = captureCompositionGestureOrigin();
+		expect(origin).toBeNull();
+		engineState.transport.durationSeconds = 6;
+		expect(recordCompositionGestureEdit('Retime Surface', origin)).toBe(false);
+		expect(compositionEditHistory.revision).toBe(revisionBefore);
+	});
+});

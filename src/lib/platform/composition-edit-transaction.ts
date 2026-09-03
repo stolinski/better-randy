@@ -191,21 +191,31 @@ function applyCompositionDocument(document: Preset): void {
  * The open composition as it stands before a GUI gesture — a timeline drag, a
  * canvas orbit — begins writing live state. Pair with
  * `recordCompositionGestureEdit` at the gesture's release (ADR-0060 §6).
+ * Null when the open composition cannot be read as a document: the gesture
+ * still happens, it just records no undo — undo is a courtesy of the
+ * gesture, never a gate on it.
  */
-export function captureCompositionGestureOrigin(): Preset {
-	return captureOpenCompositionDocument();
+export function captureCompositionGestureOrigin(): Preset | null {
+	try {
+		return captureOpenCompositionDocument();
+	} catch (error) {
+		console.error('Composition gesture origin could not be captured; the gesture records no undo.', error);
+		return null;
+	}
 }
 
 /**
  * Record one undo entry for a gesture that mutated live state since
  * `origin` was captured, and invalidate the autosave. A gesture that moved
  * nothing records nothing and returns false, so a click on a clip is not an
- * undo step. The entry restores whole documents, exactly as an operation's
+ * undo step; a gesture whose origin could not be captured records nothing
+ * either. The entry restores whole documents, exactly as an operation's
  * transaction does, so GUI and agent edits share one history shape.
  */
-export function recordCompositionGestureEdit(label: string, origin: Preset): boolean {
-	const next = captureOpenCompositionDocument();
-	if (hashObject(next) === hashObject(origin)) return false;
+export function recordCompositionGestureEdit(label: string, origin: Preset | null): boolean {
+	if (!origin) return false;
+	const next = captureCompositionGestureOrigin();
+	if (!next || hashObject(next) === hashObject(origin)) return false;
 	compositionEditHistory.recordApplied({
 		label,
 		undo: () => applyCompositionDocument(origin),

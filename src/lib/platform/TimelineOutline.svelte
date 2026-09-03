@@ -67,7 +67,7 @@
 		unifiedOrigin?: UnifiedDragOrigin;
 		pointerStartX: number;
 		containerWidth: number;
-		document: Preset;
+		document: Preset | null;
 	}
 
 	interface SeekDragState {
@@ -89,7 +89,7 @@
 		pointerStartX: number;
 		containerWidth: number;
 		moved: boolean;
-		document: Preset;
+		document: Preset | null;
 	}
 
 	type DragState = TransitionDragState | SeekDragState | KeyframeDragState;

@@ -1,8 +1,8 @@
 {
 	"schema": "gfx@1",
 	"name": "CRT filmed",
-	"description": "The first model on the Dimensional Stage (ADR-0051 phase 2): Scott's widescreen Trinitron, authored as a nurb part and compiled into the engine, standing on the Pack field with the Syntax channel's YouTube Videos page on its tube. The glass IS the Surface plane, so the composition renders on the screen at native density and the housing stands proud of it by the part's own pocket depth; the housing takes the Pack key and the picture's own glow on its bezel and chin, and casts a real shadow. A documentary camera rests low and to the left, far enough back to hold the whole monitor, and pushes in slowly for the cut so the glass fills the frame. The monitor is a real object and Pack-immune; a Pack changes the field, the light, and what is on the screen. Intentional omissions: no Overlays, no marks, no paper-grain, no legacy camera move on top of the travel.",
-	"kind": "deliverable",
+	"description": "The retained demo fixture of the 3D Canvas Upgrade (kept as a fixture at Scott's request, 2026-09-03, so it is never lost as the Stage grows): the first model on the Dimensional Stage (ADR-0051 phase 2), Scott's widescreen Trinitron, authored as a nurb part and compiled into the engine, standing on the Pack field with the Syntax channel's YouTube Videos page on its tube. The glass IS the Surface plane, so the composition renders on the screen at native density and the housing stands proud of it by the part's own pocket depth; the housing takes the Pack key and the picture's own glow on its bezel and chin, and casts a real shadow. A documentary camera rests low and to the left, far enough back to hold the whole monitor, and pushes in slowly for the cut so the glass fills the frame. The monitor is a real object and Pack-immune; a Pack changes the field, the light, and what is on the screen. Intentional omissions: no Overlays, no marks, no paper-grain, no legacy camera move on top of the travel.",
+	"kind": "fixture",
 	"pack": "syntax",
 	"state": {
 		"transport": {

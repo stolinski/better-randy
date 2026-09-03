@@ -43,4 +43,4 @@ Still to build for dimensional type: glyph outlines from the Pack faces triangul
 
 ## What 'done' looks like
 
-`src/lib/presets/crt-filmed.json` passes the deterministic affected render matrix at native horizontal (3840×2160) and vertical (2160×3840) under every Pack, and its exact evidence bundle receives human aesthetic approval, with no orientation-specific sibling Preset. Dimensional type ships one Pack-neutral deliverable the same way. The Brief retires when both have landed.
+`src/lib/presets/crt-filmed.json` renders at native horizontal (3840×2160) and vertical (2160×3840) under every Pack, and its exact evidence bundle receives human aesthetic approval, with no orientation-specific sibling Preset — met 2026-09-02; it is kept as the Stage's demo fixture (`kind: "fixture"`, Scott's request of 2026-09-03), so it stays in the corpus and out of the deliverable listing and the render matrix. Dimensional type ships one Pack-neutral deliverable that passes the deterministic affected render matrix the same way. The Brief retires when both have landed.
