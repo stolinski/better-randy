@@ -1,0 +1,27 @@
+type: '@mgreten/cli-agent'
+typeVersion: 2026.08.21.3
+id: 654cbd53-33e4-423e-9a41-d664ec3f8c6b
+name: gfx-agent-b
+version: 1
+tags: {}
+globalArguments:
+  defaultProvider: claude
+  defaultModel: opus
+  defaultToolProfile: actor
+  commandsDir: .claude/commands
+  commandSubdirs: []
+  claudePath: claude
+  opencodePath: opencode
+  ampPath: amp
+  geminiPath: gemini
+  codexPath: codex
+  grokPath: grok
+  piPath: pi
+  idleTimeoutMs: 600000
+  wallTimeoutMs: 3600000
+  maxRetries: 2
+  sandboxMode: 'off'
+  sandboxRequired: false
+  sandboxNetwork: allow
+  sandboxCredentialAccess: provider
+methods: {}
