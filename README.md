@@ -1,7 +1,5 @@
 # GFX
 
-**License:** [FSL-1.1-ALv2](LICENSE.md) — Fair Source now, with Apache 2.0 becoming available for each release after two years. If the WebMCP Challenge requires an OSI-approved license, I’m open to relicensing the challenge release.
-
 A motion-graphics engine on a web stack. It runs on your own machine, where the
 full ProRes export lane lives, and at [gfx.computer](https://gfx.computer),
 where the browser renders and encodes every export itself and the origin keeps
