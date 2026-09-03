@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (phase 1 built 2026-09-02, approved on gfx-review); orders [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) as phase 2, now building — its first body, the physical screen, is [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md).** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`. The phase-1 Brief `filmed-canvas` was retired with the landing change on 2026-09-02, as the Brief lifecycle requires.
+**Canon (phase 1 built 2026-09-02, approved on gfx-review; phase 2, [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md), built and closed 2026-09-03 — its bodies are the physical screen of [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md) and the dimensional type of [ADR-0062](0062-dimensional-type-compiled-typefaces-and-the-first-overlay-body.md), made visible in the Workspace by [ADR-0060](0060-the-stage-in-the-workspace.md)).** Direction plate: [`docs/inspo/3d-canvas/perspective.png`](../inspo/3d-canvas/perspective.png). Dex epic `sh9b6qxd`, complete 2026-09-03. The phase-1 Brief `filmed-canvas` was retired with the landing change on 2026-09-02 and the phase-2 Brief `stage-bodies` with the closeout on 2026-09-03, as the Brief lifecycle requires.
 
 Date: 2026-09-01
 
@@ -38,6 +38,8 @@ The 3D Canvas Upgrade ships in two ordered phases under one Dex epic (`sh9b6qxd`
 
 ADR-0051 as designed, viewed through the phase-1 camera: the geometry-contribution contract, deterministic TypeGPU procedural geometry, the bounded material and light vocabulary, the `dimensional-form` Overlay, and — added by this ADR — physical bodies contributed by existing Surfaces (a monitor bezel and glass for the filmed screen, sheet thickness for paper) as the first Surface-owned contributions. Phase 2 starts only after phase 1's deterministic verification and human approval, and it authors its own Brief then.
 
+Of those Surface-owned bodies, the screen shipped ([ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md)); sheet thickness for paper did not. It was descoped at the closeout on 2026-09-03: the newspaper is a photographed page ([ADR-0056](0056-newspaper-photographed-page.md)) and no composition asks for a thick sheet. It returns behind a consumer, through the body lane 0059 built, never ahead of one.
+
 ## Considered options
 
 - **Build the geometry contract first (the epic as written)** — rejected: it cannot make the direction plate, it would be judged through a frontal camera, and it front-loads the largest engine change ahead of the capability every existing depth Preset benefits from.
@@ -54,4 +56,4 @@ ADR-0051 as designed, viewed through the phase-1 camera: the geometry-contributi
 - The GUI projector (`createStageProjector`) becomes pose-aware and per-plane. The aim is edited as a field in the stage section; an on-canvas aim handle was built and removed, because dragging the aim re-projects the whole page under the pointer. Amended by [ADR-0060](0060-the-stage-in-the-workspace.md): grabbing the page reframes the aim at fit zoom, and the camera is orbited and dollied by hand about a fixed aim — the case the handle failed, the page moving under the pointer, does not arise.
 - `website-screenshot` gains a variant and a capture registry; its Identity Spec gains a `filmed-page-crop` dimension.
 - The deliverable `website-filmed` is the phase-1 acceptance evidence, rendered at native horizontal and vertical under every Pack.
-- ADR-0051's status stays designed until phase 2 builds it; the ADR index and roadmap carry both phases.
+- ADR-0051's status stays designed until phase 2 builds it; the ADR index and roadmap carry both phases. Phase 2 was built and closed on 2026-09-03, and both now read built.

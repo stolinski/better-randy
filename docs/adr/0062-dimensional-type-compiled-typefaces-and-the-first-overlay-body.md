@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (built 2026-09-03 in the `feature/dimensional-type` branch under the 3D Canvas Upgrade epic `sh9b6qxd`; awaiting Scott's gate on gfx-review with the proving Preset `headline-hands-on`).** The second body of [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md) and the first one an Overlay owns, arriving in the Workspace of [ADR-0060](0060-the-stage-in-the-workspace.md) as a row, a canvas entity, and an inspector on its first day. Amends ADR-0059 §2 (materials) and answers the open questions of the `stage-bodies` Brief.
+**Canon (built and approved 2026-09-03: `headline-hands-on` passed Scott's gate on gfx-review — "looks pretty great" — was machined as one piece after it, and landed on `main` at `417fad0`; the 3D Canvas Upgrade epic `sh9b6qxd` closed on `dev` the same day).** The second body of [ADR-0059](0059-compiled-stage-models-and-the-physical-screen.md) and the first one an Overlay owns, arriving in the Workspace of [ADR-0060](0060-the-stage-in-the-workspace.md) as a row, a canvas entity, and an inspector on its first day. Amends ADR-0059 §2 (materials) and answers the open questions of the `stage-bodies` Brief.
 
 Date: 2026-09-03
 
@@ -38,7 +38,7 @@ Two things the first frames exposed shaped the rest. Fonts draw over themselves 
 
 ## Consequences
 
-- `headline-hands-on` is the Pack-neutral, orientation-neutral proving Preset: one headline on the field, lifted and leaning in, landing as the camera travels toward square. Its committed poster and render-matrix row are the acceptance evidence beside Scott's gate.
+- `headline-hands-on` is the Pack-neutral, orientation-neutral proving Preset: one headline on the field, lifted and leaning in, landing as the camera travels toward square. Its committed poster and render-matrix row are the acceptance evidence beside Scott's gate. The affected lane ran at the closeout on 2026-09-03 and could not measure the body: the matrix's readable and geometry authorities read the DOM, and on the stage this Overlay paints none, so its row reads unavailable (not failed) until the Stage supplies a body geometry and readable authority — Dex `ulk2c227`. The only failures in that lane are the known `crt-terminal` output-class quirk every opaque piece carries.
 - The `stage-bodies` Brief's open questions are answered: Space Grotesk 700 is the reference face and every Pack names its own; depth and bevel are fractions of cap height authored per Overlay (0.35 and 0.06 by default); the body's shadow falls on whatever stands behind it along the key — the field, the page, or another body — through the shared shadow map, so the question dissolves.
 - Only one typeface is decoded per composition: the Pack's. A composition that needs two faces on one stage is a Pack decision, not an Overlay field.
 - A compiled face is not a rendering font: it carries the headline glyph set only (Latin, punctuation, figures), no shaping beyond pair kerning, no diacritic composition. A headline is not a paragraph.

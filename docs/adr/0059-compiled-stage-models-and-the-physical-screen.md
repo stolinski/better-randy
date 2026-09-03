@@ -2,7 +2,7 @@
 
 ## Status
 
-**Canon (built and approved 2026-09-02: `crt-filmed` passed the human aesthetic gate on gfx-review — "it's using a model, it's able to move around it" — and the slice landed on `main`).** Opens the bounded model lane [ADR-0047](0047-reject-general-asset-to-geometry-import.md) reserved for one asset class, and lands the first body of [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) through the [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) camera. Dex epic `sh9b6qxd`, phase 2. Brief: [`docs/briefs/stage-bodies.md`](../briefs/stage-bodies.md).
+**Canon (built and approved 2026-09-02: `crt-filmed` passed the human aesthetic gate on gfx-review — "it's using a model, it's able to move around it" — and the slice landed on `main`).** Opens the bounded model lane [ADR-0047](0047-reject-general-asset-to-geometry-import.md) reserved for one asset class, and lands the first body of [ADR-0051](0051-pipeline-defined-dimensional-stage-geometry.md) through the [ADR-0057](0057-filmed-canvas-camera-pose-and-posed-planes.md) camera. Dex epic `sh9b6qxd`, phase 2. Brief: `stage-bodies`, retired 2026-09-03 with the epic's closeout.
 
 Date: 2026-09-02
 
