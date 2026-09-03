@@ -10,7 +10,9 @@ import {
 	orderCanvasSelectionCandidates,
 	resolveCanvasSelectionCandidateAtPoint,
 	type CanvasInteractionGeometryViewport,
-	type CanvasInteractionRect
+	type CanvasInteractionRect,
+	canvasSelectionStackIndex,
+	compareCanvasSelectionOrder
 } from './canvas-interaction-geometry';
 
 function horizontalViewport(
@@ -262,5 +264,14 @@ describe('canvas interaction target geometry', () => {
 				cycle: true
 			})?.selectionKey
 		).toBe('overlay:title');
+	});
+});
+
+describe('stage body selection layer (ADR-0060 §3)', () => {
+	it('ranks a stage body below the page it surrounds, so the picture wins a shared press', () => {
+		const body = { layer: 'stage-body' as const, paintIndex: 9, stableId: 'screen' };
+		const page = { layer: 'surface-content' as const, paintIndex: 0, stableId: 'page' };
+		expect(compareCanvasSelectionOrder(page, body)).toBeLessThan(0);
+		expect(canvasSelectionStackIndex(body)).toBeLessThan(canvasSelectionStackIndex(page));
 	});
 });

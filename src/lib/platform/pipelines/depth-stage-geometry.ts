@@ -1,9 +1,15 @@
 import { mat4 } from 'wgpu-matrix';
 
 import { clampNumber } from '$lib/utils/math';
-import type { StageMeshData, StageMeshVector } from '../stage-mesh-format';
+import type { StageCamera } from '$lib/platform/engine-schema';
+import { STAGE_MESH_VERTEX_FLOATS, type StageMeshData, type StageMeshVector } from '../stage-mesh-format';
 import type { StageModelDefinition, StageModelScreen } from '../stage-models';
-import { STAGE_BACKDROP_DEPTH, STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
+import {
+	STAGE_BACKDROP_DEPTH,
+	STAGE_CAM_Z,
+	createStageCameraRig,
+	stagePlaneHalfExtents
+} from './depth-stage-camera';
 import type { StagePlaneBasis, StagePlaneVector } from './depth-stage-planes';
 
 // Pipeline-defined geometry for the depth stage (ADR-0051 phase 2, viewed
@@ -193,6 +199,79 @@ export function stageMeshHalfExtents(mesh: Pick<StageMeshData, 'min' | 'max'>): 
 		(mesh.max[1] - mesh.min[1]) / 2,
 		(mesh.max[2] - mesh.min[2]) / 2
 	];
+}
+
+/** A rectangle in frame fractions (u right, v down), the space the canvas overlay draws in. */
+export interface StageBodyFrameBounds {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
+
+export interface StageBodyFrameBoundsInput {
+	aspect: number;
+	/** The camera the frame films through — already resolved for its orientation. */
+	camera: StageCamera;
+	/** Clip progress 0..1. */
+	time: number;
+	model: StageModelDefinition;
+	/** The resident mesh: its bounds place the body, its vertices give the silhouette. */
+	mesh: Pick<StageMeshData, 'min' | 'max' | 'vertices' | 'vertexCount'>;
+}
+
+function transformColumnMajorPoint(
+	matrix: Float32Array,
+	point: readonly [number, number, number]
+): [number, number, number, number] {
+	const [x, y, z] = point;
+	return [
+		matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12],
+		matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13],
+		matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14],
+		matrix[3] * x + matrix[7] * y + matrix[11] * z + matrix[15]
+	];
+}
+
+/**
+ * The screen body's silhouette as the frame sees it (ADR-0060 §3): every
+ * vertex of the resident mesh, placed as the renderer places the body and
+ * projected through the renderer's own camera, as one frame-fraction
+ * rectangle the canvas overlay turns into the body's selection region. The
+ * vertices, not the bounding box: a deep object's box projects far wider
+ * than the object under an oblique camera. Null when the whole body lies
+ * behind the eye; a vertex behind the eye is left out so the rectangle never
+ * folds through the camera.
+ */
+export function projectStageBodyFrameBounds(
+	input: StageBodyFrameBoundsInput
+): StageBodyFrameBounds | null {
+	const placement = resolveStageScreenBodyPlacement(input.aspect, input.model, input.mesh);
+	const rig = createStageCameraRig({ aspect: input.aspect, camera: input.camera, time: input.time });
+	// One matrix from model units to clip space, so each vertex costs one transform.
+	const modelToClip = mat4.multiply(rig.viewProjection, placement.model) as Float32Array;
+	let left = Number.POSITIVE_INFINITY;
+	let top = Number.POSITIVE_INFINITY;
+	let right = Number.NEGATIVE_INFINITY;
+	let bottom = Number.NEGATIVE_INFINITY;
+	const { vertices } = input.mesh;
+	for (let index = 0; index < input.mesh.vertexCount; index += 1) {
+		const offset = index * STAGE_MESH_VERTEX_FLOATS;
+		const clip = transformColumnMajorPoint(modelToClip, [
+			vertices[offset],
+			vertices[offset + 1],
+			vertices[offset + 2]
+		]);
+		if (clip[3] <= 1e-6) continue;
+		const u = (clip[0] / clip[3] + 1) / 2;
+		const v = (1 - clip[1] / clip[3]) / 2;
+		if (u < left) left = u;
+		if (u > right) right = u;
+		if (v < top) top = v;
+		if (v > bottom) bottom = v;
+	}
+	if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+	return { left, top, width: right - left, height: bottom - top };
 }
 
 // ---------------- Focus ----------------

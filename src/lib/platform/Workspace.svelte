@@ -150,15 +150,25 @@
 			status = error instanceof Error ? error.message : 'Stage substrate preparation failed.';
 		}
 	});
+	// The resident body mesh's bounds, for the canvas overlay's projected
+	// selection region (ADR-0060 §3): the controller is a plain class, so its
+	// readiness nudges an epoch the derivation reads.
+	let stageModelEpoch = $state(0);
 	const stageModelController = new StageModelController({
 		load: loadStageModelMesh,
 		onReady: () => {
+			stageModelEpoch += 1;
 			if (canvas && !isWorkspaceDestroyed) requestCanvasPaint(canvas);
 		},
 		onError: (error) => {
 			console.error('Stage model preparation failed.', error);
 			status = error instanceof Error ? error.message : 'Stage model preparation failed.';
 		}
+	});
+	const stageBodyMesh = $derived.by(() => {
+		void stageModelEpoch;
+		void engineState.stage?.screen?.model;
+		return stageModelController.mesh();
 	});
 	const posterCaptureController = new PosterCaptureController({
 		waitForFonts: fontsReady,
@@ -1502,6 +1512,7 @@
 				{compositionElement}
 				{overlayRootElement}
 				{posedOverlayRootElements}
+				{stageBodyMesh}
 				{canvas}
 				compositionSize={{ width: canvas?.width ?? 3840, height: canvas?.height ?? 2160 }}
 				{zoom}

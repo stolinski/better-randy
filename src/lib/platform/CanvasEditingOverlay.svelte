@@ -57,7 +57,11 @@
 	} from './canvas-text-box-resize';
 	import { engineState } from './engine-state.svelte';
 	import { resolveStageCameraForOrientation } from './pipelines/depth-stage-camera';
-	import { resolveStageScreenGlass } from './pipelines/depth-stage-geometry';
+	import {
+		projectStageBodyFrameBounds,
+		resolveStageScreenGlass
+	} from './pipelines/depth-stage-geometry';
+	import type { StageMeshData } from './stage-mesh-format';
 	import {
 		createStageProjector,
 		isPosedStageOverlay,
@@ -73,7 +77,11 @@
 		requestInspectorFocus,
 		setCanvasElementSelection
 	} from './selection.svelte';
-	import { createTimelineTrackId, type TimelineTrackIdentity } from './timeline-entity-identity';
+	import {
+		createTimelineTrackId,
+		STAGE_SCREEN_BODY_ID,
+		type TimelineTrackIdentity
+	} from './timeline-entity-identity';
 	import { resolveDiagramPrimitiveGeometry } from '$lib/utils/diagram-geometry';
 	import { clampNumber } from '$lib/utils/math';
 	import { resolveOverlayPlacement } from '$lib/utils/overlay-placement';
@@ -94,6 +102,8 @@
 		overlayRootElement?: HTMLElement | null;
 		/** The posed Overlays' own roots on the depth stage (ADR-0057), by Overlay id. */
 		posedOverlayRootElements?: Record<string, HTMLElement | null>;
+		/** The resident screen body's mesh (ADR-0060 §3); null until the model lands or when there is none. */
+		stageBodyMesh?: StageMeshData | null;
 		canvas: HTMLCanvasElement | null;
 		compositionSize: { width: number; height: number };
 		/** Display zoom; pan is only active when zoomed in (> 1). */
@@ -109,6 +119,7 @@
 		compositionElement,
 		overlayRootElement = null,
 		posedOverlayRootElements = {},
+		stageBodyMesh = null,
 		canvas,
 		compositionSize,
 		zoom = 1,
@@ -332,6 +343,57 @@
 			clipBounds
 		});
 		return region.pointerBounds.width > 0 && region.pointerBounds.height > 0 ? region : null;
+	}
+
+	// ─── The stage body on the canvas (ADR-0060 §3) ─────────────────────────────
+	// The screen body is a mesh, not a DOM box: its selection region is the
+	// projected bounding box of its resident mesh, placed as the renderer
+	// places it and projected through the renderer's own camera, so the box
+	// tracks the camera move with the playhead like every other region.
+
+	function selectStageBody(bodyId: string): void {
+		selectLayer(createTimelineTrackId({ kind: 'stage-body', bodyId }));
+	}
+
+	function stageBodyHitRegion(): CanvasHitRegionGeometry | null {
+		const stage = engineState.stage;
+		if (!stage || stage.type !== 'depth' || !stage.screen || !stageBodyMesh) return null;
+		const model = getStageModel(stage.screen.model);
+		if (!model || compositionSize.width === 0 || compositionSize.height === 0) return null;
+		void measureEpoch;
+		const editorRect = rootEl?.getBoundingClientRect();
+		const canvasRect = canvas?.getBoundingClientRect();
+		if (!editorRect || !canvasRect) return null;
+		const frameBounds = projectStageBodyFrameBounds({
+			aspect: compositionSize.width / compositionSize.height,
+			camera: resolveStageCameraForOrientation(stage.camera, engineState.transport.orientation),
+			time: clampNumber(animState.globalProgress, 0, 1),
+			model,
+			mesh: stageBodyMesh
+		});
+		if (!frameBounds) return null;
+		const region = canvasHitRegion({
+			left: canvasRect.left - editorRect.left + frameBounds.left * canvasRect.width,
+			top: canvasRect.top - editorRect.top + frameBounds.top * canvasRect.height,
+			width: frameBounds.width * canvasRect.width,
+			height: frameBounds.height * canvasRect.height
+		});
+		const clip = currentVisibleCanvasEditorBounds();
+		if (!region || !clip) return region;
+		// A body often runs past the frame as the camera pushes in; its outline
+		// stops at the frame like the picture does, instead of crossing the chrome.
+		const left = Math.max(region.visibleBounds.left, clip.left);
+		const top = Math.max(region.visibleBounds.top, clip.top);
+		const right = Math.min(
+			region.visibleBounds.left + region.visibleBounds.width,
+			clip.left + clip.width
+		);
+		const bottom = Math.min(
+			region.visibleBounds.top + region.visibleBounds.height,
+			clip.top + clip.height
+		);
+		if (right <= left || bottom <= top) return null;
+		return { ...region, visibleBounds: { left, top, width: right - left, height: bottom - top } };
 	}
 
 	interface CanvasDragSnapGesture {
@@ -1373,6 +1435,7 @@
 
 	function isCanvasSelectionLayer(value: string | undefined): value is CanvasSelectionLayer {
 		return (
+			value === 'stage-body' ||
 			value === 'surface-text' ||
 			value === 'surface-content' ||
 			value === 'block' ||
@@ -1466,6 +1529,10 @@
 	}
 
 	function startCanvasCandidateGesture(event: PointerEvent, selectionKey: string): void {
+		if (selectionKey.startsWith('stage-body:')) {
+			selectStageBody(selectionKey.slice('stage-body:'.length));
+			return;
+		}
 		if (selectionKey.startsWith('overlay:')) {
 			const overlayId = selectionKey.slice('overlay:'.length);
 			const overlay = engineState.overlays.find((candidate) => candidate.id === overlayId);
@@ -2230,6 +2297,57 @@
 			</div>
 		{/if}
 	{/each}
+	<!-- The stage body (ADR-0060 §3): the screen model as a selectable entity,
+	     its region the projected box of its mesh, ranked below the page it
+	     surrounds so the picture keeps its own press. -->
+	{#if engineState.stage?.screen}
+		{@const bodyId = STAGE_SCREEN_BODY_ID}
+		{@const selectionKey = `stage-body:${bodyId}`}
+		{@const selectionIdentity = { kind: 'stage-body', bodyId } as const}
+		{@const selectionId = createTimelineTrackId(selectionIdentity)}
+		{@const region = stageBodyHitRegion()}
+		{#if region}
+			{@const isSelected = isTrackSelected(selectionIdentity)}
+			<div
+				class={[
+					'canvas-selection-target',
+					'stage-body-hit',
+					isSelected && 'canvas-selection-target--selected',
+					isSelected && 'canvas-selection-target--primary'
+				]}
+				data-canvas-selection-key={selectionKey}
+				data-canvas-selection-id={selectionId}
+				data-canvas-selection-layer="stage-body"
+				data-canvas-paint-index={0}
+				data-canvas-stable-id={bodyId}
+				onpointerdown={(event) => onCanvasCandidatePointerDown(event, selectionKey)}
+				role="button"
+				tabindex="0"
+				aria-label={`Select ${getStageModel(engineState.stage.screen.model)?.label ?? 'body'}`}
+				aria-pressed={isSelected}
+				title={CANVAS_OVERLAP_CYCLE_HINT}
+				onkeydown={(event) => onCanvasCandidateKeyDown(event, selectionKey)}
+				style:left="{region.pointerBounds.left}px"
+				style:top="{region.pointerBounds.top}px"
+				style:width="{region.pointerBounds.width}px"
+				style:height="{region.pointerBounds.height}px"
+				style:z-index={canvasSelectionStackIndex({
+					layer: 'stage-body',
+					paintIndex: 0,
+					stableId: bodyId
+				})}
+			>
+				<span
+					class="canvas-selection-outline"
+					aria-hidden="true"
+					style:left="{region.visibleBounds.left - region.pointerBounds.left}px"
+					style:top="{region.visibleBounds.top - region.pointerBounds.top}px"
+					style:width="{region.visibleBounds.width}px"
+					style:height="{region.visibleBounds.height}px"
+				></span>
+			</div>
+		{/if}
+	{/if}
 </div>
 
 <style>

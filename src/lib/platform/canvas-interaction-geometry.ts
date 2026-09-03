@@ -438,7 +438,15 @@ export function createCanvasHandleGeometry(
 	};
 }
 
-export type CanvasSelectionLayer = 'surface-text' | 'surface-content' | 'block' | 'overlay';
+// A stage body (ADR-0060 §3) ranks below everything the page carries: its
+// projected box surrounds the glass, so a press on the picture reaches the
+// page and a press on the housing reaches the body.
+export type CanvasSelectionLayer =
+	| 'stage-body'
+	| 'surface-text'
+	| 'surface-content'
+	| 'block'
+	| 'overlay';
 
 export interface CanvasSelectionOrder {
 	layer: CanvasSelectionLayer;
@@ -447,6 +455,7 @@ export interface CanvasSelectionOrder {
 }
 
 const CANVAS_SELECTION_LAYER_RANK: Record<CanvasSelectionLayer, number> = {
+	'stage-body': 0,
 	'surface-text': 1,
 	'surface-content': 2,
 	block: 3,

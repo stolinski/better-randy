@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import { vec4 } from 'wgpu-matrix';
 
+import { StageSchema } from '$lib/platform/engine-schema';
 import { getStageModel } from '../stage-models';
 import { STAGE_CAM_Z, stagePlaneHalfExtents } from './depth-stage-camera';
 import {
@@ -13,7 +14,8 @@ import {
 	resolveStageScreenGlass,
 	STAGE_BODY_CEILINGS,
 	STAGE_FLOOR_REACH,
-	StageBodyCeilingError
+	StageBodyCeilingError,
+	projectStageBodyFrameBounds
 } from './depth-stage-geometry';
 
 const crt = getStageModel('crt-fw900');
@@ -173,5 +175,49 @@ describe('assertStageBodyCeilings', () => {
 				residentBytes: 0
 			})
 		);
+	});
+});
+
+describe('projectStageBodyFrameBounds', () => {
+	// A mesh made of a box's eight corners: enough vertices for a silhouette.
+	function cornerMesh(min: [number, number, number], max: [number, number, number]) {
+		const corners: number[] = [];
+		for (const x of [min[0], max[0]]) {
+			for (const y of [min[1], max[1]]) {
+				for (const z of [min[2], max[2]]) corners.push(x, y, z, 0, 0, 1, 0);
+			}
+		}
+		return { min, max, vertices: new Float32Array(corners), vertexCount: 8 };
+	}
+	const mesh = cornerMesh([-320, -288, -240], [320, 190, 0]);
+
+	it('frames the housing around the glass under the frontal camera', () => {
+		assert.ok(crt);
+		const camera = StageSchema.parse({ type: 'depth' }).camera;
+		const box = projectStageBodyFrameBounds({ aspect: 16 / 9, camera, time: 0, model: crt, mesh });
+		assert.ok(box);
+		// The glass fits inside the frame; the housing stands proud of it on every side.
+		assert.ok(box.left < 0.5 && box.left + box.width > 0.5, 'spans the centre horizontally');
+		assert.ok(box.top < 0.5 && box.top + box.height > 0.5, 'spans the centre vertically');
+		assert.ok(box.width > 0.6, 'wider than the glass fit');
+		assert.ok(box.height > 0.6, 'taller than the glass fit');
+	});
+
+	it('moves with the camera: a pulled-back pose frames a smaller box', () => {
+		assert.ok(crt);
+		const near = StageSchema.parse({ type: 'depth' }).camera;
+		const far = StageSchema.parse({ type: 'depth', camera: { pose: { distance: 1.9 } } }).camera;
+		const nearBox = projectStageBodyFrameBounds({ aspect: 16 / 9, camera: near, time: 0, model: crt, mesh });
+		const farBox = projectStageBodyFrameBounds({ aspect: 16 / 9, camera: far, time: 0, model: crt, mesh });
+		assert.ok(nearBox && farBox);
+		assert.ok(farBox.width < nearBox.width);
+		assert.ok(farBox.height < nearBox.height);
+	});
+
+	it('returns nothing when the whole body lies behind the eye', () => {
+		assert.ok(crt);
+		const camera = StageSchema.parse({ type: 'depth' }).camera;
+		const behind = cornerMesh([-10, -10, 5000], [10, 10, 5100]);
+		assert.equal(projectStageBodyFrameBounds({ aspect: 16 / 9, camera, time: 0, model: crt, mesh: behind }), null);
 	});
 });
