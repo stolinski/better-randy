@@ -4,10 +4,11 @@
  * Every integration rebuilds the origin, and the previous build's hashed chunks
  * disappear with it. SvelteKit gives route modules a full-page fallback when
  * their import fails; the app's own on-demand imports (renderers, stores,
- * lifecycle operations) get nothing, so this module gives them the same
- * treatment: ask the origin whether a newer build exists and reload onto it
- * once. The pure logic lives here; the SvelteKit and browser bindings live in
- * `$lib/platform/stale-build-recovery-runtime.ts`.
+ * lifecycle operations) get nothing, and neither does a `load`'s own
+ * `__data.json` request when the origin restarts mid-flight. So this module
+ * gives both the same treatment: ask the origin whether a newer build exists
+ * and reload onto it once. The pure logic lives here; the SvelteKit and browser
+ * bindings live in `$lib/platform/stale-build-recovery-runtime.ts`.
  */
 
 /**
@@ -25,6 +26,26 @@ const MODULE_LOAD_FAILURE_MESSAGES: readonly string[] = [
 export function isModuleLoadFailure(cause: unknown): boolean {
 	if (!(cause instanceof Error)) return false;
 	return MODULE_LOAD_FAILURE_MESSAGES.some((message) => cause.message.includes(message));
+}
+
+/**
+ * What Chromium, Firefox, and WebKit say when a `fetch` never reached the
+ * origin — the process restarting under the tab, or the network going away.
+ * The browser knows nothing beyond "no response", so these messages carry no
+ * detail; matching them whole is what keeps this narrow. A message with detail
+ * in it came from a request that DID reach somewhere, including a dynamic
+ * import's `Failed to fetch dynamically imported module: …`, which stays with
+ * `isModuleLoadFailure` above.
+ */
+const ORIGIN_FETCH_FAILURE_MESSAGES: readonly string[] = [
+	'Failed to fetch',
+	'NetworkError when attempting to fetch resource.',
+	'Load failed'
+];
+
+export function isOriginFetchFailure(cause: unknown): boolean {
+	if (!(cause instanceof Error)) return false;
+	return ORIGIN_FETCH_FAILURE_MESSAGES.includes(cause.message.trim());
 }
 
 export interface StaleBuildRecoveryDependencies {

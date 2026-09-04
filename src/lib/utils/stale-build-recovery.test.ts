@@ -5,6 +5,7 @@ import { afterEach, describe, it, vi } from 'vitest';
 import {
 	createStaleBuildRecovery,
 	isModuleLoadFailure,
+	isOriginFetchFailure,
 	type StaleBuildRecoveryDependencies
 } from './stale-build-recovery';
 
@@ -28,6 +29,36 @@ describe('isModuleLoadFailure', () => {
 		);
 		assert.equal(isModuleLoadFailure('Failed to fetch dynamically imported module'), false);
 		assert.equal(isModuleLoadFailure(null), false);
+	});
+});
+
+describe('isOriginFetchFailure', () => {
+	it('recognises every browser message for a fetch that never reached the origin', () => {
+		// What a `load` throws when the origin restarts while it is fetching
+		// `__data.json` — the failure Sentry filed as GFX-COMPUTER-12.
+		const messages = [
+			'Failed to fetch',
+			'NetworkError when attempting to fetch resource.',
+			'Load failed'
+		];
+		for (const message of messages) {
+			assert.equal(isOriginFetchFailure(new TypeError(message)), true, message);
+		}
+	});
+
+	it('leaves a dynamic import failure to isModuleLoadFailure', () => {
+		const moduleFailure = new TypeError(
+			'Failed to fetch dynamically imported module: https://gfx.robo.online/_app/immutable/chunks/BLOLu1lj2.js'
+		);
+		assert.equal(isOriginFetchFailure(moduleFailure), false);
+		assert.equal(isModuleLoadFailure(moduleFailure), true);
+	});
+
+	it('leaves every other failure to the caller', () => {
+		assert.equal(isOriginFetchFailure(new Error('Not found')), false);
+		assert.equal(isOriginFetchFailure(new Error('Failed to fetch the composition store')), false);
+		assert.equal(isOriginFetchFailure('Failed to fetch'), false);
+		assert.equal(isOriginFetchFailure(null), false);
 	});
 });
 
