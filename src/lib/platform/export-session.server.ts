@@ -130,6 +130,26 @@ interface ExportSession {
 	encodeStartedAt: number | null;
 }
 
+/**
+ * Whether this session has work in flight — a draining download, an upload being
+ * written to the encoder, or an encode being flushed by `complete`.
+ *
+ * The idle clock exists to collect sessions nobody is working on, so it must not
+ * measure the tail of an encode. `complete` touches the session once and then
+ * waits for ffmpeg to drain every frame already buffered on its stdin, with no
+ * further request arriving to touch it; a long lossless 4K flush outlives the
+ * idle window, and the sweep that fires then SIGKILLs the encoder mid-write. A
+ * signalled child reports no exit code, so the kill reaches `complete` as exit
+ * code 1 and the caller is told its encoder failed rather than that its session
+ * expired — the bare 500 of GFX-COMPUTER-1D, which loses the finished frames.
+ *
+ * The hard lifetime still applies, and remains the only clock that can end work
+ * that never finishes.
+ */
+function isExportSessionActive(session: ExportSession): boolean {
+	return session.status === 'downloading' || session.isBusy;
+}
+
 interface ExportSessionStoreOptions {
 	temporaryDirectory?: string;
 	ffmpegPath?: string;
@@ -874,19 +894,13 @@ export class ExportSessionStore {
 	}
 
 	/**
-	 * Remove every session that outlived a clock. A draining download is exempt
-	 * from the idle timeout — it is active by definition — but not from the hard
-	 * lifetime, which exists precisely to end a transfer that never finishes.
+	 * Remove every session that outlived a clock. A session with work in flight is
+	 * exempt from the idle timeout — it is active by definition — but not from the
+	 * hard lifetime, which exists precisely to end work that never finishes.
 	 */
 	async cleanupStale(now = this.#now()): Promise<number> {
 		const stale: { session: ExportSession; reason: ExportCleanupReason }[] = [];
 		for (const session of this.#sessions.values()) {
-			if (session.status === 'downloading') {
-				if (now - session.createdAt >= this.#maxLifetimeMs) {
-					stale.push({ session, reason: 'lifetime-expired' });
-				}
-				continue;
-			}
 			const expiry = this.#findExpiry(session, now);
 			if (expiry) stale.push({ session, reason: exportCleanupReasonForExpiry(expiry.limit) });
 		}
@@ -1064,7 +1078,7 @@ export class ExportSessionStore {
 
 	#findExpiry(session: ExportSession, now: number): PublicExportLimitRejection | null {
 		return findExportSessionExpiryRejection({
-			idleMs: now - session.lastActiveAt,
+			idleMs: isExportSessionActive(session) ? 0 : now - session.lastActiveAt,
 			ageMs: now - session.createdAt,
 			idleTimeoutMs: this.#ttlMs,
 			maxLifetimeMs: this.#maxLifetimeMs

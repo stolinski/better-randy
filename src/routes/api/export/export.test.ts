@@ -798,6 +798,47 @@ describe('bounded public export limit enforcement', () => {
 		assert.deepEqual(await readdir(directory), []);
 	});
 
+	// GFX-COMPUTER-1D: `complete` touches the session once and then waits for the
+	// encoder to drain every frame already buffered on its stdin. No further
+	// request arrives to touch it, so a long flush outlived the idle window and
+	// the sweep that fired SIGKILLed ffmpeg mid-write; a signalled child reports
+	// no exit code, so the kill reached the caller as a bare encoder-failure 500
+	// on the export it had just finished uploading.
+	it('does not idle-expire a session while its encoder is still flushing', async () => {
+		let now = 1_000;
+		let markFlushStarted = (): void => undefined;
+		const flushStarted = new Promise<void>((resolve) => {
+			markFlushStarted = resolve;
+		});
+		let releaseFlush = (): void => undefined;
+		const { store, encoder } = await createStore(
+			{
+				createInput: () =>
+					new Writable({
+						write: (_chunk, _encoding, done) => done(),
+						final: (done) => {
+							releaseFlush = () => done();
+							markFlushStarted();
+						}
+					})
+			},
+			{ ttlMs: 100, maxLifetimeMs: 10_000, now: () => now }
+		);
+		const session = await openSession(store, WEBM_SINGLE_FRAME);
+		await store.uploadFrame(session.sessionId, 0, frameRequest(session));
+
+		const completed = store.complete(session.sessionId, controlRequest(session));
+		await flushStarted;
+		now = 1_400;
+
+		assert.equal(await store.cleanupStale(), 0);
+		assert.equal(encoder.children[0].killed, false);
+		releaseFlush();
+		assert.deepEqual(await completed, {
+			downloadUrl: `/api/export/sessions/${session.sessionId}/output`
+		});
+	});
+
 	it('refuses an oversized frame from its declared length, before the encoder starts', async () => {
 		const { store, directory, encoder } = await createStore(
 			{},
